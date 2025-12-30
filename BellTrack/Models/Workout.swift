@@ -14,7 +14,7 @@ struct WorkoutBlock: Identifiable, Codable {
     enum BlockType: String, Codable {
         case emom = "EMOM"
         case amrap = "AMRAP"
-        case sets = "SETS"
+        case sets = "Sets"
     }
     
     enum BlockStyle: String, Codable {
@@ -27,5 +27,5 @@ struct WorkoutBlock: Identifiable, Codable {
 struct Exercise: Codable, Identifiable {
     var id = UUID()
     var name: String
-    var reps: Int
+    var reps: Int  
 }

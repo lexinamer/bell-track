@@ -5,8 +5,7 @@ struct ContentView: View {
     
     var body: some View {
         if authService.isAuthenticated {
-            Text("Main App Goes Here")
-                .font(.largeTitle)
+            WorkoutsListView()
         } else {
             LoginView()
         }
