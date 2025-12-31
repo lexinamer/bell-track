@@ -7,18 +7,36 @@ struct LoginView: View {
     @State private var errorMessage = ""
     @State private var isLoading = false
     @State private var showSignUp = false
+    @State private var showPasswordReset = false
+    @State private var resetEmail = ""
+    @State private var resetMessage = ""
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: Spacing.lg) {
+            VStack(spacing: Spacing.md) {
                 Spacer()
+                    .frame(height: 60)
                 
-                // Logo would go here
-                Text("Bell Track")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(Color.brand.primary)
+                HStack(spacing: Spacing.sm) {
+                    Image("BTLogo")
+                        .resizable()
+                        .renderingMode(.template)
+                        .foregroundColor(Color.brand.secondary)
+                        .frame(width: 40, height: 50)
+                    
+                    Text("BELL TRACK")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(Color.brand.secondary)
+                        .kerning(2.8)
+                }
+                
+                Text("Your workout journal, simplified.")
+                        .font(.system(size: Typography.lg))
+                        .foregroundColor(Color.brand.textPrimary)
+                        .kerning(0.3)
                 
                 Spacer()
+                    .frame(height: 40)
                 
                 VStack(spacing: Spacing.md) {
                     TextField("Email", text: $email)
@@ -32,6 +50,7 @@ struct LoginView: View {
                                 .stroke(Color.brand.border, lineWidth: 1)
                         )
                     
+                    // Password field
                     SecureField("Password", text: $password)
                         .padding()
                         .background(Color.brand.surface)
@@ -40,13 +59,14 @@ struct LoginView: View {
                             RoundedRectangle(cornerRadius: CornerRadius.md)
                                 .stroke(Color.brand.border, lineWidth: 1)
                         )
-                    
+
                     if !errorMessage.isEmpty {
                         Text(errorMessage)
-                            .font(.system(size: 14))
+                            .font(.system(size: Typography.sm))
                             .foregroundColor(Color.brand.destructive)
                     }
-                    
+
+                    // Log In button
                     Button(action: signIn) {
                         if isLoading {
                             ProgressView()
@@ -58,23 +78,36 @@ struct LoginView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.brand.primary)
+                    .background(Color.brand.secondary)
                     .foregroundColor(.white)
                     .cornerRadius(CornerRadius.md)
                     .disabled(isLoading)
+
+                    // Forgot Password button
+                    Button("Forgot Password?") {
+                        showPasswordReset = true
+                    }
+                    .font(.system(size: Typography.sm))
+                    .foregroundColor(Color.brand.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+
                 }
                 .padding(.horizontal, Spacing.lg)
                 
                 Spacer()
+                    .frame(height: 30)
                 
                 Button(action: { showSignUp = true }) {
                     Text("Don't have an account? Sign Up")
-                        .foregroundColor(Color.brand.primary)
+                        .foregroundColor(Color.brand.secondary)
                 }
             }
             .background(Color.brand.background)
             .sheet(isPresented: $showSignUp) {
                 SignUpView()
+            }
+            .sheet(isPresented: $showPasswordReset) {
+                PasswordResetView()
             }
         }
     }

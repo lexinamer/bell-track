@@ -7,9 +7,12 @@ struct AddEditBlockView: View {
     @State private var date = Date()
     @State private var formExercises: [FormExercise] = [FormExercise(name: "", repsText: "")]
     @State private var roundsText = ""
-    @State private var selectedType: WorkoutBlock.BlockType = .sets
-    @State private var selectedStyle: WorkoutBlock.BlockStyle = .single
+    @State private var selectedType: WorkoutBlock.BlockType? = nil  // Now optional
+    @State private var selectedStyle: WorkoutBlock.BlockStyle? = nil  // Now optional
+    @State private var selectedUnit: String = "kg"
     @State private var weightText = ""
+    @State private var timeText = ""  // New
+    @State private var selectedTimeUnit: String = "sec"  // New
     @State private var isSaving = false
     @State private var showDatePicker = false
     private let firestoreService = FirestoreService()
@@ -31,11 +34,11 @@ struct AddEditBlockView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: Spacing.xl) {
+                VStack(alignment: .leading, spacing: Spacing.lg) {
                     // Date
                     VStack(alignment: .leading, spacing: Spacing.sm) {
                         Text("Date")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: Typography.sm, weight: .semibold))
                             .foregroundColor(Color.brand.textPrimary)
                         
                         Button(action: { showDatePicker = true }) {
@@ -64,7 +67,7 @@ struct AddEditBlockView: View {
                                 VStack(alignment: .leading, spacing: Spacing.xs) {
                                     if index == 0 {
                                         Text("Exercise")
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .font(.system(size: Typography.sm, weight: .semibold))
                                             .foregroundColor(Color.brand.textPrimary)
                                     }
                                     TextField("Exercise name", text: $formExercises[index].name)
@@ -73,8 +76,8 @@ struct AddEditBlockView: View {
                                 
                                 VStack(alignment: .leading, spacing: Spacing.xs) {
                                     if index == 0 {
-                                        Text("Reps")
-                                            .font(.system(size: 14, weight: .semibold))
+                                        Text("Reps (optional)")
+                                            .font(.system(size: Typography.sm, weight: .semibold))
                                             .foregroundColor(Color.brand.textPrimary)
                                     }
                                     TextField("Reps", text: $formExercises[index].repsText)
@@ -100,21 +103,24 @@ struct AddEditBlockView: View {
                                 }
                             }
                         }
-                        
-                        Button(action: { formExercises.append(FormExercise(name: "", repsText: "")) }) {
+                        Button {
+                            withAnimation(nil) {
+                                formExercises.append(FormExercise(name: "", repsText: ""))
+                            }
+                        } label: {
                             HStack {
                                 Image(systemName: "plus.circle.fill")
                                 Text("Add Exercise")
                             }
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.system(size: Typography.sm, weight: .semibold))
                             .foregroundColor(Color.brand.primary)
                         }
                     }
-                    
+                        
                     // Rounds
                     VStack(alignment: .leading, spacing: Spacing.sm) {
                         Text("Rounds")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: Typography.sm, weight: .semibold))
                             .foregroundColor(Color.brand.textPrimary)
                         
                         TextField("20", text: $roundsText)
@@ -124,19 +130,50 @@ struct AddEditBlockView: View {
                     
                     // Weight
                     VStack(alignment: .leading, spacing: Spacing.sm) {
-                        Text("Weight (kg)")
-                            .font(.system(size: 14, weight: .semibold))
+                        Text("Weight (optional)")
+                            .font(.system(size: Typography.sm, weight: .semibold))
                             .foregroundColor(Color.brand.textPrimary)
                         
-                        TextField("16", text: $weightText)
-                            .keyboardType(.numberPad)
-                            .customTextField()
+                        HStack(spacing: Spacing.md) {
+                            TextField("16", text: $weightText)
+                                .keyboardType(.numberPad)
+                                .customTextField()
+                                .frame(maxWidth: .infinity)
+                            
+                            Picker("", selection: $selectedUnit) {
+                                Text("kg").tag("kg")
+                                Text("lbs").tag("lbs")
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(width: 100)
+                        }
+                    }
+                    
+                    // Time (optional)
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
+                        Text("Time (optional)")
+                            .font(.system(size: Typography.sm, weight: .semibold))
+                            .foregroundColor(Color.brand.textPrimary)
+                        
+                        HStack(spacing: Spacing.md) {
+                            TextField("30", text: $timeText)
+                                .keyboardType(.decimalPad)
+                                .customTextField()
+                                .frame(maxWidth: .infinity)
+                            
+                            Picker("", selection: $selectedTimeUnit) {
+                                Text("sec").tag("sec")
+                                Text("min").tag("min")
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(width: 100)
+                        }
                     }
                     
                     // Type
                     VStack(alignment: .leading, spacing: Spacing.sm) {
-                        Text("Type")
-                            .font(.system(size: 14, weight: .semibold))
+                        Text("Type (optional)")
+                            .font(.system(size: Typography.sm, weight: .semibold))
                             .foregroundColor(Color.brand.textPrimary)
                         
                         TypeChipSelector(selectedType: $selectedType)
@@ -144,8 +181,8 @@ struct AddEditBlockView: View {
                     
                     // Style
                     VStack(alignment: .leading, spacing: Spacing.sm) {
-                        Text("Style")
-                            .font(.system(size: 14, weight: .semibold))
+                        Text("Style (optional)")
+                            .font(.system(size: Typography.sm, weight: .semibold))
                             .foregroundColor(Color.brand.textPrimary)
                         
                         StyleChipSelector(selectedStyle: $selectedStyle)
@@ -154,31 +191,41 @@ struct AddEditBlockView: View {
                     if isEditing {
                         Button(action: deleteBlock) {
                             Text("Delete Block")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
+                                .font(.system(size: Typography.md, weight: .semibold))
+                                .foregroundColor(Color.brand.destructive)
                                 .frame(maxWidth: .infinity)
                                 .padding(Spacing.md)
-                                .background(Color.brand.destructive)
+                                .background(Color.brand.surface)
                                 .cornerRadius(CornerRadius.sm)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: CornerRadius.sm)
+                                        .stroke(Color.brand.destructive, lineWidth: 1)
+                                )
                         }
                     }
                 }
                 .padding(Spacing.md)
             }
-            .background(Color.brand.surface)
+            .background(Color.brand.background)
             .scrollDismissesKeyboard(.immediately)
             .navigationTitle(isEditing ? "Edit Block" : "Add Block")
-            .onAppear { 
+            .onAppear {
                 if let block = existingBlock {
                     date = block.date
-                    formExercises = block.exercises.map { FormExercise(name: $0.name, repsText: "\($0.reps)") }
+                    formExercises = block.exercises.map {
+                        FormExercise(
+                            name: $0.name,
+                            repsText: $0.reps.map { String($0) } ?? ""
+                        )
+                    }
                     roundsText = "\(block.rounds)"
                     selectedType = block.type
                     selectedStyle = block.style
-                    weightText = "\(block.weight)"
+                    weightText = block.weight.map { String($0) } ?? ""
+                    selectedUnit = block.unit
+                    timeText = block.time.map { String($0) } ?? ""
+                    selectedTimeUnit = block.timeUnit ?? "sec"
                 }
-                
-                
             }
             .sheet(isPresented: $showDatePicker) {
                 VStack {
@@ -200,18 +247,19 @@ struct AddEditBlockView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button(action: { dismiss() }) {
                         Image(systemName: "xmark")
                             .foregroundColor(Color.brand.textPrimary)
                     }
                 }
                 
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") {
                         saveBlock()
                     }
-                    .foregroundColor(Color.brand.primary)
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.brand.secondary)
                     .disabled(isSaving || !isValid)
                 }
             }
@@ -220,19 +268,22 @@ struct AddEditBlockView: View {
     
     private var isValid: Bool {
         !formExercises.isEmpty &&
-        formExercises.allSatisfy { !$0.name.isEmpty && !$0.repsText.isEmpty && Int($0.repsText) != nil && Int($0.repsText)! > 0 } &&
-        !roundsText.isEmpty && Int(roundsText) != nil &&
-        !weightText.isEmpty && Int(weightText) != nil
+        formExercises.allSatisfy { !$0.name.isEmpty } &&  // Only name required now
+        !roundsText.isEmpty && Int(roundsText) != nil
     }
     
     private func saveBlock() {
         guard let userId = authService.user?.uid,
-              let rounds = Int(roundsText),
-              let weight = Int(weightText) else { return }
+              let rounds = Int(roundsText) else { return }
         
+        // Convert optional fields
+        let weight = weightText.isEmpty ? nil : Int(weightText)
+        let time = timeText.isEmpty ? nil : Double(timeText)
+
         // Convert form exercises to model exercises
         let exercises = formExercises.compactMap { formEx -> Exercise? in
-            guard let reps = Int(formEx.repsText) else { return nil }
+            guard !formEx.name.isEmpty else { return nil }
+            let reps = formEx.repsText.isEmpty ? nil : Int(formEx.repsText)
             return Exercise(name: formEx.name, reps: reps)
         }
         
@@ -247,7 +298,10 @@ struct AddEditBlockView: View {
             rounds: rounds,
             type: selectedType,
             style: selectedStyle,
-            weight: weight
+            weight: weight,
+            unit: selectedUnit,
+            time: time,
+            timeUnit: time != nil ? selectedTimeUnit : nil
         )
         
         Task {
@@ -280,7 +334,7 @@ struct AddEditBlockView: View {
 }
 
 struct TypeChipSelector: View {
-    @Binding var selectedType: WorkoutBlock.BlockType
+    @Binding var selectedType: WorkoutBlock.BlockType?  // Now optional
     
     var body: some View {
         HStack(spacing: Spacing.sm) {
@@ -289,7 +343,9 @@ struct TypeChipSelector: View {
                     title: type.rawValue,
                     isSelected: selectedType == type,
                     color: Color.brand.primary,
-                    action: { selectedType = type }
+                    action: {
+                        selectedType = selectedType == type ? nil : type  // Toggle on/off
+                    }
                 )
             }
         }
@@ -297,7 +353,7 @@ struct TypeChipSelector: View {
 }
 
 struct StyleChipSelector: View {
-    @Binding var selectedStyle: WorkoutBlock.BlockStyle
+    @Binding var selectedStyle: WorkoutBlock.BlockStyle?  // Now optional
     
     var body: some View {
         HStack(spacing: Spacing.sm) {
@@ -306,7 +362,9 @@ struct StyleChipSelector: View {
                     title: style.rawValue,
                     isSelected: selectedStyle == style,
                     color: Color.brand.primary,
-                    action: { selectedStyle = style }
+                    action: {
+                        selectedStyle = selectedStyle == style ? nil : style  // Toggle on/off
+                    }
                 )
             }
         }
@@ -322,7 +380,7 @@ struct ChipButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: Typography.md, weight: .medium))
                 .padding(.horizontal, Spacing.md)
                 .padding(.vertical, Spacing.sm)
                 .background(isSelected ? color : Color.brand.surface)
@@ -341,7 +399,7 @@ struct CustomTextFieldStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(Spacing.md)
-            .background(Color.brand.surface)
+            .background(Color.brand.background)
             .cornerRadius(CornerRadius.sm)
             .overlay(
                 RoundedRectangle(cornerRadius: CornerRadius.sm)

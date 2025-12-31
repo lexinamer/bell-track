@@ -7,9 +7,12 @@ struct WorkoutBlock: Identifiable, Codable {
     var date: Date
     var exercises: [Exercise]
     var rounds: Int
-    var type: BlockType
-    var style: BlockStyle
-    var weight: Int
+    var type: BlockType?  // Now optional
+    var style: BlockStyle?  // Now optional
+    var weight: Int?  // Now optional
+    var unit: String
+    var time: Double?  // New - time in seconds or minutes
+    var timeUnit: String?  // New - "s" or "min"
     
     enum BlockType: String, Codable {
         case emom = "EMOM"
@@ -24,8 +27,8 @@ struct WorkoutBlock: Identifiable, Codable {
     }
 }
 
-struct Exercise: Codable, Identifiable {
+struct Exercise: Identifiable, Codable {
     var id = UUID()
     var name: String
-    var reps: Int  
+    var reps: Int?  // Now optional
 }

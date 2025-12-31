@@ -1,12 +1,10 @@
 import SwiftUI
+import FirebaseAuth
 
-struct SignUpView: View {
+struct PasswordResetView: View {
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var authService: AuthService
     @State private var email = ""
-    @State private var password = ""
-    @State private var confirmPassword = ""
-    @State private var errorMessage = ""
+    @State private var message = ""
     @State private var isLoading = false
     
     var body: some View {
@@ -15,9 +13,15 @@ struct SignUpView: View {
                 Spacer()
                     .frame(height: 60)
                 
-                Text("Create Account")
+                Text("Reset Password")
                     .font(.system(size: 28, weight: .bold))
                     .foregroundColor(Color.brand.secondary)
+                
+                Text("Enter your email to receive a password reset link")
+                    .font(.system(size: Typography.sm))
+                    .foregroundColor(Color.brand.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Spacing.xl)
                 
                 Spacer()
                     .frame(height: 40)
@@ -34,36 +38,18 @@ struct SignUpView: View {
                                 .stroke(Color.brand.border, lineWidth: 1)
                         )
                     
-                    SecureField("Password", text: $password)
-                        .padding()
-                        .background(Color.brand.surface)
-                        .cornerRadius(CornerRadius.md)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: CornerRadius.md)
-                                .stroke(Color.brand.border, lineWidth: 1)
-                        )
-                    
-                    SecureField("Confirm Password", text: $confirmPassword)
-                        .padding()
-                        .background(Color.brand.surface)
-                        .cornerRadius(CornerRadius.md)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: CornerRadius.md)
-                                .stroke(Color.brand.border, lineWidth: 1)
-                        )
-                    
-                    if !errorMessage.isEmpty {
-                        Text(errorMessage)
+                    if !message.isEmpty {
+                        Text(message)
                             .font(.system(size: Typography.sm))
-                            .foregroundColor(Color.brand.destructive)
+                            .foregroundColor(Color.brand.success)
                     }
                     
-                    Button(action: signUp) {
+                    Button(action: sendResetEmail) {
                         if isLoading {
                             ProgressView()
                                 .tint(.white)
                         } else {
-                            Text("Sign Up")
+                            Text("Send Reset Link")
                                 .fontWeight(.semibold)
                         }
                     }
@@ -72,7 +58,7 @@ struct SignUpView: View {
                     .background(Color.brand.secondary)
                     .foregroundColor(.white)
                     .cornerRadius(CornerRadius.md)
-                    .disabled(isLoading)
+                    .disabled(isLoading || email.isEmpty)
                 }
                 .padding(.horizontal, Spacing.lg)
                 
@@ -93,30 +79,23 @@ struct SignUpView: View {
         }
     }
     
-    private func signUp() {
-        errorMessage = ""
-        
-        guard password == confirmPassword else {
-            errorMessage = "Passwords don't match"
-            return
-        }
-        
-        guard password.count >= 6 else {
-            errorMessage = "Password must be at least 6 characters"
-            return
-        }
-        
+    private func sendResetEmail() {
         isLoading = true
+        message = ""
         
         Task {
             do {
-                try await authService.signUp(email: email, password: password)
+                try await Auth.auth().sendPasswordReset(withEmail: email)
                 await MainActor.run {
-                    dismiss()
+                    message = "Password reset email sent!"
+                    isLoading = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        dismiss()
+                    }
                 }
             } catch {
                 await MainActor.run {
-                    errorMessage = "Failed to create account"
+                    message = "Failed to send reset email"
                     isLoading = false
                 }
             }
