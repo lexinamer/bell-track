@@ -18,10 +18,9 @@ struct LoginView: View {
                     .frame(height: 60)
                 
                 HStack(spacing: Spacing.sm) {
-                    Image("BTLogo")
+                    Image("Logo")
                         .resizable()
                         .renderingMode(.template)
-                        .foregroundColor(Color.brand.secondary)
                         .frame(width: 40, height: 50)
                     
                     Text("BELL TRACK")
