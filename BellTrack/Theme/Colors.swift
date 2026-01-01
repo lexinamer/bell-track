@@ -5,7 +5,7 @@ extension Color {
 }
 
 struct ColorTheme {
-    let primary = Color(hex: "7C3AED")
+    let primary = Color(hex: "3C029F")
     let secondary = Color(hex: "3C029F")
     let background = Color(hex: "FFFFFF")
     let surface = Color(hex: "FFFFFF")
