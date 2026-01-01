@@ -20,7 +20,7 @@ struct LoginView: View {
                 HStack(spacing: Spacing.sm) {
                     Image("Logo")
                         .resizable()
-                        .renderingMode(.original)
+                        .renderingMode(.template)
                         .frame(width: 40, height: 50)
                     
                     Text("BELL TRACK")
