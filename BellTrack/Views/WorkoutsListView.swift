@@ -7,6 +7,14 @@ struct IdentifiableDate: Identifiable {
     let date: Date
 }
 
+// For duplicate routing (in-memory copy, not yet saved)
+struct DuplicateContext: Identifiable {
+    let id = UUID()
+    let date: Date
+    let blocks: [WorkoutBlock]
+    let note: DateNote?
+}
+
 // MARK: - MAIN VIEW
 
 struct WorkoutsListView: View {
@@ -18,6 +26,8 @@ struct WorkoutsListView: View {
     @State private var isLoading = true
     @State private var showAddWorkout = false
     @State private var editingDate: Date?
+    @State private var showInsights = false
+    @State private var duplicateContext: DuplicateContext?   // 👈 new
 
     private let firestoreService = FirestoreService()
     private let calendar = Calendar.current
@@ -50,12 +60,47 @@ struct WorkoutsListView: View {
                 }
             }
             .toolbar {
+                // LEFT: hamburger menu
+                ToolbarItem(placement: .topBarLeading) {
+                    Menu {
+                        if let email = authService.user?.email {
+                            Text(email)
+                        }
+
+                        Divider()
+                        
+                        Button {
+                            showInsights = true
+                        } label: {
+                            Label("Insights", systemImage: "chart.line.uptrend.xyaxis")
+                        }
+
+                        Divider()
+
+                        Button(role: .destructive) {
+                            do {
+                                try authService.signOut()
+                            } catch {
+                                print("Error signing out:", error)
+                            }
+                        } label: {
+                            Label("Log Out", systemImage: "rectangle.portrait.and.arrow.right")
+                        }
+                    } label: {
+                        Image(systemName: "line.3.horizontal")
+                            .font(.system(size: Typography.xl))
+                    }
+                    .tint(Color.brand.textPrimary)
+                }
+
+                // CENTER: title
                 ToolbarItem(placement: .principal) {
                     Text("Workouts")
                         .font(.system(size: Typography.xl, weight: .semibold))
                         .foregroundColor(Color.brand.textPrimary)
                 }
 
+                // RIGHT: add button
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showAddWorkout = true } label: {
                         Image(systemName: "plus")
@@ -66,10 +111,16 @@ struct WorkoutsListView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
 
-            .fullScreenCover(isPresented: $showAddWorkout, onDismiss: { Task { await reloadAll() } }) {
+            // ADD NEW WORKOUT
+            .fullScreenCover(
+                isPresented: $showAddWorkout,
+                onDismiss: { Task { await reloadAll() } }
+            ) {
                 AddEditWorkoutView()
+                    .environmentObject(authService)
             }
 
+            // EDIT EXISTING WORKOUT (by day)
             .fullScreenCover(
                 item: Binding(
                     get: { editingDate.map { IdentifiableDate(date: $0) } },
@@ -77,7 +128,6 @@ struct WorkoutsListView: View {
                 ),
                 onDismiss: { Task { await reloadAll() } }
             ) { identifiableDate in
-
                 let date = identifiableDate.date
                 let key = calendar.startOfDay(for: date)
 
@@ -86,6 +136,28 @@ struct WorkoutsListView: View {
                     existingBlocks: groupedBlocks[key] ?? [],
                     existingNote: dateNotes[key]
                 )
+                .environmentObject(authService)
+            }
+
+            // DUPLICATE (pre-filled add, not yet saved)
+            .fullScreenCover(
+                item: $duplicateContext,
+                onDismiss: { Task { await reloadAll() } }
+            ) { context in
+                AddEditWorkoutView(
+                    workoutDate: context.date,
+                    existingBlocks: context.blocks,
+                    existingNote: context.note
+                )
+                .environmentObject(authService)
+            }
+
+            // INSIGHTS
+            .fullScreenCover(isPresented: $showInsights) {
+                NavigationStack {
+                    InsightsView()
+                        .environmentObject(authService)
+                }
             }
 
             .task { await reloadAll() }
@@ -101,12 +173,20 @@ struct WorkoutsListView: View {
     // MARK: - DATA LOADING
 
     private func reloadAll() async {
+        await MainActor.run { isLoading = true }
         await loadBlocks()
         await loadNotes()
     }
 
     private func loadBlocks() async {
-        guard let uid = authService.user?.uid else { return }
+        guard let uid = authService.user?.uid else {
+            await MainActor.run {
+                blocks = []
+                isLoading = false
+            }
+            return
+        }
+
         do {
             let fetched = try await firestoreService.fetchBlocks(userId: uid)
             await MainActor.run {
@@ -115,11 +195,19 @@ struct WorkoutsListView: View {
             }
         } catch {
             print("Error loading blocks:", error)
+            await MainActor.run {
+                isLoading = false
+            }
         }
     }
 
     private func loadNotes() async {
-        guard let uid = authService.user?.uid else { return }
+        guard let uid = authService.user?.uid else {
+            await MainActor.run {
+                dateNotes = [:]
+            }
+            return
+        }
 
         var result: [Date: DateNote] = [:]
 
@@ -163,49 +251,46 @@ struct WorkoutsListView: View {
     private func duplicateDay(for date: Date) {
         let day = calendar.startOfDay(for: date)
         let blocksForDay = groupedBlocks[day] ?? []
-        let note = dateNotes[day]
+        let noteForDay = dateNotes[day]
 
-        guard let uid = authService.user?.uid else { return }
         guard !blocksForDay.isEmpty else { return }
 
-        // Duplicate to TODAY so it's obvious
+        // New date for the duplicate – today.
+        // Change to `day` if you want same-date duplicate instead.
         let newDay = calendar.startOfDay(for: Date())
 
-        Task {
-            do {
-                for block in blocksForDay {
-                    try await firestoreService.saveBlock(
-                        WorkoutBlock(
-                            id: nil,
-                            userId: uid,
-                            date: newDay,
-                            createdAt: Date(),
-                            name: block.name,
-                            details: block.details,
-                            isTracked: block.isTracked,
-                            trackType: block.trackType,
-                            trackValue: block.trackValue,
-                            trackUnit: block.trackUnit
-                        )
-                    )
-                }
-
-                if let note = note {
-                    try await firestoreService.saveDateNote(
-                        DateNote(
-                            id: nil,
-                            userId: uid,
-                            date: newDay,
-                            note: note.note
-                        )
-                    )
-                }
-
-                await reloadAll()
-            } catch {
-                print("Error duplicating day:", error)
-            }
+        // Clone blocks with nil IDs so they save as *new* blocks
+        let clonedBlocks: [WorkoutBlock] = blocksForDay.map { block in
+            WorkoutBlock(
+                id: nil,                             // 👈 important: no id
+                userId: block.userId,
+                date: newDay,                        // prefill date as today
+                createdAt: block.createdAt,
+                name: block.name,
+                details: block.details,
+                isTracked: block.isTracked,
+                trackType: block.trackType,
+                trackValue: block.trackValue,
+                trackUnit: block.trackUnit
+            )
         }
+
+        // Clone note (if any) with nil ID and new date
+        let clonedNote: DateNote? = noteForDay.map { original in
+            DateNote(
+                id: nil,                             // 👈 new note
+                userId: original.userId,
+                date: newDay,
+                note: original.note
+            )
+        }
+
+        // Open AddEdit prefilled with this duplicated context (no writes yet)
+        duplicateContext = DuplicateContext(
+            date: newDay,
+            blocks: clonedBlocks,
+            note: clonedNote
+        )
     }
 }
 
@@ -221,70 +306,80 @@ struct WorkoutsList: View {
     var body: some View {
         List {
             ForEach(sortedDates, id: \.self) { date in
-                Section {
-                    DateHeader(
-                        date: date,
-                        note: dateNotes[date]?.note,
-                        onTap: { onEditDay(date) },
-                        onDuplicate: { onDuplicateDay(date) },
-                        onDelete: { onDeleteDay(date) }
-                    )
-
-                    BlockRows(
-                        blocks: groupedBlocks[date] ?? [],
-                        onTapDay: { onEditDay(date) }
-                    )
-
-                    Color.brand.border
-                        .frame(height: 1)
-                        .frame(maxWidth: .infinity)
-                        .workoutListRow(
-                            bottom: WorkoutListStyle.dividerBottom
-                        )
-                }
-                .listSectionSpacing(0)
+                WorkoutDayCard(
+                    date: date,
+                    note: dateNotes[date]?.note,
+                    blocks: groupedBlocks[date] ?? [],
+                    onTap: { onEditDay(date) },
+                    onDuplicate: { onDuplicateDay(date) },
+                    onDelete: { onDeleteDay(date) }
+                )
+                .workoutListRow(bottom: WorkoutListStyle.dividerBottom)
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        .padding(.top, Spacing.sm)
+        .padding(.top, Spacing.md)
     }
 
     private var sortedDates: [Date] {
-        groupedBlocks.keys.sorted(by: >)
+        groupedBlocks.keys
+            .filter { !(groupedBlocks[$0] ?? []).isEmpty }
+            .sorted(by: >)
     }
 }
 
-// MARK: - DATE HEADER (whole-day swipe)
+// MARK: - DAY CARD (entire card swipes)
 
-struct DateHeader: View {
+struct WorkoutDayCard: View {
     let date: Date
     let note: String?
+    let blocks: [WorkoutBlock]
     let onTap: () -> Void
     let onDuplicate: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: Spacing.xs) {
+            VStack(alignment: .leading, spacing: 0) {
 
-                Text(date.formatted(date: .abbreviated, time: .omitted))
-                    .font(WorkoutListStyle.dateFont)
-                    .foregroundColor(Color.brand.textPrimary)
+                // DATE + OPTIONAL NOTE
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text(date.formatted(date: .abbreviated, time: .omitted))
+                        .font(WorkoutListStyle.dateFont)
+                        .foregroundColor(Color.brand.textPrimary)
 
-                if let note, !note.isEmpty {
-                    Text(note)
-                        .font(WorkoutListStyle.noteFont)
-                        .foregroundColor(Color.brand.textSecondary)
-                        .italic()
+                    if let note, !note.isEmpty {
+                        Text(note)
+                            .font(WorkoutListStyle.noteFont)
+                            .foregroundColor(Color.brand.textSecondary)
+                            .italic()
+                    }
                 }
+                .padding(.bottom,
+                         (note?.isEmpty ?? true)
+                         ? WorkoutListStyle.dateBottomNoNote
+                         : WorkoutListStyle.dateBottom
+                )
+
+                // BLOCKS
+                let sortedBlocks = blocks.sorted { $0.createdAt < $1.createdAt }
+                ForEach(Array(sortedBlocks.enumerated()), id: \.element.id) { index, block in
+                    let isLast = index == sortedBlocks.count - 1
+
+                    BlockCard(block: block, onTap: onTap)
+
+                    if !isLast {
+                        Spacer().frame(height: WorkoutListStyle.blockBottom)
+                    }
+                }
+
+                // DIVIDER
+                Color.brand.border
+                    .frame(height: 1)
+                    .padding(.top, WorkoutListStyle.lastBlockBottom)
             }
             .padding(.horizontal, WorkoutListStyle.horizontalPadding)
-            .padding(.bottom,
-                     (note?.isEmpty ?? true)
-                     ? WorkoutListStyle.dateBottomNoNote
-                     : WorkoutListStyle.dateBottom
-            )
         }
         .buttonStyle(.plain)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -300,38 +395,48 @@ struct DateHeader: View {
     }
 }
 
-// MARK: - BLOCK ROWS
-
-struct BlockRows: View {
-    let blocks: [WorkoutBlock]
-    let onTapDay: () -> Void
-
-    var body: some View {
-        ForEach(Array(blocks.sorted(by: { $0.createdAt < $1.createdAt }).enumerated()),
-                id: \.element.id) { index, block in
-
-            let isLast = index == blocks.count - 1
-
-            BlockCard(block: block, onTap: onTapDay)
-                .workoutListRow(
-                    bottom: isLast
-                    ? WorkoutListStyle.lastBlockBottom
-                    : WorkoutListStyle.blockBottom
-                )
-        }
-    }
-}
-
 // MARK: - BLOCK CARD
 
 struct BlockCard: View {
     let block: WorkoutBlock
     let onTap: () -> Void
 
+    private var metricText: String? {
+        guard let value = block.trackValue,
+              let type = block.trackType
+        else { return nil }
+
+        switch type {
+        case .weight:
+            let unit = block.trackUnit ?? "kg"
+            let formatted =
+                value.truncatingRemainder(dividingBy: 1) == 0
+                ? "\(Int(value))"
+                : "\(value)"
+            return "\(formatted)\(unit)"
+
+        case .time:
+            let minutes = Int(value) / 60
+            let seconds = Int(value) % 60
+            return seconds == 0
+            ? "\(minutes) mins"
+            : String(format: "%d:%02d mins", minutes, seconds)
+
+        case .none:
+            return nil
+        }
+    }
+
+    private var detailsText: String? {
+        let trimmed = block.details.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: WorkoutListStyle.blockLineSpacing) {
 
-            HStack(spacing: 5) {
+            // NAME + TRACKED DOT
+            HStack(spacing: 6) {
                 Text(block.name)
                     .font(WorkoutListStyle.blockTitleFont)
                     .foregroundColor(Color.brand.textPrimary)
@@ -343,45 +448,32 @@ struct BlockCard: View {
                 }
             }
 
-            HStack(spacing: 6) {
-                if let metric = formattedMetric {
-                    Text(metric)
-                        .font(WorkoutListStyle.blockTitleFont)
-                        .foregroundColor(Color.brand.textPrimary)
-                }
+            // METRIC — DETAILS
+            if metricText != nil || detailsText != nil {
+                HStack(spacing: 6) {
 
-                if !block.details.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(block.details)
-                        .font(WorkoutListStyle.blockDetailsFont)
-                        .foregroundColor(Color.brand.textSecondary)
+                    if let metricText {
+                        Text(metricText)
+                            .font(WorkoutListStyle.blockDetailsFont)
+                            .foregroundColor(Color.brand.textPrimary)
+                    }
+
+                    if metricText != nil && detailsText != nil {
+                        Text("—")
+                            .font(WorkoutListStyle.blockDetailsFont)
+                            .foregroundColor(Color.brand.textSecondary)
+                    }
+
+                    if let detailsText {
+                        Text(detailsText)
+                            .font(WorkoutListStyle.blockDetailsFont)
+                            .foregroundColor(Color.brand.textSecondary)
+                    }
                 }
             }
         }
-        .padding(.horizontal, WorkoutListStyle.horizontalPadding)
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
-    }
-
-    private var formattedMetric: String? {
-        guard let value = block.trackValue,
-              let type = block.trackType
-        else { return nil }
-
-        switch type {
-        case .weight:
-            let unit = block.trackUnit ?? "kg"
-            return value.truncatingRemainder(dividingBy: 1) == 0
-            ? "\(Int(value))\(unit)"
-            : "\(value)\(unit)"
-
-        case .time:
-            let mins = Int(value) / 60
-            let secs = Int(value) % 60
-            return secs == 0 ? "\(mins) mins" : String(format: "%d:%02d mins", mins, secs)
-
-        case .none:
-            return nil
-        }
     }
 }
 

@@ -25,7 +25,7 @@ struct HistoryView: View {
                         Spacer()
 
                         if let value = block.trackValue,
-                           value == bestValue {
+                           isBest(value: value) {
                             Text("Best")
                                 .font(.system(size: Typography.xs, weight: .semibold))
                                 .padding(.horizontal, Spacing.xs)
@@ -57,6 +57,10 @@ struct HistoryView: View {
         .background(Color.brand.background)
         .navigationTitle(insight.name)
         .navigationBarTitleDisplayMode(.inline)
+    }
+    
+    private func isBest(value: Double) -> Bool {
+        abs(value - bestValue) < 0.0001
     }
 
     private func format(value: Double) -> String {

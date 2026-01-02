@@ -118,10 +118,9 @@ struct InsightsView: View {
 
             let bestValue: Double
             switch type {
-            case .weight:
-                bestValue = values.max() ?? lastValue   // heavier = better
-            case .time:
-                bestValue = values.min() ?? lastValue   // faster = better
+            case .weight, .time:
+                // Larger = better (heavier or longer)
+                bestValue = values.max() ?? lastValue
             case .none:
                 return nil
             }

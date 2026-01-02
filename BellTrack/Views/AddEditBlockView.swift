@@ -3,7 +3,7 @@ import FirebaseAuth
 
 struct FormBlock: Identifiable {
     let id = UUID()
-    var workoutBlockId: String?
+    var workoutBlockId: String?           // For existing blocks (edit mode)
     var name: String = ""
     var details: String = ""
     var isTracked: Bool = false
@@ -26,9 +26,9 @@ struct AddEditWorkoutView: View {
     private let firestoreService = FirestoreService()
     private let calendar = Calendar.current
 
-    let workoutDate: Date?
-    let existingBlocks: [WorkoutBlock]
-    let existingNote: DateNote?
+    let workoutDate: Date?              // non-nil when editing an existing day
+    let existingBlocks: [WorkoutBlock]  // blocks for that day (edit) or empty (new)
+    let existingNote: DateNote?         // note for that day (edit) or nil (new)
 
     init(
         workoutDate: Date? = nil,
@@ -126,16 +126,21 @@ struct AddEditWorkoutView: View {
     // MARK: - Load existing data
 
     private func loadExistingData() {
-        guard let workoutDate = workoutDate else { return }
+        // If editing an existing workout, set the date to that day
+        if let workoutDate = workoutDate {
+            date = workoutDate
+        }
 
-        date = workoutDate
+        // Prefill note if present
         notes = existingNote?.note ?? ""
 
-        if existingBlocks.isEmpty {
+        // If no existing blocks, just keep a single empty block
+        guard !existingBlocks.isEmpty else {
             formBlocks = [FormBlock()]
             return
         }
 
+        // Map existing blocks into form blocks (edit mode)
         formBlocks = existingBlocks.map { block in
             let trackValue = formatTrackValue(block.trackValue, type: block.trackType)
             let trackUnit = block.trackUnit ?? "kg"
@@ -161,7 +166,7 @@ struct AddEditWorkoutView: View {
 
         Task {
             do {
-                // delete removed blocks
+                // 1. Delete removed blocks (only affects edit case)
                 let existingBlockIds = Set(existingBlocks.compactMap { $0.id })
                 let currentBlockIds = Set(formBlocks.compactMap { $0.workoutBlockId })
                 let blocksToDelete = existingBlockIds.subtracting(currentBlockIds)
@@ -170,7 +175,7 @@ struct AddEditWorkoutView: View {
                     try await firestoreService.deleteBlock(id: blockId)
                 }
 
-                // save / update blocks
+                // 2. Save / update all blocks
                 for formBlock in formBlocks {
                     let trimmedName = formBlock.name.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !trimmedName.isEmpty else { continue }
@@ -207,7 +212,7 @@ struct AddEditWorkoutView: View {
                     try await firestoreService.saveBlock(block)
                 }
 
-                // note
+                // 3. Save or delete the note
                 let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
                 let startOfDay = calendar.startOfDay(for: date)
 
@@ -375,7 +380,7 @@ struct BlockFormFields: View {
             // Name + track
             VStack(alignment: .leading, spacing: AddEditStyle.labelToFieldSpacing) {
                 HStack {
-                    Text("Name")
+                    Text("Exercise or Complex")
                         .font(AddEditStyle.sectionLabelFont)
                         .foregroundColor(Color.brand.textPrimary)
 
