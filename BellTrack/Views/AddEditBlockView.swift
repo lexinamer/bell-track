@@ -1,250 +1,61 @@
 import SwiftUI
 import FirebaseAuth
 
-struct AddEditBlockView: View {
+struct FormBlock: Identifiable {
+    let id = UUID()
+    var workoutBlockId: String? // For existing blocks
+    var name: String = ""
+    var details: String = ""
+    var isTracked: Bool = false             // For insights / progress
+    var trackType: WorkoutBlock.TrackType = .weight
+    var trackValue: String = ""
+    var trackUnit: String = "kg"
+    var createdAt: Date = Date()
+}
+
+struct AddEditWorkoutView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var authService: AuthService
+    
     @State private var date = Date()
-    @State private var formExercises: [FormExercise] = [FormExercise(name: "", repsText: "")]
-    @State private var roundsText = ""
-    @State private var selectedType: WorkoutBlock.BlockType? = nil  // Now optional
-    @State private var selectedStyle: WorkoutBlock.BlockStyle? = nil  // Now optional
-    @State private var selectedUnit: String = "kg"
-    @State private var weightText = ""
-    @State private var timeText = ""  // New
-    @State private var selectedTimeUnit: String = "sec"  // New
+    @State private var notes = ""
+    @State private var formBlocks: [FormBlock] = [FormBlock()]
     @State private var isSaving = false
     @State private var showDatePicker = false
+    
     private let firestoreService = FirestoreService()
     
-    let existingBlock: WorkoutBlock?
-    let isEditing: Bool
+    let workoutDate: Date?              // Date we're editing (if editing)
+    let existingBlocks: [WorkoutBlock]  // All blocks for this date
+    let existingNote: DateNote?         // Note for this date
     
-    init(existingBlock: WorkoutBlock? = nil, isEditing: Bool = false) {
-        self.existingBlock = existingBlock
-        self.isEditing = isEditing
-    }
-    
-    struct FormExercise: Identifiable {
-        var id = UUID()
-        var name: String
-        var repsText: String
+    init(
+        workoutDate: Date? = nil,
+        existingBlocks: [WorkoutBlock] = [],
+        existingNote: DateNote? = nil
+    ) {
+        self.workoutDate = workoutDate
+        self.existingBlocks = existingBlocks
+        self.existingNote = existingNote
     }
     
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
-                    // Date
-                    VStack(alignment: .leading, spacing: Spacing.sm) {
-                        Text("Date")
-                            .font(.system(size: Typography.sm, weight: .semibold))
-                            .foregroundColor(Color.brand.textPrimary)
-                        
-                        Button(action: { showDatePicker = true }) {
-                            HStack {
-                                Text(date.formatted(date: .abbreviated, time: .omitted))
-                                    .foregroundColor(Color.brand.textPrimary)
-                                Spacer()
-                                Image(systemName: "calendar")
-                                    .foregroundColor(Color.brand.textSecondary)
-                            }
-                            .padding(Spacing.md)
-                            .background(Color.brand.surface)
-                            .cornerRadius(CornerRadius.sm)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: CornerRadius.sm)
-                                    .stroke(Color.brand.border, lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
+                    DatePickerSection(date: $date, showDatePicker: $showDatePicker)
                     
-                    // Exercises
-                    VStack(alignment: .leading, spacing: Spacing.sm) {
-                        ForEach(formExercises.indices, id: \.self) { index in
-                            HStack(alignment: .center, spacing: Spacing.sm) {
-                                VStack(alignment: .leading, spacing: Spacing.xs) {
-                                    if index == 0 {
-                                        Text("Exercise")
-                                            .font(.system(size: Typography.sm, weight: .semibold))
-                                            .foregroundColor(Color.brand.textPrimary)
-                                    }
-                                    TextField("Exercise name", text: $formExercises[index].name)
-                                        .customTextField()
-                                }
-                                
-                                VStack(alignment: .leading, spacing: Spacing.xs) {
-                                    if index == 0 {
-                                        Text("Reps (optional)")
-                                            .font(.system(size: Typography.sm, weight: .semibold))
-                                            .foregroundColor(Color.brand.textPrimary)
-                                    }
-                                    TextField("Reps", text: $formExercises[index].repsText)
-                                        .keyboardType(.numberPad)
-                                        .frame(width: 80)
-                                        .customTextField()
-                                }
-                                
-                                VStack {
-                                    if index == 0 {
-                                        Spacer()
-                                            .frame(height: 28)
-                                    }
-                                    Button(action: {
-                                        if formExercises.count > 1 {
-                                            formExercises.remove(at: index)
-                                        }
-                                    }) {
-                                        Image(systemName: "minus.circle.fill")
-                                            .foregroundColor(formExercises.count > 1 ? Color.brand.destructive : Color.brand.textSecondary.opacity(0.3))
-                                    }
-                                    .disabled(formExercises.count == 1)
-                                }
-                            }
-                        }
-                        Button {
-                            withAnimation(nil) {
-                                formExercises.append(FormExercise(name: "", repsText: ""))
-                            }
-                        } label: {
-                            HStack {
-                                Image(systemName: "plus.circle.fill")
-                                Text("Add Exercise")
-                            }
-                            .font(.system(size: Typography.sm, weight: .semibold))
-                            .foregroundColor(Color.brand.primary)
-                        }
-                    }
-                        
-                    // Rounds
-                    VStack(alignment: .leading, spacing: Spacing.sm) {
-                        Text("Rounds")
-                            .font(.system(size: Typography.sm, weight: .semibold))
-                            .foregroundColor(Color.brand.textPrimary)
-                        
-                        TextField("20", text: $roundsText)
-                            .keyboardType(.numberPad)
-                            .customTextField()
-                    }
+                    NotesSection(notes: $notes)
                     
-                    // Weight
-                    VStack(alignment: .leading, spacing: Spacing.sm) {
-                        Text("Weight (optional)")
-                            .font(.system(size: Typography.sm, weight: .semibold))
-                            .foregroundColor(Color.brand.textPrimary)
-                        
-                        HStack(spacing: Spacing.md) {
-                            TextField("16", text: $weightText)
-                                .keyboardType(.numberPad)
-                                .customTextField()
-                                .frame(maxWidth: .infinity)
-                            
-                            Picker("", selection: $selectedUnit) {
-                                Text("kg").tag("kg")
-                                Text("lbs").tag("lbs")
-                            }
-                            .pickerStyle(.segmented)
-                            .frame(width: 100)
-                        }
-                    }
+                    BlocksSection(formBlocks: $formBlocks)
                     
-                    // Time (optional)
-                    VStack(alignment: .leading, spacing: Spacing.sm) {
-                        Text("Time (optional)")
-                            .font(.system(size: Typography.sm, weight: .semibold))
-                            .foregroundColor(Color.brand.textPrimary)
-                        
-                        HStack(spacing: Spacing.md) {
-                            TextField("30", text: $timeText)
-                                .keyboardType(.decimalPad)
-                                .customTextField()
-                                .frame(maxWidth: .infinity)
-                            
-                            Picker("", selection: $selectedTimeUnit) {
-                                Text("sec").tag("sec")
-                                Text("min").tag("min")
-                            }
-                            .pickerStyle(.segmented)
-                            .frame(width: 100)
-                        }
-                    }
-                    
-                    // Type
-                    VStack(alignment: .leading, spacing: Spacing.sm) {
-                        Text("Type (optional)")
-                            .font(.system(size: Typography.sm, weight: .semibold))
-                            .foregroundColor(Color.brand.textPrimary)
-                        
-                        TypeChipSelector(selectedType: $selectedType)
-                    }
-                    
-                    // Style
-                    VStack(alignment: .leading, spacing: Spacing.sm) {
-                        Text("Style (optional)")
-                            .font(.system(size: Typography.sm, weight: .semibold))
-                            .foregroundColor(Color.brand.textPrimary)
-                        
-                        StyleChipSelector(selectedStyle: $selectedStyle)
-                    }
-                    // Delete Button (only show when editing)
-                    if isEditing {
-                        Button(action: deleteBlock) {
-                            Text("Delete Block")
-                                .font(.system(size: Typography.md, weight: .semibold))
-                                .foregroundColor(Color.brand.destructive)
-                                .frame(maxWidth: .infinity)
-                                .padding(Spacing.md)
-                                .background(Color.brand.surface)
-                                .cornerRadius(CornerRadius.sm)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: CornerRadius.sm)
-                                        .stroke(Color.brand.destructive, lineWidth: 1)
-                                )
-                        }
-                    }
+                    AddBlockButton(formBlocks: $formBlocks)
                 }
                 .padding(Spacing.md)
             }
             .background(Color.brand.background)
             .scrollDismissesKeyboard(.immediately)
-            .navigationTitle(isEditing ? "Edit Block" : "Add Block")
-            .onAppear {
-                if let block = existingBlock {
-                    date = block.date
-                    formExercises = block.exercises.map {
-                        FormExercise(
-                            name: $0.name,
-                            repsText: $0.reps.map { String($0) } ?? ""
-                        )
-                    }
-                    roundsText = "\(block.rounds)"
-                    selectedType = block.type
-                    selectedStyle = block.style
-                    weightText = block.weight.map { String($0) } ?? ""
-                    selectedUnit = block.unit
-                    timeText = block.time.map { String($0) } ?? ""
-                    selectedTimeUnit = block.timeUnit ?? "sec"
-                }
-            }
-            .sheet(isPresented: $showDatePicker) {
-                VStack {
-                    DatePicker("Select Date", selection: $date, displayedComponents: .date)
-                        .datePickerStyle(.graphical)
-                        .padding()
-                    
-                    Button("Done") {
-                        showDatePicker = false
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.brand.primary)
-                    .foregroundColor(.white)
-                    .cornerRadius(CornerRadius.md)
-                    .padding(.horizontal)
-                }
-                .presentationDetents([.medium])
-            }
+            .navigationTitle(workoutDate != nil ? "Edit Workout" : "Add Workout")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -256,144 +67,417 @@ struct AddEditBlockView: View {
                 
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Save") {
-                        saveBlock()
+                        saveWorkout()
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Color.brand.secondary)
                     .disabled(isSaving || !isValid)
                 }
             }
+            .sheet(isPresented: $showDatePicker) {
+                DatePickerSheet(date: $date, showDatePicker: $showDatePicker)
+            }
+            .onAppear {
+                loadExistingData()
+            }
         }
     }
+    
+    // MARK: - Validation
     
     private var isValid: Bool {
-        !formExercises.isEmpty &&
-        formExercises.allSatisfy { !$0.name.isEmpty } &&  // Only name required now
-        !roundsText.isEmpty && Int(roundsText) != nil
+        formBlocks.allSatisfy {
+            !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
     }
     
-    private func saveBlock() {
-        guard let userId = authService.user?.uid,
-              let rounds = Int(roundsText) else { return }
+    // MARK: - Track formatting helpers
+    
+    private func formatTrackValue(_ value: Double?, type: WorkoutBlock.TrackType?) -> String {
+        guard let value = value else { return "" }
         
-        // Convert optional fields
-        let weight = weightText.isEmpty ? nil : Int(weightText)
-        let time = timeText.isEmpty ? nil : Double(timeText)
-
-        // Convert form exercises to model exercises
-        let exercises = formExercises.compactMap { formEx -> Exercise? in
-            guard !formEx.name.isEmpty else { return nil }
-            let reps = formEx.repsText.isEmpty ? nil : Int(formEx.repsText)
-            return Exercise(name: formEx.name, reps: reps)
+        if type == .time {
+            let minutes = Int(value) / 60
+            let seconds = Int(value) % 60
+            return String(format: "%d:%02d", minutes, seconds)
+        } else {
+            return value.truncatingRemainder(dividingBy: 1) == 0
+                ? String(Int(value))
+                : String(value)
+        }
+    }
+    
+    private func parseTimeString(_ timeString: String) -> Double? {
+        if timeString.contains(":") {
+            let parts = timeString.split(separator: ":")
+            guard parts.count == 2,
+                  let minutes = Double(parts[0]),
+                  let seconds = Double(parts[1]) else { return nil }
+            return (minutes * 60) + seconds
+        } else {
+            return Double(timeString)
+        }
+    }
+    
+    // MARK: - Load existing data
+    
+    private func loadExistingData() {
+        guard let workoutDate = workoutDate else { return }
+        
+        date = workoutDate
+        notes = existingNote?.note ?? ""
+        
+        if existingBlocks.isEmpty {
+            formBlocks = [FormBlock()]
+            return
         }
         
-        guard !exercises.isEmpty else { return }
+        formBlocks = existingBlocks.map { block in
+            let trackValue = formatTrackValue(block.trackValue, type: block.trackType)
+            let trackUnit = block.trackUnit ?? "kg"
+            
+            return FormBlock(
+                workoutBlockId: block.id,
+                name: block.name,
+                details: block.details,
+                isTracked: block.isTracked,
+                trackType: block.trackType ?? .none,
+                trackValue: trackValue,
+                trackUnit: trackUnit,
+                createdAt: block.createdAt
+            )
+        }
+    }
+    
+    // MARK: - Save
+    
+    private func saveWorkout() {
+        guard let userId = authService.user?.uid else { return }
+        
         isSaving = true
         
-        let block = WorkoutBlock(
-            id: isEditing ? existingBlock?.id : nil,
-            userId: userId,
-            date: date,
-            exercises: exercises,
-            rounds: rounds,
-            type: selectedType,
-            style: selectedStyle,
-            weight: weight,
-            unit: selectedUnit,
-            time: time,
-            timeUnit: time != nil ? selectedTimeUnit : nil
-        )
-        
         Task {
             do {
-                try await firestoreService.saveBlock(block)
+                // 1. Delete removed blocks
+                let existingBlockIds = Set(existingBlocks.compactMap { $0.id })
+                let currentBlockIds = Set(formBlocks.compactMap { $0.workoutBlockId })
+                let blocksToDelete = existingBlockIds.subtracting(currentBlockIds)
+                
+                for blockId in blocksToDelete {
+                    try await firestoreService.deleteBlock(id: blockId)
+                }
+                
+                // 2. Save/update all blocks
+                for formBlock in formBlocks {
+                    let trimmedName = formBlock.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmedName.isEmpty else { continue }
+                    
+                    var parsedTrackValue: Double? = nil
+                    var finalTrackUnit: String? = nil
+                    var finalTrackType: WorkoutBlock.TrackType? = nil
+                    
+                    // Save metric whenever a type is selected (except .none),
+                    // regardless of whether "Track" toggle is on.
+                    if formBlock.trackType != .none {
+                        finalTrackType = formBlock.trackType
+                        
+                        if formBlock.trackType == .time {
+                            parsedTrackValue = parseTimeString(formBlock.trackValue)
+                            finalTrackUnit = nil
+                        } else if formBlock.trackType == .weight {
+                            parsedTrackValue = Double(formBlock.trackValue)
+                            finalTrackUnit = formBlock.trackUnit
+                        }
+                    }
+                    
+                    let block = WorkoutBlock(
+                        id: formBlock.workoutBlockId,
+                        userId: userId,
+                        date: date,
+                        createdAt: formBlock.createdAt,
+                        name: trimmedName,
+                        details: formBlock.details.trimmingCharacters(in: .whitespacesAndNewlines),
+                        isTracked: formBlock.isTracked,   // only for insights / dot in list
+                        trackType: finalTrackType,        // metric to show in list + insights
+                        trackValue: parsedTrackValue,
+                        trackUnit: finalTrackUnit
+                    )
+                    
+                    try await firestoreService.saveBlock(block)
+                }
+                
+                // 3. Save or delete the note
+                let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+                let startOfDay = Calendar.current.startOfDay(for: date)
+                
+                if !trimmedNotes.isEmpty {
+                    let note = DateNote(
+                        id: existingNote?.id,
+                        userId: userId,
+                        date: startOfDay,
+                        note: trimmedNotes
+                    )
+                    try await firestoreService.saveDateNote(note)
+                } else if let noteId = existingNote?.id {
+                    // Delete note if it exists but is now empty
+                    try await firestoreService.deleteDateNote(id: noteId)
+                }
+                
                 await MainActor.run {
                     dismiss()
                 }
             } catch {
-                print("Error saving block: \(error)")
-                isSaving = false
-            }
-        }
-    }
-    
-    private func deleteBlock() {
-        guard let blockId = existingBlock?.id else { return }
-        
-        Task {
-            do {
-                try await firestoreService.deleteBlock(id: blockId)
+                print("Error saving workout: \(error)")
                 await MainActor.run {
-                    dismiss()
+                    isSaving = false
                 }
-            } catch {
-                print("Error deleting block: \(error)")
             }
         }
     }
 }
 
-struct TypeChipSelector: View {
-    @Binding var selectedType: WorkoutBlock.BlockType?  // Now optional
-    
-    var body: some View {
-        HStack(spacing: Spacing.sm) {
-            ForEach([WorkoutBlock.BlockType.emom, .amrap, .sets], id: \.self) { type in
-                ChipButton(
-                    title: type.rawValue,
-                    isSelected: selectedType == type,
-                    color: Color.brand.primary,
-                    action: {
-                        selectedType = selectedType == type ? nil : type  // Toggle on/off
-                    }
-                )
-            }
-        }
-    }
-}
+// MARK: - Sections & Subviews
 
-struct StyleChipSelector: View {
-    @Binding var selectedStyle: WorkoutBlock.BlockStyle?  // Now optional
+struct DatePickerSection: View {
+    @Binding var date: Date
+    @Binding var showDatePicker: Bool
     
     var body: some View {
-        HStack(spacing: Spacing.sm) {
-            ForEach([WorkoutBlock.BlockStyle.single, .double, .twoHanded], id: \.self) { style in
-                ChipButton(
-                    title: style.rawValue,
-                    isSelected: selectedStyle == style,
-                    color: Color.brand.primary,
-                    action: {
-                        selectedStyle = selectedStyle == style ? nil : style  // Toggle on/off
-                    }
-                )
-            }
-        }
-    }
-}
-
-struct ChipButton: View {
-    let title: String
-    let isSelected: Bool
-    let color: Color
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: Typography.md, weight: .medium))
-                .padding(.horizontal, Spacing.md)
-                .padding(.vertical, Spacing.sm)
-                .background(isSelected ? color : Color.brand.surface)
-                .foregroundColor(isSelected ? .white : Color.brand.textPrimary)
-                .cornerRadius(CornerRadius.xl)
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text("Date")
+                .font(.system(size: Typography.sm, weight: .semibold))
+                .foregroundColor(Color.brand.textPrimary)
+            
+            Button(action: { showDatePicker = true }) {
+                HStack {
+                    Text(date.formatted(date: .abbreviated, time: .omitted))
+                        .foregroundColor(Color.brand.textPrimary)
+                    Spacer()
+                    Image(systemName: "calendar")
+                        .foregroundColor(Color.brand.textSecondary)
+                }
+                .padding(Spacing.md)
+                .background(Color.brand.surface)
+                .cornerRadius(CornerRadius.sm)
                 .overlay(
-                    RoundedRectangle(cornerRadius: CornerRadius.xl)
-                        .stroke(Color.brand.border, lineWidth: isSelected ? 0 : 1)
+                    RoundedRectangle(cornerRadius: CornerRadius.sm)
+                        .stroke(Color.brand.border, lineWidth: 1)
                 )
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
     }
 }
+
+struct NotesSection: View {
+    @Binding var notes: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text("Notes (optional)")
+                .font(.system(size: Typography.sm, weight: .semibold))
+                .foregroundColor(Color.brand.textPrimary)
+            
+            TextEditor(text: $notes)
+                .font(.system(size: Typography.md))
+                .frame(minHeight: 60)
+                .padding(Spacing.sm)
+                .background(Color.brand.surface)
+                .cornerRadius(CornerRadius.sm)
+                .overlay(
+                    RoundedRectangle(cornerRadius: CornerRadius.sm)
+                        .stroke(Color.brand.border, lineWidth: 1)
+                )
+        }
+    }
+}
+
+struct BlocksSection: View {
+    @Binding var formBlocks: [FormBlock]
+    
+    var body: some View {
+        ForEach(formBlocks.indices, id: \.self) { index in
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                HStack {
+                    Text("Block \(index + 1)")
+                        .font(.system(size: Typography.md, weight: .bold))
+                        .foregroundColor(Color.brand.textPrimary)
+                    
+                    Spacer()
+                    
+                    if formBlocks.count > 1 {
+                        Button(action: {
+                            withAnimation {
+                                _ = formBlocks.remove(at: index)
+                            }
+                        }) {
+                            Image(systemName: "minus.circle.fill")
+                                .foregroundColor(Color.brand.destructive)
+                        }
+                    }
+                }
+                
+                BlockFormFields(block: $formBlocks[index])
+            }
+            .padding(Spacing.xs)
+            .background(Color.brand.surface)
+            .cornerRadius(CornerRadius.md)
+        }
+    }
+}
+
+struct AddBlockButton: View {
+    @Binding var formBlocks: [FormBlock]
+    
+    var body: some View {
+        Button {
+            withAnimation {
+                formBlocks.append(FormBlock())
+            }
+        } label: {
+            HStack {
+                Image(systemName: "plus.circle.fill")
+                Text("Add Block")
+            }
+            .font(.system(size: Typography.md, weight: .semibold))
+            .foregroundColor(Color.brand.primary)
+        }
+    }
+}
+
+struct DatePickerSheet: View {
+    @Binding var date: Date
+    @Binding var showDatePicker: Bool
+    
+    var body: some View {
+        VStack {
+            DatePicker("Select Date", selection: $date, displayedComponents: .date)
+                .datePickerStyle(.graphical)
+                .padding()
+            
+            Button("Done") {
+                showDatePicker = false
+            }
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(Color.brand.primary)
+            .foregroundColor(.white)
+            .cornerRadius(CornerRadius.md)
+            .padding(.horizontal)
+        }
+        .presentationDetents([.medium])
+    } 
+}
+
+struct BlockFormFields: View {
+    @Binding var block: FormBlock
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            // Name + Track
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack {
+                    Text("Name")
+                        .font(.system(size: Typography.sm, weight: .semibold))
+                        .foregroundColor(Color.brand.textPrimary)
+                    
+                    Spacer()
+                    
+                    Button(action: { block.isTracked.toggle() }) {
+                        Image(systemName: block.isTracked ? "checkmark.circle.fill" : "circle")
+                            .foregroundColor(
+                                block.isTracked
+                                ? Color.brand.primary
+                                : Color.brand.textSecondary
+                            )
+                            .font(.system(size: Typography.lg))
+                    }
+                    
+                    Text("Track progress")
+                        .font(.system(size: Typography.sm))
+                        .foregroundColor(Color.brand.textSecondary)
+                }
+                
+                TextField("ABC Complex", text: $block.name)
+                    .customTextField()
+            }
+            
+            // Track metric (always visible)
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text("Metric")
+                    .font(.system(size: Typography.sm, weight: .semibold))
+                    .foregroundColor(Color.brand.textPrimary)
+                
+                Picker("", selection: $block.trackType) {
+                    Text("Weight").tag(WorkoutBlock.TrackType.weight)
+                    Text("Time").tag(WorkoutBlock.TrackType.time)
+                    Text("None").tag(WorkoutBlock.TrackType.none)
+                }
+                .pickerStyle(.segmented)
+                
+                Text("Metric is saved for your log. Tracking just adds this block to insights.")
+                    .font(.system(size: Typography.sm))
+                    .foregroundColor(Color.brand.textSecondary)
+            }
+            
+            // Weight field (conditional)
+            if block.trackType == .weight {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text("Weight")
+                        .font(.system(size: Typography.sm, weight: .semibold))
+                        .foregroundColor(Color.brand.textPrimary)
+                    
+                    HStack(spacing: Spacing.md) {
+                        TextField("16", text: $block.trackValue)
+                            .keyboardType(.decimalPad)
+                            .customTextField()
+                            .frame(maxWidth: .infinity)
+                        
+                        Picker("", selection: $block.trackUnit) {
+                            Text("kg").tag("kg")
+                            Text("lbs").tag("lbs")
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 100)
+                    }
+                }
+            }
+            
+            // Time field (conditional)
+            if block.trackType == .time {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text("Time")
+                        .font(.system(size: Typography.sm, weight: .semibold))
+                        .foregroundColor(Color.brand.textPrimary)
+                    
+                    TextField("2:30", text: $block.trackValue)
+                        .keyboardType(.numbersAndPunctuation)
+                        .customTextField()
+                }
+            }
+            
+            // Details
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text("Details")
+                    .font(.system(size: Typography.sm, weight: .semibold))
+                    .foregroundColor(Color.brand.textPrimary)
+                
+                TextEditor(text: $block.details)
+                    .font(.system(size: Typography.md))
+                    .frame(minHeight: 60)
+                    .padding(Spacing.sm)
+                    .background(Color.brand.background)
+                    .cornerRadius(CornerRadius.sm)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: CornerRadius.sm)
+                            .stroke(Color.brand.border, lineWidth: 1)
+                    )
+            }
+        }
+    }
+}
+
+// MARK: - Shared text field style
 
 struct CustomTextFieldStyle: ViewModifier {
     func body(content: Content) -> some View {
