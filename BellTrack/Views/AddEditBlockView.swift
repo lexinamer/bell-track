@@ -13,6 +13,13 @@ struct FormBlock: Identifiable {
     var createdAt: Date = Date()
 }
 
+struct TrackedSuggestion: Identifiable {
+    let id = UUID()
+    let name: String
+    let trackType: WorkoutBlock.TrackType
+    let trackUnit: String?
+}
+
 struct AddEditWorkoutView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var authService: AuthService
@@ -22,6 +29,7 @@ struct AddEditWorkoutView: View {
     @State private var formBlocks: [FormBlock] = [FormBlock()]
     @State private var isSaving = false
     @State private var showDatePicker = false
+    @State private var trackedSuggestions: [TrackedSuggestion] = []
 
     private let firestoreService = FirestoreService()
     private let calendar = Calendar.current
@@ -46,7 +54,10 @@ struct AddEditWorkoutView: View {
                 VStack(alignment: .leading, spacing: AddEditStyle.sectionSpacing) {
                     DatePickerSection(date: $date, showDatePicker: $showDatePicker)
                     NotesSection(notes: $notes)
-                    BlocksSection(formBlocks: $formBlocks)
+                    BlocksSection(
+                        formBlocks: $formBlocks,
+                        suggestions: trackedSuggestions
+                    )
                     AddBlockButton(formBlocks: $formBlocks)
                 }
                 .padding(Spacing.md)
@@ -83,6 +94,9 @@ struct AddEditWorkoutView: View {
             }
             .onAppear {
                 loadExistingData()
+                Task {
+                    await loadTrackedSuggestions()
+                }
             }
         }
     }
@@ -155,6 +169,50 @@ struct AddEditWorkoutView: View {
                 trackUnit: trackUnit,
                 createdAt: block.createdAt
             )
+        }
+    }
+    
+    // MARK: - Load tracked suggestions (for autocomplete)
+
+    private func loadTrackedSuggestions() async {
+        guard let userId = authService.user?.uid else { return }
+
+        do {
+            let blocks = try await firestoreService.fetchBlocks(userId: userId)
+
+            // Only blocks that are tracked and have a real metric type (weight/time)
+            let tracked = blocks.filter {
+                $0.isTracked && ($0.trackType == .weight || $0.trackType == .time)
+            }
+
+            // Group only by name to avoid Hashable issues
+            let grouped = Dictionary(grouping: tracked) { $0.name }
+
+            var suggestions: [TrackedSuggestion] = []
+
+            for (name, items) in grouped {
+                // Most recent by date
+                guard
+                    let latest = items.sorted(by: { $0.date > $1.date }).first,
+                    let type = latest.trackType
+                else { continue }
+
+                suggestions.append(
+                    TrackedSuggestion(
+                        name: name,
+                        trackType: type,
+                        trackUnit: latest.trackUnit
+                    )
+                )
+            }
+
+            await MainActor.run {
+                trackedSuggestions = suggestions.sorted {
+                    $0.name.lowercased() < $1.name.lowercased()
+                }
+            }
+        } catch {
+            print("Error loading tracked suggestions:", error)
         }
     }
 
@@ -296,6 +354,7 @@ struct NotesSection: View {
 
 struct BlocksSection: View {
     @Binding var formBlocks: [FormBlock]
+    let suggestions: [TrackedSuggestion]
 
     var body: some View {
         ForEach(formBlocks.indices, id: \.self) { index in
@@ -319,7 +378,10 @@ struct BlocksSection: View {
                     }
                 }
 
-                BlockFormFields(block: $formBlocks[index])
+                BlockFormFields(
+                    block: $formBlocks[index],
+                    suggestions: suggestions
+                )
             }
             .padding(AddEditStyle.blockCardPadding)
             .background(Color.brand.surface)
@@ -373,6 +435,28 @@ struct DatePickerSheet: View {
 
 struct BlockFormFields: View {
     @Binding var block: FormBlock
+    let suggestions: [TrackedSuggestion]
+
+    @State private var showSuggestions = false
+    @FocusState private var nameFieldFocused: Bool
+
+    // Filter suggestions based on what the user is typing
+    private var filteredSuggestions: [TrackedSuggestion] {
+        let query = block.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return [] }
+
+        let lower = query.lowercased()
+
+        return Array(
+            suggestions
+                // starts with text AND not exactly the same as what’s already in the field
+                .filter {
+                    $0.name.lowercased().hasPrefix(lower) &&
+                    $0.name.caseInsensitiveCompare(query) != .orderedSame
+                }
+                .prefix(5)
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: AddEditStyle.fieldStackSpacing) {
@@ -380,7 +464,7 @@ struct BlockFormFields: View {
             // Name + track
             VStack(alignment: .leading, spacing: AddEditStyle.labelToFieldSpacing) {
                 HStack {
-                    Text("Exercise or Complex")
+                    Text("Movement")
                         .font(AddEditStyle.sectionLabelFont)
                         .foregroundColor(Color.brand.textPrimary)
 
@@ -396,14 +480,67 @@ struct BlockFormFields: View {
                             .font(.system(size: AddEditStyle.trackIconSize))
                     }
 
-                    Text("Track progress")
+                    Text("Tracking Progress")
                         .font(AddEditStyle.helperLabelFont)
                         .foregroundColor(Color.brand.textSecondary)
                 }
 
-                TextField("ABC Complex", text: $block.name)
+                // Name field
+                TextField("ABC, Planks, Clean + Press...", text: $block.name)
                     .font(AddEditStyle.fieldFont)
                     .customTextField()
+                    .focused($nameFieldFocused)
+                    .onChange(of: block.name) { _, _ in
+                        showSuggestions = nameFieldFocused && !filteredSuggestions.isEmpty
+                    }
+                    .onChange(of: nameFieldFocused) { _, hasFocus in
+                        if !hasFocus {
+                            showSuggestions = false   // 👈 hide when tapping away
+                        } else {
+                            showSuggestions = !filteredSuggestions.isEmpty
+                        }
+                    }
+
+                // Inline autocomplete from tracked blocks
+                if showSuggestions && !filteredSuggestions.isEmpty {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(filteredSuggestions) { suggestion in
+                            Button {
+                                // Fill name
+                                block.name = suggestion.name
+
+                                // Auto-enable tracking
+                                block.isTracked = true
+
+                                // Apply metric defaults
+                                block.trackType = suggestion.trackType
+
+                                if suggestion.trackType == .weight {
+                                    block.trackUnit = suggestion.trackUnit ?? "kg"
+                                }
+
+                                // Hide dropdown after selection
+                                showSuggestions = false
+                            } label: {
+                                Text(suggestion.name)
+                                    .font(AddEditStyle.helperLabelFont)
+                                    .foregroundColor(Color.brand.textPrimary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.vertical, 10)   // 👍 thumb-sized tap
+                                    .padding(.horizontal, 8)
+                            }
+                            .buttonStyle(.plain)
+                            .contentShape(Rectangle())     // full row is tappable
+                        }
+                    }
+                    .background(Color.brand.surface)
+                    .cornerRadius(CornerRadius.sm)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: CornerRadius.sm)
+                            .stroke(Color.brand.border, lineWidth: 1)
+                    )
+                    .padding(.top, 4)
+                }
             }
 
             // Metric picker
