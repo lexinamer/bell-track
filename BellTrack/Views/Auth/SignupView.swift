@@ -1,4 +1,6 @@
 import SwiftUI
+import FirebaseAuth
+import Foundation
 
 struct SignUpView: View {
     @Environment(\.dismiss) var dismiss
@@ -94,30 +96,66 @@ struct SignUpView: View {
     }
     
     private func signUp() {
+        // Clear any existing error
         errorMessage = ""
-        
-        guard password == confirmPassword else {
+
+        // Trim whitespace/newlines
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedConfirm = confirmPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Basic validation
+        guard !trimmedEmail.isEmpty else {
+            errorMessage = "Please enter an email"
+            return
+        }
+
+        guard !trimmedPassword.isEmpty else {
+            errorMessage = "Please enter a password"
+            return
+        }
+
+        guard trimmedPassword == trimmedConfirm else {
             errorMessage = "Passwords don't match"
             return
         }
-        
-        guard password.count >= 6 else {
+
+        guard trimmedPassword.count >= 6 else {
             errorMessage = "Password must be at least 6 characters"
             return
         }
-        
+
         isLoading = true
-        
+
         Task {
             do {
-                try await authService.signUp(email: email, password: password)
+                try await authService.signUp(email: trimmedEmail, password: trimmedPassword)
                 await MainActor.run {
+                    isLoading = false
                     dismiss()
                 }
             } catch {
+                let nsError = error as NSError
+                var message = "Failed to create account"
+
+                if let authError = AuthErrorCode(_bridgedNSError: nsError) {
+                    switch authError.code {
+                    case .invalidEmail:
+                        message = "That email address looks invalid."
+                    case .emailAlreadyInUse:
+                        message = "An account with this email already exists."
+                    case .weakPassword:
+                        message = "Password must be at least 6 characters."
+                    default:
+                        message = nsError.localizedDescription
+                    }
+                } else {
+                    message = nsError.localizedDescription
+                }
+
                 await MainActor.run {
-                    errorMessage = "Failed to create account"
-                    isLoading = false
+                    self.errorMessage = message
+                    self.isLoading = false
                 }
             }
         }

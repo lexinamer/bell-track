@@ -311,7 +311,7 @@ private struct DateBadge: View {
     }
 }
 
-// MARK: - BLOCK CARD (single movement row)
+// MARK: - BLOCK CARD (single set row)
 
 struct BlockCard: View {
     let block: WorkoutBlock
@@ -330,7 +330,7 @@ struct BlockCard: View {
         case .single?:
             modeLabel = "Single"
         case .double?:
-            modeLabel = "Double"
+            modeLabel = "Doubles"
         case nil:
             modeLabel = ""
         }
@@ -377,7 +377,7 @@ struct BlockCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: CardStyle.blockLineSpacing) {
 
-            // Movement name
+            // Set name
             Text(block.name)
                 .font(TextStyles.bodyStrong)
                 .foregroundColor(Color.brand.textPrimary)

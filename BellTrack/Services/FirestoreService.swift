@@ -20,9 +20,12 @@ class FirestoreService {
     
     func saveBlock(_ block: WorkoutBlock) async throws {
         if let id = block.id {
-            try db.collection("blocks").document(id).setData(from: block)
+            try db.collection("blocks")
+                .document(id)
+                .setData(from: block)
         } else {
-            try db.collection("blocks").addDocument(from: block)
+            _ = try db.collection("blocks")
+                .addDocument(from: block)
         }
     }
     
@@ -43,9 +46,12 @@ class FirestoreService {
     
     func saveSettings(_ settings: UserSettings) async throws {
         if let id = settings.id {
-            try db.collection("settings").document(id).setData(from: settings)
+            try db.collection("settings")
+                .document(id)
+                .setData(from: settings)
         } else {
-            try db.collection("settings").addDocument(from: settings)
+            _ = try db.collection("settings")
+                .addDocument(from: settings)
         }
     }
 }

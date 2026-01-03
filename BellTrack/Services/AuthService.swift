@@ -5,10 +5,18 @@ import Combine
 class AuthService: ObservableObject {
     @Published var user: User?
     @Published var isAuthenticated = false
+    private var authStateListenerHandle: AuthStateDidChangeListenerHandle?
     
     init() {
         self.user = Auth.auth().currentUser
-        self.isAuthenticated = user != nil
+        self.isAuthenticated = self.user != nil
+
+        // Keep user state in sync with Firebase
+        authStateListenerHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
+            guard let self = self else { return }
+            self.user = user
+            self.isAuthenticated = (user != nil)
+        }
     }
     
     func signUp(email: String, password: String) async throws {
@@ -31,5 +39,11 @@ class AuthService: ObservableObject {
         try Auth.auth().signOut()
         self.user = nil
         self.isAuthenticated = false
+    }
+    
+    deinit {
+        if let handle = authStateListenerHandle {
+            Auth.auth().removeStateDidChangeListener(handle)
+        }
     }
 }

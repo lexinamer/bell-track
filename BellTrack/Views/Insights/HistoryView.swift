@@ -22,7 +22,7 @@ struct HistoryView: View {
         insight.blocks.sorted { $0.date > $1.date }
     }
 
-    // Best = highest volumeCount in this movement’s history
+    // Best = highest volumeCount in this set's history
     private var bestVolume: Double? {
         insight.blocks.compactMap { $0.volumeCount }.max()
     }
@@ -104,7 +104,7 @@ struct HistoryView: View {
                 .buttonStyle(.plain)
             }
         }
-        .alert("Rename Movement", isPresented: $isRenaming) {
+        .alert("Rename Set", isPresented: $isRenaming) {
             TextField("New name", text: $newName)
 
             Button("Save") {
@@ -118,7 +118,7 @@ struct HistoryView: View {
 
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("Rename this movement for all past sessions.")
+            Text("Rename this set for all past sessions.")
         }
     }
 
@@ -138,12 +138,14 @@ struct HistoryView: View {
         if let load = block.loadKg {
             let loadInt = Int(load.rounded())
             if let mode = block.loadMode {
+                let modeLabel: String
                 switch mode {
                 case .single:
-                    parts.append("\(loadInt)kg")
+                    modeLabel = "Single"
                 case .double:
-                    parts.append("2 × \(loadInt)kg")
+                    modeLabel = "Doubles"
                 }
+                parts.append("\(loadInt)kg \(modeLabel)")
             } else {
                 parts.append("\(loadInt)kg")
             }
@@ -176,7 +178,7 @@ struct HistoryView: View {
                 movementName = newName
             }
         } catch {
-            print("❌ Error renaming movement: \(error.localizedDescription)")
+            print("❌ Error renaming set: \(error.localizedDescription)")
         }
     }
 }

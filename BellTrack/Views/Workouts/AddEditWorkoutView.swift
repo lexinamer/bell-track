@@ -8,7 +8,6 @@ struct FormBlock: Identifiable {
     var workoutBlockId: String?
     var name: String = ""
     var details: String = ""
-    var isTracked: Bool = true
 
     // Controls whether this block's fields are shown
     var isExpanded: Bool = true
@@ -18,7 +17,7 @@ struct FormBlock: Identifiable {
     var loadMode: LoadMode = .single     // single / double
 
     var volumeValue: String = ""                      // "30"
-    var volumeKind: VolumeKind = .reps   // reps / rounds
+    var volumeKind: VolumeKind = .rounds   // reps / rounds
 
     var createdAt: Date = Date()
 }
@@ -184,11 +183,10 @@ struct AddEditWorkoutView: View {
                 workoutBlockId: block.id,
                 name: block.name,
                 details: block.details,
-                isTracked: block.isTracked,
                 loadKg: formatNumber(block.loadKg),
                 loadMode: block.loadMode ?? .single,
                 volumeValue: formatNumber(block.volumeCount),
-                volumeKind: block.volumeKind ?? .reps,
+                volumeKind: block.volumeKind ?? .rounds,
                 createdAt: block.createdAt
             )
         }
@@ -205,7 +203,7 @@ struct AddEditWorkoutView: View {
             // Take only tracked blocks
             let trackedBlocks = blocks.filter { $0.isTracked }
 
-            // For each movement name (case-insensitive), keep the most recent block
+            // For each set name (case-insensitive), keep the most recent block
             var latestByName: [String: WorkoutBlock] = [:]
 
             for block in trackedBlocks {
@@ -354,7 +352,7 @@ struct BlocksSection: View {
 
                 // Header: label + expand/collapse + delete
                 HStack(alignment: .center) {
-                    Text("Movement")
+                    Text("Set")
                         .font(TextStyles.bodyStrong)
                         .foregroundColor(Color.brand.textPrimary)
 
@@ -412,7 +410,7 @@ struct AddBlockButton: View {
         } label: {
             HStack {
                 Image(systemName: "plus.circle.fill")
-                Text("Add Movement")
+                Text("Add Set")
             }
             .font(TextStyles.bodyStrong)
             .foregroundColor(Color.brand.primary)
@@ -513,10 +511,10 @@ struct BlockFormFields: View {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(filteredSuggestions) { suggestion in
                             Button {
-                                // Set the movement name from the suggestion
+                                // Set the set name from the suggestion
                                 block.name = suggestion.name
 
-                                // If we have stored metrics for this movement, prefill them
+                                // If we have stored metrics for this set, prefill them
                                 if let kg = suggestion.lastLoadKg {
                                     block.loadKg = BlockFormFields.formatNumber(kg)
                                 }
@@ -606,8 +604,8 @@ struct BlockFormFields: View {
                     Spacer(minLength: Spacing.sm)
 
                     Picker("", selection: $block.volumeKind) {
-                        Text("Reps").tag(VolumeKind.reps)
                         Text("Rounds").tag(VolumeKind.rounds)
+                        Text("Reps").tag(VolumeKind.reps)
                     }
                     .pickerStyle(.segmented)
                     .frame(width: 180)

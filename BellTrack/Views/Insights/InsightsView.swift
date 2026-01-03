@@ -24,10 +24,6 @@ struct InsightsView: View {
     @State private var blocks: [WorkoutBlock] = []
     @State private var isLoading = true
 
-    // rename state
-    @State private var renameTarget: BlockInsight?
-    @State private var newName: String = ""
-    @State private var isRenaming = false
 
     private let firestoreService = FirestoreService()
 
@@ -44,7 +40,7 @@ struct InsightsView: View {
                             .font(.system(size: Typography.lg, weight: .semibold))
                             .foregroundColor(Color.brand.textPrimary)
 
-                        Text("Track a block to see your progress over time.")
+                        Text("Track a set to see your progress over time.")
                             .font(.system(size: Typography.sm))
                             .foregroundColor(Color.brand.textSecondary)
                     }
@@ -94,24 +90,6 @@ struct InsightsView: View {
             .task {
                 await loadBlocks()
             }
-        }
-        // Rename alert
-        .alert("Rename Movement", isPresented: $isRenaming) {
-            TextField("New name", text: $newName)
-
-            Button("Save") {
-                guard let target = renameTarget else { return }
-                let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty, trimmed != target.name else { return }
-
-                Task {
-                    await renameMovement(from: target.name, to: trimmed)
-                }
-            }
-
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("This will rename this movement everywhere in your history.")
         }
     }
 
@@ -167,26 +145,6 @@ struct InsightsView: View {
         }
     }
 
-    // MARK: - Rename
-
-    private func renameMovement(from oldName: String, to newName: String) async {
-        guard let userId = authService.user?.uid else { return }
-
-        do {
-            let fetched = try await firestoreService.fetchBlocks(userId: userId)
-
-            let matching = fetched.filter { $0.name == oldName }
-
-            for var block in matching {
-                block.name = newName
-                try await firestoreService.saveBlock(block)
-            }
-
-            await loadBlocks()   // refresh insights
-        } catch {
-            print("Rename failed:", error)
-        }
-    }
 }
 
 // MARK: - Summary row

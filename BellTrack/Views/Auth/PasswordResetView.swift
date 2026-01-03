@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseAuth
+import Foundation
 
 struct PasswordResetView: View {
     @Environment(\.dismiss) var dismiss
@@ -80,12 +81,14 @@ struct PasswordResetView: View {
     }
     
     private func sendResetEmail() {
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedEmail.isEmpty else { message = "Please enter your email"; return }
         isLoading = true
         message = ""
         
         Task {
             do {
-                try await Auth.auth().sendPasswordReset(withEmail: email)
+                try await Auth.auth().sendPasswordReset(withEmail: trimmedEmail)
                 await MainActor.run {
                     message = "Password reset email sent!"
                     isLoading = false
@@ -94,8 +97,23 @@ struct PasswordResetView: View {
                     }
                 }
             } catch {
+                let nsError = error as NSError
+                let authCode = AuthErrorCode(rawValue: nsError.code)
+
+                let friendlyMessage: String
+                switch authCode {
+                case .some(.invalidEmail):
+                    friendlyMessage = "Please enter a valid email address."
+                case .some(.userNotFound):
+                    friendlyMessage = "No account found with that email."
+                case .some(.networkError):
+                    friendlyMessage = "Network error. Please try again."
+                default:
+                    friendlyMessage = "Failed to send reset email. Please try again."
+                }
+
                 await MainActor.run {
-                    message = "Failed to send reset email"
+                    message = friendlyMessage
                     isLoading = false
                 }
             }

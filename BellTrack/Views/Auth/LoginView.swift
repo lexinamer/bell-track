@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 struct LoginView: View {
     @EnvironmentObject var authService: AuthService
@@ -41,6 +42,7 @@ struct LoginView: View {
                     TextField("Email", text: $email)
                         .textInputAutocapitalization(.never)
                         .keyboardType(.emailAddress)
+                        .disableAutocorrection(true)
                         .padding()
                         .background(Color.brand.surface)
                         .cornerRadius(CornerRadius.md)
@@ -49,7 +51,6 @@ struct LoginView: View {
                                 .stroke(Color.brand.border, lineWidth: 1)
                         )
                     
-                    // Password field
                     SecureField("Password", text: $password)
                         .padding()
                         .background(Color.brand.surface)
@@ -65,7 +66,6 @@ struct LoginView: View {
                             .foregroundColor(Color.brand.destructive)
                     }
 
-                    // Log In button
                     Button(action: signIn) {
                         if isLoading {
                             ProgressView()
@@ -82,7 +82,6 @@ struct LoginView: View {
                     .cornerRadius(CornerRadius.md)
                     .disabled(isLoading)
 
-                    // Forgot Password button
                     Button("Forgot Password?") {
                         showPasswordReset = true
                     }
@@ -112,12 +111,23 @@ struct LoginView: View {
     }
     
     private func signIn() {
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !trimmedEmail.isEmpty, !trimmedPassword.isEmpty else {
+            errorMessage = "Please enter both email and password."
+            return
+        }
+        
         isLoading = true
         errorMessage = ""
         
         Task {
             do {
-                try await authService.signIn(email: email, password: password)
+                try await authService.signIn(email: trimmedEmail, password: trimmedPassword)
+                await MainActor.run {
+                    isLoading = false
+                }
             } catch {
                 await MainActor.run {
                     errorMessage = "Invalid email or password"
