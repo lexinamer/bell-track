@@ -17,12 +17,18 @@ struct BlockInsight: Identifiable {
     let blocks: [WorkoutBlock] // all occurrences of this block
 }
 
+// MARK: - Insights View
 struct InsightsView: View {
     @EnvironmentObject var authService: AuthService
-    @Environment(\.dismiss) var dismiss   // ← add this
+    @Environment(\.dismiss) var dismiss
 
     @State private var blocks: [WorkoutBlock] = []
     @State private var isLoading = true
+
+    // rename state
+    @State private var renameTarget: BlockInsight?
+    @State private var newName: String = ""
+    @State private var isRenaming = false
 
     private let firestoreService = FirestoreService()
 
@@ -51,8 +57,25 @@ struct InsightsView: View {
                             } label: {
                                 InsightRow(insight: insight)
                             }
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.brand.background)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button {
+                                    renameTarget = insight
+                                    newName = insight.name
+                                    isRenaming = true
+                                } label: {
+                                    Label("Rename", systemImage: "pencil")
+                                }
+                                .tint(Color.brand.primary)
+                            }
+                            // full-width dividers, white cards
+                            .listRowSeparator(.visible)
+                            .listRowInsets(.init(
+                                top: 0,
+                                leading: 0,
+                                bottom: 0,
+                                trailing: WorkoutListStyle.cardHorizontalPadding
+                            ))
+                            .listRowBackground(Color.brand.surface)
                         }
                     }
                     .listStyle(.plain)
@@ -61,15 +84,6 @@ struct InsightsView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // Leading X — same as Add/Edit Workout
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark")
-                            .foregroundColor(Color.brand.textPrimary)
-                    }
-                }
-
-                // Centered title
                 ToolbarItem(placement: .principal) {
                     Text("Insights")
                         .font(.system(size: Typography.lg, weight: .semibold))
@@ -80,6 +94,24 @@ struct InsightsView: View {
                 await loadBlocks()
             }
         }
+        // Rename alert
+        .alert("Rename Movement", isPresented: $isRenaming) {
+            TextField("New name", text: $newName)
+
+            Button("Save") {
+                guard let target = renameTarget else { return }
+                let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty, trimmed != target.name else { return }
+
+                Task {
+                    await renameMovement(from: target.name, to: trimmed)
+                }
+            }
+
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will rename this movement everywhere in your history.")
+        }
     }
 
     // MARK: - Derived insights
@@ -89,8 +121,7 @@ struct InsightsView: View {
         let tracked = blocks.compactMap { block -> WorkoutBlock? in
             guard
                 block.isTracked,
-                let type = block.trackType,
-                type != .none,
+                let _ = block.trackType,
                 block.trackValue != nil
             else {
                 return nil
@@ -108,8 +139,7 @@ struct InsightsView: View {
 
             guard let first = sortedByDate.first,
                   let last = sortedByDate.last,
-                  let type = last.trackType,
-                  type != .none
+                  let type = last.trackType
             else { return nil }
 
             let unit = last.trackUnit
@@ -118,11 +148,9 @@ struct InsightsView: View {
 
             let bestValue: Double
             switch type {
-            case .weight, .time:
-                // Larger = better (heavier or longer)
+            case .weight, .reps, .time:
+                // Higher = better (heavier, more reps, or longer)
                 bestValue = values.max() ?? lastValue
-            case .none:
-                return nil
             }
 
             return BlockInsight(
@@ -164,12 +192,35 @@ struct InsightsView: View {
             }
         }
     }
+
+    // MARK: - Rename
+
+    private func renameMovement(from oldName: String, to newName: String) async {
+        guard let userId = authService.user?.uid else { return }
+
+        do {
+            let fetched = try await firestoreService.fetchBlocks(userId: userId)
+
+            let matching = fetched.filter { $0.name == oldName }
+
+            for var block in matching {
+                block.name = newName
+                try await firestoreService.saveBlock(block)
+            }
+
+            await loadBlocks()   // refresh insights
+        } catch {
+            print("Rename failed:", error)
+        }
+    }
 }
 
 // MARK: - Summary row
 
 struct InsightRow: View {
     let insight: BlockInsight
+
+    // MARK: - Computed display strings
 
     private var lastFormatted: String {
         format(value: insight.lastValue,
@@ -185,48 +236,43 @@ struct InsightRow: View {
 
     private var dateRangeText: String {
         let first = insight.firstDate.formatted(date: .abbreviated, time: .omitted)
-        let last = insight.lastDate.formatted(date: .abbreviated, time: .omitted)
+        let last  = insight.lastDate.formatted(date: .abbreviated, time: .omitted)
 
-        if first == last {
-            return "on \(first)"
-        } else {
-            return "since \(first)"
-        }
+        return first == last ? "on \(first)" : "since \(first)"
     }
+
+    // MARK: - Body
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             Text(insight.name)
-                .font(.system(size: Typography.md, weight: .semibold))
+                .font(TextStyles.bodyStrong)
                 .foregroundColor(Color.brand.textPrimary)
 
             HStack(spacing: Spacing.sm) {
                 Text("Last:")
-                    .font(.system(size: Typography.sm, weight: .semibold))
-                    .foregroundColor(Color.brand.textSecondary)
-
+                    .font(TextStyles.body)
                 Text(lastFormatted)
-                    .font(.system(size: Typography.sm))
-                    .foregroundColor(Color.brand.textPrimary)
+                    .font(TextStyles.body)
 
                 Text("·")
-                    .foregroundColor(Color.brand.textSecondary)
 
                 Text("Best:")
-                    .font(.system(size: Typography.sm, weight: .semibold))
-                    .foregroundColor(Color.brand.textSecondary)
-
+                    .font(TextStyles.body)
                 Text(bestFormatted)
-                    .font(.system(size: Typography.sm))
-                    .foregroundColor(Color.brand.textPrimary)
+                    .font(TextStyles.body)
             }
+            .foregroundColor(Color.brand.textPrimary)
 
             Text("\(insight.count) sessions \(dateRangeText)")
-                .font(.system(size: Typography.xs))
+                .font(TextStyles.subtext)
                 .foregroundColor(Color.brand.textSecondary)
         }
-        .padding(.vertical, Spacing.sm)
+        .padding(.vertical, WorkoutListStyle.cardTopBottomPadding)
+        .padding(.horizontal, WorkoutListStyle.cardHorizontalPadding)
     }
+
+    // MARK: - Formatting helper
 
     private func format(value: Double,
                         type: WorkoutBlock.TrackType,
@@ -248,8 +294,11 @@ struct InsightRow: View {
                 return String(format: "%d:%02d mins", minutes, seconds)
             }
 
-        case .none:
-            return "-"
+        case .reps:
+            let v = value.truncatingRemainder(dividingBy: 1) == 0
+                ? "\(Int(value))"
+                : "\(value)"
+            return "\(v) reps"
         }
     }
 }

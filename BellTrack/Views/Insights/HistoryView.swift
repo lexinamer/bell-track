@@ -1,7 +1,7 @@
 import SwiftUI
 import Foundation
 
-struct HistoryView: View {   
+struct HistoryView: View {
     let insight: BlockInsight
 
     // newest first
@@ -19,7 +19,7 @@ struct HistoryView: View {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     HStack {
                         Text(block.date.formatted(date: .abbreviated, time: .omitted))
-                            .font(.system(size: Typography.sm, weight: .semibold))
+                            .font(TextStyles.bodyStrong)
                             .foregroundColor(Color.brand.textPrimary)
 
                         Spacer()
@@ -27,10 +27,10 @@ struct HistoryView: View {
                         if let value = block.trackValue,
                            isBest(value: value) {
                             Text("Best")
-                                .font(.system(size: Typography.xs, weight: .semibold))
+                                .font(TextStyles.subtextStrong)
                                 .padding(.horizontal, Spacing.xs)
                                 .padding(.vertical, 2)
-                                .background(Color.brand.primary.opacity(0.1))
+                                .background(Color.brand.primary.opacity(0.08))
                                 .foregroundColor(Color.brand.primary)
                                 .cornerRadius(CornerRadius.sm)
                         }
@@ -38,18 +38,29 @@ struct HistoryView: View {
 
                     if let value = block.trackValue {
                         Text(format(value: value))
-                            .font(.system(size: Typography.sm))
+                            .font(TextStyles.body)
                             .foregroundColor(Color.brand.textPrimary)
                     }
 
-                    let trimmedDetails = block.details.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let trimmedDetails = block.details
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+
                     if !trimmedDetails.isEmpty {
                         Text(trimmedDetails)
-                            .font(.system(size: Typography.sm))
+                            .font(TextStyles.body)
                             .foregroundColor(Color.brand.textSecondary)
                     }
                 }
                 .padding(.vertical, Spacing.sm)
+                // match Insights / Workouts row chrome
+                .listRowSeparator(.visible)
+                .listRowInsets(.init(
+                    top: Spacing.xs,
+                    leading: Spacing.lg,
+                    bottom: Spacing.xs,
+                    trailing: Spacing.lg
+                ))
+                .listRowBackground(Color.brand.surface)
             }
         }
         .listStyle(.plain)
@@ -58,7 +69,7 @@ struct HistoryView: View {
         .navigationTitle(insight.name)
         .navigationBarTitleDisplayMode(.inline)
     }
-    
+
     private func isBest(value: Double) -> Bool {
         abs(value - bestValue) < 0.0001
     }
@@ -81,8 +92,11 @@ struct HistoryView: View {
                 return String(format: "%d:%02d mins", minutes, seconds)
             }
 
-        case .none:
-            return "-"
+        case .reps:
+            let reps = value.truncatingRemainder(dividingBy: 1) == 0
+                ? "\(Int(value))"
+                : "\(value)"
+            return "\(reps) reps"
         }
     }
 }

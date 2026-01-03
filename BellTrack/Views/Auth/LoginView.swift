@@ -1,23 +1,38 @@
 import SwiftUI
 
-struct SignUpView: View {
-    @Environment(\.dismiss) var dismiss
+struct LoginView: View {
     @EnvironmentObject var authService: AuthService
     @State private var email = ""
     @State private var password = ""
-    @State private var confirmPassword = ""
     @State private var errorMessage = ""
     @State private var isLoading = false
+    @State private var showSignUp = false
+    @State private var showPasswordReset = false
+    @State private var resetEmail = ""
+    @State private var resetMessage = ""
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: Spacing.sm) {
+            VStack(spacing: Spacing.md) {
                 Spacer()
                     .frame(height: 60)
                 
-                Text("Create Account")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundColor(Color.brand.secondary)
+                HStack(spacing: Spacing.sm) {
+                    Image("AppLogo")
+                        .resizable()
+                        .renderingMode(.original)
+                        .frame(width: 40, height: 50)
+                    
+                    Text("BELL TRACK")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(Color.brand.primary)
+                        .kerning(2.8)
+                }
+                
+                Text("Your workout journal, simplified.")
+                        .font(.system(size: Typography.lg))
+                        .foregroundColor(Color.brand.textPrimary)
+                        .kerning(0.3)
                 
                 Spacer()
                     .frame(height: 40)
@@ -34,6 +49,7 @@ struct SignUpView: View {
                                 .stroke(Color.brand.border, lineWidth: 1)
                         )
                     
+                    // Password field
                     SecureField("Password", text: $password)
                         .padding()
                         .background(Color.brand.surface)
@@ -42,81 +58,69 @@ struct SignUpView: View {
                             RoundedRectangle(cornerRadius: CornerRadius.md)
                                 .stroke(Color.brand.border, lineWidth: 1)
                         )
-                    
-                    SecureField("Confirm Password", text: $confirmPassword)
-                        .padding()
-                        .background(Color.brand.surface)
-                        .cornerRadius(CornerRadius.md)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: CornerRadius.md)
-                                .stroke(Color.brand.border, lineWidth: 1)
-                        )
-                    
+
                     if !errorMessage.isEmpty {
                         Text(errorMessage)
                             .font(.system(size: Typography.sm))
                             .foregroundColor(Color.brand.destructive)
                     }
-                    
-                    Button(action: signUp) {
+
+                    // Log In button
+                    Button(action: signIn) {
                         if isLoading {
                             ProgressView()
                                 .tint(.white)
                         } else {
-                            Text("Sign Up")
+                            Text("Log In")
                                 .fontWeight(.semibold)
                         }
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.brand.secondary)
+                    .background(Color.brand.primary)
                     .foregroundColor(.white)
                     .cornerRadius(CornerRadius.md)
                     .disabled(isLoading)
+
+                    // Forgot Password button
+                    Button("Forgot Password?") {
+                        showPasswordReset = true
+                    }
+                    .font(.system(size: Typography.sm))
+                    .foregroundColor(Color.brand.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+
                 }
                 .padding(.horizontal, Spacing.lg)
                 
                 Spacer()
-            }
-            .background(Color.brand.background)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .foregroundColor(Color.brand.textPrimary)
-                    }
+                    .frame(height: 30)
+                
+                Button(action: { showSignUp = true }) {
+                    Text("Don't have an account? Sign Up")
+                        .foregroundColor(Color.brand.primary)
                 }
+            }
+            .background(Color.brand.surface)
+            .sheet(isPresented: $showSignUp) {
+                SignUpView()
+            }
+            .sheet(isPresented: $showPasswordReset) {
+                PasswordResetView()
             }
         }
     }
     
-    private func signUp() {
-        errorMessage = ""
-        
-        guard password == confirmPassword else {
-            errorMessage = "Passwords don't match"
-            return
-        }
-        
-        guard password.count >= 6 else {
-            errorMessage = "Password must be at least 6 characters"
-            return
-        }
-        
+    private func signIn() {
         isLoading = true
+        errorMessage = ""
         
         Task {
             do {
-                try await authService.signUp(email: email, password: password)
-                await MainActor.run {
-                    dismiss()
-                }
+                try await authService.signIn(email: email, password: password)
             } catch {
                 await MainActor.run {
-                    errorMessage = "Failed to create account"
+                    errorMessage = "Invalid email or password"
                     isLoading = false
                 }
             }

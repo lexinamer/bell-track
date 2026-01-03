@@ -3,10 +3,10 @@ import FirebaseAuth
 
 struct FormBlock: Identifiable {
     let id = UUID()
-    var workoutBlockId: String?           // For existing blocks (edit mode)
+    var workoutBlockId: String?
     var name: String = ""
     var details: String = ""
-    var isTracked: Bool = false
+    var isTracked: Bool = true
     var trackType: WorkoutBlock.TrackType = .weight
     var trackValue: String = ""
     var trackUnit: String = "kg"
@@ -25,7 +25,6 @@ struct AddEditWorkoutView: View {
     @EnvironmentObject var authService: AuthService
 
     @State private var date = Date()
-    @State private var notes = ""
     @State private var formBlocks: [FormBlock] = [FormBlock()]
     @State private var isSaving = false
     @State private var showDatePicker = false
@@ -36,16 +35,13 @@ struct AddEditWorkoutView: View {
 
     let workoutDate: Date?              // non-nil when editing an existing day
     let existingBlocks: [WorkoutBlock]  // blocks for that day (edit) or empty (new)
-    let existingNote: DateNote?         // note for that day (edit) or nil (new)
 
     init(
         workoutDate: Date? = nil,
-        existingBlocks: [WorkoutBlock] = [],
-        existingNote: DateNote? = nil
+        existingBlocks: [WorkoutBlock] = []
     ) {
         self.workoutDate = workoutDate
         self.existingBlocks = existingBlocks
-        self.existingNote = existingNote
     }
 
     var body: some View {
@@ -53,7 +49,6 @@ struct AddEditWorkoutView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: AddEditStyle.sectionSpacing) {
                     DatePickerSection(date: $date, showDatePicker: $showDatePicker)
-                    NotesSection(notes: $notes)
                     BlocksSection(
                         formBlocks: $formBlocks,
                         suggestions: trackedSuggestions
@@ -62,7 +57,7 @@ struct AddEditWorkoutView: View {
                 }
                 .padding(Spacing.md)
             }
-            .background(Color.brand.background)
+            .background(Color.brand.surface)
             .scrollDismissesKeyboard(.immediately)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -75,7 +70,7 @@ struct AddEditWorkoutView: View {
 
                 ToolbarItem(placement: .principal) {
                     Text(workoutDate != nil ? "Edit Workout" : "Add Workout")
-                        .font(AddEditStyle.titleFont)
+                        .font(TextStyles.title)
                         .foregroundColor(Color.brand.textPrimary)
                 }
 
@@ -83,9 +78,9 @@ struct AddEditWorkoutView: View {
                     Button("Save") {
                         saveWorkout()
                     }
-                    .font(AddEditStyle.helperLabelFont)
+                    .font(TextStyles.bodyStrong)
                     .buttonStyle(.borderedProminent)
-                    .tint(Color.brand.secondary)
+                    .tint(Color.brand.primary)
                     .disabled(isSaving || !isValid)
                 }
             }
@@ -145,9 +140,6 @@ struct AddEditWorkoutView: View {
             date = workoutDate
         }
 
-        // Prefill note if present
-        notes = existingNote?.note ?? ""
-
         // If no existing blocks, just keep a single empty block
         guard !existingBlocks.isEmpty else {
             formBlocks = [FormBlock()]
@@ -163,8 +155,8 @@ struct AddEditWorkoutView: View {
                 workoutBlockId: block.id,
                 name: block.name,
                 details: block.details,
-                isTracked: block.isTracked,
-                trackType: block.trackType ?? .none,
+                isTracked: true,
+                trackType: block.trackType ?? .reps,
                 trackValue: trackValue,
                 trackUnit: trackUnit,
                 createdAt: block.createdAt
@@ -242,16 +234,21 @@ struct AddEditWorkoutView: View {
                     var finalTrackUnit: String? = nil
                     var finalTrackType: WorkoutBlock.TrackType? = nil
 
-                    if formBlock.trackType != .none {
-                        finalTrackType = formBlock.trackType
+                    let type = formBlock.trackType
+                    finalTrackType = type
 
-                        if formBlock.trackType == .time {
-                            parsedTrackValue = parseTimeString(formBlock.trackValue)
-                            finalTrackUnit = nil
-                        } else if formBlock.trackType == .weight {
-                            parsedTrackValue = Double(formBlock.trackValue)
-                            finalTrackUnit = formBlock.trackUnit
-                        }
+                    switch type {
+                    case .time:
+                        parsedTrackValue = parseTimeString(formBlock.trackValue)
+                        finalTrackUnit = nil
+
+                    case .weight:
+                        parsedTrackValue = Double(formBlock.trackValue)
+                        finalTrackUnit = formBlock.trackUnit
+
+                    case .reps:
+                        parsedTrackValue = Double(formBlock.trackValue)
+                        finalTrackUnit = nil
                     }
 
                     let block = WorkoutBlock(
@@ -261,29 +258,13 @@ struct AddEditWorkoutView: View {
                         createdAt: formBlock.createdAt,
                         name: trimmedName,
                         details: formBlock.details.trimmingCharacters(in: .whitespacesAndNewlines),
-                        isTracked: formBlock.isTracked,
+                        isTracked: true,
                         trackType: finalTrackType,
                         trackValue: parsedTrackValue,
                         trackUnit: finalTrackUnit
                     )
 
                     try await firestoreService.saveBlock(block)
-                }
-
-                // 3. Save or delete the note
-                let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
-                let startOfDay = calendar.startOfDay(for: date)
-
-                if !trimmedNotes.isEmpty {
-                    let note = DateNote(
-                        id: existingNote?.id,
-                        userId: userId,
-                        date: startOfDay,
-                        note: trimmedNotes
-                    )
-                    try await firestoreService.saveDateNote(note)
-                } else if let noteId = existingNote?.id {
-                    try await firestoreService.deleteDateNote(id: noteId)
                 }
 
                 await MainActor.run { dismiss() }
@@ -304,13 +285,13 @@ struct DatePickerSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AddEditStyle.labelToFieldSpacing) {
             Text("Date")
-                .font(AddEditStyle.sectionLabelFont)
+                .font(TextStyles.subtextStrong)
                 .foregroundColor(Color.brand.textPrimary)
 
             Button(action: { showDatePicker = true }) {
                 HStack {
                     Text(date.formatted(date: .abbreviated, time: .omitted))
-                        .font(AddEditStyle.fieldFont)
+                        .font(TextStyles.body)
                         .foregroundColor(Color.brand.textPrimary)
                     Spacer()
                     Image(systemName: "calendar")
@@ -329,29 +310,6 @@ struct DatePickerSection: View {
     }
 }
 
-struct NotesSection: View {
-    @Binding var notes: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: AddEditStyle.labelToFieldSpacing) {
-            Text("Notes (optional)")
-                .font(AddEditStyle.sectionLabelFont)
-                .foregroundColor(Color.brand.textPrimary)
-
-            TextEditor(text: $notes)
-                .font(AddEditStyle.fieldFont)
-                .frame(minHeight: 60)
-                .padding(Spacing.sm)
-                .background(Color.brand.surface)
-                .cornerRadius(CornerRadius.sm)
-                .overlay(
-                    RoundedRectangle(cornerRadius: CornerRadius.sm)
-                        .stroke(Color.brand.border, lineWidth: 1)
-                )
-        }
-    }
-}
-
 struct BlocksSection: View {
     @Binding var formBlocks: [FormBlock]
     let suggestions: [TrackedSuggestion]
@@ -359,11 +317,9 @@ struct BlocksSection: View {
     var body: some View {
         ForEach(formBlocks.indices, id: \.self) { index in
             VStack(alignment: .leading, spacing: AddEditStyle.fieldStackSpacing) {
-                HStack {
-                    Text("Block \(index + 1)")
-                        .font(AddEditStyle.blockTitleFont)
-                        .foregroundColor(Color.brand.textPrimary)
 
+                // DELETE BUTTON ONLY (right-aligned)
+                HStack {
                     Spacer()
 
                     if formBlocks.count > 1 {
@@ -401,9 +357,9 @@ struct AddBlockButton: View {
         } label: {
             HStack {
                 Image(systemName: "plus.circle.fill")
-                Text("Add Block")
+                Text("Add Movement")
             }
-            .font(AddEditStyle.blockTitleFont)
+            .font(TextStyles.bodyStrong)
             .foregroundColor(Color.brand.primary)
         }
     }
@@ -433,12 +389,23 @@ struct DatePickerSheet: View {
     }
 }
 
+// MARK: - Block Form Fields
 struct BlockFormFields: View {
     @Binding var block: FormBlock
     let suggestions: [TrackedSuggestion]
 
     @State private var showSuggestions = false
     @FocusState private var nameFieldFocused: Bool
+
+    // MARK: - Derived metric label
+
+    private var metricLabel: String {
+        switch block.trackType {
+        case .weight: return "Weight"
+        case .time:   return "Time"
+        case .reps:   return "Reps"
+        }
+    }
 
     // Filter suggestions based on what the user is typing
     private var filteredSuggestions: [TrackedSuggestion] {
@@ -449,7 +416,6 @@ struct BlockFormFields: View {
 
         return Array(
             suggestions
-                // starts with text AND not exactly the same as what’s already in the field
                 .filter {
                     $0.name.lowercased().hasPrefix(lower) &&
                     $0.name.caseInsensitiveCompare(query) != .orderedSame
@@ -461,33 +427,17 @@ struct BlockFormFields: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AddEditStyle.fieldStackSpacing) {
 
-            // Name + track
+            // NAME
             VStack(alignment: .leading, spacing: AddEditStyle.labelToFieldSpacing) {
                 HStack {
                     Text("Movement")
-                        .font(AddEditStyle.sectionLabelFont)
+                        .font(TextStyles.subtextStrong)
                         .foregroundColor(Color.brand.textPrimary)
-
                     Spacer()
-
-                    Button(action: { block.isTracked.toggle() }) {
-                        Image(systemName: block.isTracked ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(
-                                block.isTracked
-                                ? Color.brand.primary
-                                : Color.brand.textSecondary
-                            )
-                            .font(.system(size: AddEditStyle.trackIconSize))
-                    }
-
-                    Text("Tracking Progress")
-                        .font(AddEditStyle.helperLabelFont)
-                        .foregroundColor(Color.brand.textSecondary)
                 }
 
-                // Name field
                 TextField("ABC, Planks, Clean + Press...", text: $block.name)
-                    .font(AddEditStyle.fieldFont)
+                    .font(TextStyles.body)
                     .customTextField()
                     .focused($nameFieldFocused)
                     .onChange(of: block.name) { _, _ in
@@ -495,7 +445,7 @@ struct BlockFormFields: View {
                     }
                     .onChange(of: nameFieldFocused) { _, hasFocus in
                         if !hasFocus {
-                            showSuggestions = false   // 👈 hide when tapping away
+                            showSuggestions = false
                         } else {
                             showSuggestions = !filteredSuggestions.isEmpty
                         }
@@ -506,31 +456,25 @@ struct BlockFormFields: View {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(filteredSuggestions) { suggestion in
                             Button {
-                                // Fill name
                                 block.name = suggestion.name
-
-                                // Auto-enable tracking
                                 block.isTracked = true
-
-                                // Apply metric defaults
                                 block.trackType = suggestion.trackType
 
                                 if suggestion.trackType == .weight {
                                     block.trackUnit = suggestion.trackUnit ?? "kg"
                                 }
 
-                                // Hide dropdown after selection
                                 showSuggestions = false
                             } label: {
                                 Text(suggestion.name)
-                                    .font(AddEditStyle.helperLabelFont)
+                                    .font(TextStyles.subtext)
                                     .foregroundColor(Color.brand.textPrimary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.vertical, 10)   // 👍 thumb-sized tap
+                                    .padding(.vertical, 10)
                                     .padding(.horizontal, 8)
                             }
                             .buttonStyle(.plain)
-                            .contentShape(Rectangle())     // full row is tappable
+                            .contentShape(Rectangle())
                         }
                     }
                     .background(Color.brand.surface)
@@ -543,78 +487,89 @@ struct BlockFormFields: View {
                 }
             }
 
-            // Metric picker
+            // MEASUREMENT
             VStack(alignment: .leading, spacing: AddEditStyle.labelToFieldSpacing) {
                 Text("Metric")
-                    .font(AddEditStyle.sectionLabelFont)
+                    .font(TextStyles.subtextStrong)
                     .foregroundColor(Color.brand.textPrimary)
 
-                Picker("", selection: $block.trackType) {
-                    Text("Weight").tag(WorkoutBlock.TrackType.weight)
-                    Text("Time").tag(WorkoutBlock.TrackType.time)
-                    Text("None").tag(WorkoutBlock.TrackType.none)
-                }
-                .pickerStyle(.segmented)
-                .font(AddEditStyle.helperLabelFont)
-            }
+                HStack(spacing: Spacing.sm) {
 
-            // Weight
-            if block.trackType == .weight {
-                VStack(alignment: .leading, spacing: AddEditStyle.labelToFieldSpacing) {
-                    Text("Weight")
-                        .font(AddEditStyle.sectionLabelFont)
-                        .foregroundColor(Color.brand.textPrimary)
-
-                    HStack(spacing: Spacing.md) {
-                        TextField("16", text: $block.trackValue)
-                            .keyboardType(.decimalPad)
-                            .font(AddEditStyle.fieldFont)
-                            .customTextField()
-                            .frame(maxWidth: .infinity)
-
-                        Picker("", selection: $block.trackUnit) {
-                            Text("kg").tag("kg")
-                            Text("lbs").tag("lbs")
+                    // 1) DROPDOWN – fixed-ish width
+                    Menu {
+                        Button("Weight") { block.trackType = .weight }
+                        Button("Time")   { block.trackType = .time }
+                        Button("Reps")   { block.trackType = .reps }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(metricLabel)
+                                .font(TextStyles.subtext)
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.caption2)
                         }
-                        .pickerStyle(.segmented)
-                        .font(AddEditStyle.helperLabelFont)
-                        .frame(width: 100)
+                        .frame(minWidth: 90, maxWidth: 110)
+                        .customTextField()
+                        .overlay(
+                            RoundedRectangle(cornerRadius: CornerRadius.sm)
+                                .stroke(Color.brand.border, lineWidth: 1)
+                        )
                     }
-                }
-            }
+                    .buttonStyle(.plain)
 
-            // Time
-            if block.trackType == .time {
-                VStack(alignment: .leading, spacing: AddEditStyle.labelToFieldSpacing) {
-                    Text("Time")
-                        .font(AddEditStyle.sectionLabelFont)
-                        .foregroundColor(Color.brand.textPrimary)
+                    // 2) VALUE INPUT – takes all remaining space
+                    TextField(
+                        block.trackType == .time ? "2:30" : "16",
+                        text: $block.trackValue
+                    )
+                    .keyboardType(block.trackType == .time ? .numbersAndPunctuation : .decimalPad)
+                    .font(TextStyles.body)
+                    .customTextField()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
+                    // 3) MEASUREMENT – pinned to far right
+                    if block.trackType == .weight {
+                        Button {
+                            block.trackUnit = (block.trackUnit == "lbs") ? "kg" : "lbs"
+                        } label: {
+                            Text(block.trackUnit)
+                                .font(TextStyles.subtext)
+                                .foregroundColor(Color.brand.textSecondary)
+                                .frame(width: 56)
+                                .customTextField()
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: CornerRadius.sm)
+                                        .stroke(Color.brand.border, lineWidth: 1)
+                                )
+                        }
+                        .buttonStyle(.plain)
 
-                    HStack(spacing: Spacing.md) {
-                        TextField("2:30", text: $block.trackValue)
-                            .keyboardType(.numbersAndPunctuation)
-                            .font(AddEditStyle.fieldFont)
-                            .customTextField()
-                            .frame(maxWidth: .infinity)
-
+                    } else if block.trackType == .time {
                         Text("mins")
-                            .font(AddEditStyle.helperLabelFont)
+                            .font(TextStyles.subtext)
                             .foregroundColor(Color.brand.textSecondary)
+                            .frame(width: 56, height: 40, alignment: .trailing)
+
+                    } else if block.trackType == .reps {
+                        Text("reps")
+                            .font(TextStyles.subtext)
+                            .foregroundColor(Color.brand.textSecondary)
+                            .frame(width: 56, height: 40, alignment: .trailing)
                     }
                 }
+                .frame(maxWidth: .infinity) // ⬅️ whole row full-width
             }
 
-            // Details
+            // DETAILS
             VStack(alignment: .leading, spacing: AddEditStyle.labelToFieldSpacing) {
                 Text("Details")
-                    .font(AddEditStyle.sectionLabelFont)
+                    .font(TextStyles.subtextStrong)
                     .foregroundColor(Color.brand.textPrimary)
 
                 TextEditor(text: $block.details)
-                    .font(AddEditStyle.fieldFont)
+                    .font(TextStyles.body)
                     .frame(minHeight: 60)
                     .padding(Spacing.sm)
-                    .background(Color.brand.background)
+                    .background(Color.brand.surface)
                     .cornerRadius(CornerRadius.sm)
                     .overlay(
                         RoundedRectangle(cornerRadius: CornerRadius.sm)
@@ -631,7 +586,8 @@ struct CustomTextFieldStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(Spacing.md)
-            .background(Color.brand.background)
+            .frame(height: 40)
+            .background(Color.brand.surface)
             .cornerRadius(CornerRadius.sm)
             .overlay(
                 RoundedRectangle(cornerRadius: CornerRadius.sm)

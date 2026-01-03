@@ -8,3 +8,18 @@ struct Spacing {
     static let xl: CGFloat = 32
     static let xxl: CGFloat = 40
 }
+
+struct WorkoutListStyle {
+    static let cardHorizontalPadding: CGFloat = Spacing.md
+    static let cardTopBottomPadding: CGFloat = Spacing.lg
+    static let dateToFirstBlock: CGFloat = Spacing.sm
+    static let betweenBlocks: CGFloat = Spacing.md
+    static let blockLineSpacing: CGFloat = Spacing.xs
+}
+
+struct AddEditStyle {
+    static let sectionSpacing: CGFloat = Spacing.sm
+    static let labelToFieldSpacing: CGFloat = Spacing.xs
+    static let fieldStackSpacing: CGFloat = Spacing.md
+    static let blockCardPadding: CGFloat = Spacing.xs
+}

@@ -29,32 +29,6 @@ class FirestoreService {
         try await db.collection("blocks").document(id).delete()
     }
     
-    // MARK: - Notes
-    func fetchDateNote(userId: String, date: Date) async throws -> DateNote? {
-        let startOfDay = Calendar.current.startOfDay(for: date)
-        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
-        
-        let snapshot = try await db.collection("date_notes")
-            .whereField("userId", isEqualTo: userId)
-            .whereField("date", isGreaterThanOrEqualTo: startOfDay)
-            .whereField("date", isLessThan: endOfDay)
-            .getDocuments()
-        
-        return snapshot.documents.first.flatMap { try? $0.data(as: DateNote.self) }  // Changed map to flatMap
-    }
-
-    func saveDateNote(_ note: DateNote) async throws {
-        if let id = note.id {
-            try db.collection("date_notes").document(id).setData(from: note)
-        } else {
-            try db.collection("date_notes").addDocument(from: note)
-        }
-    }
-
-    func deleteDateNote(id: String) async throws {
-        try await db.collection("date_notes").document(id).delete()
-    }
-    
     // MARK: - Settings
     
     func fetchSettings(userId: String) async throws -> UserSettings? {
