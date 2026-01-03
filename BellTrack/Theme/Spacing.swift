@@ -9,17 +9,20 @@ struct Spacing {
     static let xxl: CGFloat = 40
 }
 
-struct WorkoutListStyle {
+struct CardStyle {
     static let cardHorizontalPadding: CGFloat = Spacing.md
+    static let cardVerticalPadding: CGFloat = cardTopBottomPadding
     static let cardTopBottomPadding: CGFloat = Spacing.lg
-    static let dateToFirstBlock: CGFloat = Spacing.sm
-    static let betweenBlocks: CGFloat = Spacing.md
+    static let dateToFirstBlock: CGFloat = -8
     static let blockLineSpacing: CGFloat = Spacing.xs
+    static let sectionSpacing: CGFloat = Spacing.md
+    static let bottomSpacer: CGFloat = Spacing.sm
 }
 
 struct AddEditStyle {
-    static let sectionSpacing: CGFloat = Spacing.sm
     static let labelToFieldSpacing: CGFloat = Spacing.xs
     static let fieldStackSpacing: CGFloat = Spacing.md
-    static let blockCardPadding: CGFloat = Spacing.xs
+    static let blockCardPadding: CGFloat = Spacing.sm
+    static let outerSectionSpacing: CGFloat = 0
+    static let movementFieldGroupSpacing: CGFloat = Spacing.md
 }

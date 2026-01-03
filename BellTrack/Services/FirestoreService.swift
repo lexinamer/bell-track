@@ -10,6 +10,7 @@ class FirestoreService {
         let snapshot = try await db.collection("blocks")
             .whereField("userId", isEqualTo: userId)
             .order(by: "date", descending: true)
+            .limit(to: 500)
             .getDocuments()
         
         return snapshot.documents.compactMap { doc in
@@ -34,6 +35,7 @@ class FirestoreService {
     func fetchSettings(userId: String) async throws -> UserSettings? {
         let snapshot = try await db.collection("settings")
             .whereField("userId", isEqualTo: userId)
+            .limit(to: 1)
             .getDocuments()
         
         return snapshot.documents.first.flatMap { try? $0.data(as: UserSettings.self) }

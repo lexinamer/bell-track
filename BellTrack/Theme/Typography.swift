@@ -10,7 +10,7 @@ struct Typography {
 }
 
 struct TextStyles {
-    static let title = Font.system(size: Typography.xl, weight: .bold)
+    static let title = Font.system(size: Typography.lg, weight: .bold)
     static let heading = Font.system(size: Typography.md, weight: .semibold)
     static let bodyStrong = Font.system(size: Typography.md, weight: .medium)
     static let body = Font.system(size: Typography.md, weight: .regular)

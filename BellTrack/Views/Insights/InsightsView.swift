@@ -2,14 +2,12 @@ import SwiftUI
 import FirebaseAuth
 import Foundation
 
+// MARK: - Insight model
+
 struct BlockInsight: Identifiable {
     let id = UUID()
     let name: String
-    let trackType: WorkoutBlock.TrackType
-    let unit: String?
 
-    let lastValue: Double
-    let bestValue: Double
     let count: Int
     let firstDate: Date
     let lastDate: Date
@@ -18,6 +16,7 @@ struct BlockInsight: Identifiable {
 }
 
 // MARK: - Insights View
+
 struct InsightsView: View {
     @EnvironmentObject var authService: AuthService
     @Environment(\.dismiss) var dismiss
@@ -52,28 +51,30 @@ struct InsightsView: View {
                 } else {
                     List {
                         ForEach(insights) { insight in
-                            NavigationLink {
-                                HistoryView(insight: insight)
-                            } label: {
+                            HStack(spacing: 0) {
                                 InsightRow(insight: insight)
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(Color.brand.textSecondary)
                             }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                Button {
-                                    renameTarget = insight
-                                    newName = insight.name
-                                    isRenaming = true
+                            .padding(.horizontal, Spacing.lg)
+                            .contentShape(Rectangle())
+                            .background(
+                                NavigationLink {
+                                    HistoryView(insight: insight)
                                 } label: {
-                                    Label("Rename", systemImage: "pencil")
+                                    EmptyView()
                                 }
-                                .tint(Color.brand.primary)
-                            }
-                            // full-width dividers, white cards
+                                .opacity(0)
+                            )
+                            // full-width divider, content padded inside
                             .listRowSeparator(.visible)
                             .listRowInsets(.init(
-                                top: 0,
+                                top: Spacing.xs,
                                 leading: 0,
-                                bottom: 0,
-                                trailing: WorkoutListStyle.cardHorizontalPadding
+                                bottom: Spacing.xs,
+                                trailing: 0
                             ))
                             .listRowBackground(Color.brand.surface)
                         }
@@ -86,7 +87,7 @@ struct InsightsView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Insights")
-                        .font(.system(size: Typography.lg, weight: .semibold))
+                        .font(TextStyles.title)
                         .foregroundColor(Color.brand.textPrimary)
                 }
             }
@@ -117,48 +118,21 @@ struct InsightsView: View {
     // MARK: - Derived insights
 
     private var insights: [BlockInsight] {
-        // Only tracked blocks with a metric
-        let tracked = blocks.compactMap { block -> WorkoutBlock? in
-            guard
-                block.isTracked,
-                let _ = block.trackType,
-                block.trackValue != nil
-            else {
-                return nil
-            }
-            return block
-        }
+        // Only tracked blocks
+        let tracked = blocks.filter { $0.isTracked }
 
-        // Group by name ONLY
-        let groups = Dictionary(grouping: tracked) { block in
-            block.name
-        }
+        // Group by name
+        let groups = Dictionary(grouping: tracked) { $0.name }
 
         return groups.compactMap { name, items in
             let sortedByDate = items.sorted { $0.date < $1.date }
 
             guard let first = sortedByDate.first,
-                  let last = sortedByDate.last,
-                  let type = last.trackType
+                  let last = sortedByDate.last
             else { return nil }
-
-            let unit = last.trackUnit
-            let values = items.compactMap { $0.trackValue }
-            guard let lastValue = last.trackValue else { return nil }
-
-            let bestValue: Double
-            switch type {
-            case .weight, .reps, .time:
-                // Higher = better (heavier, more reps, or longer)
-                bestValue = values.max() ?? lastValue
-            }
 
             return BlockInsight(
                 name: name,
-                trackType: type,
-                unit: unit,
-                lastValue: lastValue,
-                bestValue: bestValue,
                 count: items.count,
                 firstDate: first.date,
                 lastDate: last.date,
@@ -220,28 +194,103 @@ struct InsightsView: View {
 struct InsightRow: View {
     let insight: BlockInsight
 
-    // MARK: - Computed display strings
-
-    private var lastFormatted: String {
-        format(value: insight.lastValue,
-               type: insight.trackType,
-               unit: insight.unit)
-    }
-
-    private var bestFormatted: String {
-        format(value: insight.bestValue,
-               type: insight.trackType,
-               unit: insight.unit)
+    // Last block (by date)
+    private var lastBlock: WorkoutBlock? {
+        insight.blocks.max(by: { $0.date < $1.date })
     }
 
     private var dateRangeText: String {
         let first = insight.firstDate.formatted(date: .abbreviated, time: .omitted)
-        let last  = insight.lastDate.formatted(date: .abbreviated, time: .omitted)
-
+        let last = insight.lastDate.formatted(date: .abbreviated, time: .omitted)
         return first == last ? "on \(first)" : "since \(first)"
     }
 
-    // MARK: - Body
+    // Load text like "16kg"
+    private func loadString(for block: WorkoutBlock) -> String? {
+        guard let load = block.loadKg else { return nil }
+
+        let base = load.truncatingRemainder(dividingBy: 1) == 0
+            ? "\(Int(load))kg"
+            : "\(load)kg"
+
+        return base   // not showing single/double here for now
+    }
+
+    // Volume text like "30 reps" or "20 rounds"
+    private func volumeString(for block: WorkoutBlock) -> String? {
+        guard let value = block.volumeCount else { return nil }
+
+        let v = value.truncatingRemainder(dividingBy: 1) == 0
+            ? "\(Int(value))"
+            : "\(value)"
+
+        if let kind = block.volumeKind {
+            switch kind {
+            case .reps:
+                return "\(v) reps"
+            case .rounds:
+                return "\(v) rounds"
+            }
+        } else {
+            return v
+        }
+    }
+
+    // "Last" line: from the most recent block
+    private var lastLine: String {
+        guard let block = lastBlock else { return "—" }
+
+        let loadText = loadString(for: block)
+        let volumeText = volumeString(for: block)
+
+        switch (loadText, volumeText) {
+        case (nil, nil):
+            return "—"
+        case (let l?, nil):
+            return l
+        case (nil, let v?):
+            return v
+        case (let l?, let v?):
+            return "\(l) · \(v)"
+        }
+    }
+
+    // "Best" line: max load and max volume across history
+    private var bestLine: String {
+        // Best load (max kg)
+        let bestLoad = insight.blocks
+            .compactMap { $0.loadKg }
+            .max()
+
+        let loadText: String? = {
+            guard let bestLoad else { return nil }
+            let base = bestLoad.truncatingRemainder(dividingBy: 1) == 0
+                ? "\(Int(bestLoad))kg"
+                : "\(bestLoad)kg"
+            return base
+        }()
+
+        // Best volume (max volumeCount) and its kind
+        let bestVolumeBlock = insight.blocks
+            .filter { $0.volumeCount != nil }
+            .max(by: { ($0.volumeCount ?? 0) < ($1.volumeCount ?? 0) })
+
+        let volumeText: String? = {
+            guard let block = bestVolumeBlock else { return nil }
+            return volumeString(for: block)
+        }()
+
+        switch (loadText, volumeText) {
+        case (nil, nil):
+            return "—"
+        case (let l?, nil):
+            return l
+        case (nil, let v?):
+            return v
+        case (let l?, let v?):
+            return "\(l) · \(v)"
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
@@ -249,56 +298,21 @@ struct InsightRow: View {
                 .font(TextStyles.bodyStrong)
                 .foregroundColor(Color.brand.textPrimary)
 
-            HStack(spacing: Spacing.sm) {
-                Text("Last:")
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Last: \(lastLine)")
                     .font(TextStyles.body)
-                Text(lastFormatted)
-                    .font(TextStyles.body)
+                    .foregroundColor(Color.brand.textSecondary)
 
-                Text("·")
-
-                Text("Best:")
+                Text("Best: \(bestLine)")
                     .font(TextStyles.body)
-                Text(bestFormatted)
-                    .font(TextStyles.body)
+                    .foregroundColor(Color.brand.textSecondary)
             }
-            .foregroundColor(Color.brand.textPrimary)
 
             Text("\(insight.count) sessions \(dateRangeText)")
                 .font(TextStyles.subtext)
-                .foregroundColor(Color.brand.textSecondary)
+                .foregroundColor(Color.brand.secondary)
+                .padding(.top, CardStyle.bottomSpacer)
         }
-        .padding(.vertical, WorkoutListStyle.cardTopBottomPadding)
-        .padding(.horizontal, WorkoutListStyle.cardHorizontalPadding)
-    }
-
-    // MARK: - Formatting helper
-
-    private func format(value: Double,
-                        type: WorkoutBlock.TrackType,
-                        unit: String?) -> String {
-        switch type {
-        case .weight:
-            let u = unit ?? "kg"
-            let v = value.truncatingRemainder(dividingBy: 1) == 0
-                ? "\(Int(value))"
-                : "\(value)"
-            return "\(v)\(u)"
-
-        case .time:
-            let minutes = Int(value) / 60
-            let seconds = Int(value) % 60
-            if seconds == 0 {
-                return "\(minutes) mins"
-            } else {
-                return String(format: "%d:%02d mins", minutes, seconds)
-            }
-
-        case .reps:
-            let v = value.truncatingRemainder(dividingBy: 1) == 0
-                ? "\(Int(value))"
-                : "\(value)"
-            return "\(v) reps"
-        }
+        .padding(.vertical, CardStyle.cardTopBottomPadding)
     }
 }

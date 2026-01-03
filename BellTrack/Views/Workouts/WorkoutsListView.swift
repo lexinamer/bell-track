@@ -57,7 +57,7 @@ struct WorkoutsListView: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Workouts")
-                        .font(.system(size: Typography.lg, weight: .semibold))
+                        .font(TextStyles.title)
                         .foregroundColor(Color.brand.textPrimary)
                 }
 
@@ -89,11 +89,11 @@ struct WorkoutsListView: View {
                 onDismiss: { Task { await reloadAll() } }
             ) { identifiableDate in
                 let date = identifiableDate.date
-                let key = calendar.startOfDay(for: date)
+                let day = calendar.startOfDay(for: date)
 
                 AddEditWorkoutView(
                     workoutDate: date,
-                    existingBlocks: groupedBlocks[key] ?? []
+                    existingBlocks: groupedBlocks[day] ?? []
                 )
                 .environmentObject(authService)
             }
@@ -123,7 +123,9 @@ struct WorkoutsListView: View {
     // MARK: - DATA LOADING
 
     private func reloadAll() async {
-        await MainActor.run { isLoading = true }
+        await MainActor.run {
+            isLoading = true
+        }
         await loadBlocks()
     }
 
@@ -143,9 +145,8 @@ struct WorkoutsListView: View {
                 isLoading = false
             }
         } catch {
-            print("Error loading blocks:", error)
             await MainActor.run {
-                isLoading = false
+                isLoading = false      // ⬅️ important: always stop spinner
             }
         }
     }
@@ -188,9 +189,10 @@ struct WorkoutsListView: View {
                 name: block.name,
                 details: block.details,
                 isTracked: block.isTracked,
-                trackType: block.trackType,
-                trackValue: block.trackValue,
-                trackUnit: block.trackUnit
+                loadKg: block.loadKg,
+                loadMode: block.loadMode,
+                volumeCount: block.volumeCount,
+                volumeKind: block.volumeKind
             )
         }
 
@@ -201,7 +203,8 @@ struct WorkoutsListView: View {
     }
 }
 
-// MARK: WORKOUTS LIST
+// MARK: - WORKOUTS LIST
+
 struct WorkoutsList: View {
     let groupedBlocks: [Date: [WorkoutBlock]]
     let onEditDay: (Date) -> Void
@@ -239,7 +242,7 @@ struct WorkoutsList: View {
     }
 }
 
-// MARK: - DAY CARD
+// MARK: - DAY CARD (one day, multiple blocks)
 
 struct WorkoutDayCard: View {
     let date: Date
@@ -248,36 +251,22 @@ struct WorkoutDayCard: View {
     let onDuplicate: () -> Void
     let onDelete: () -> Void
 
+    private var sortedBlocks: [WorkoutBlock] {
+        blocks.sorted { $0.createdAt < $1.createdAt }
+    }
+
     var body: some View {
-        ZStack(alignment: .leading) {
-            // card background
-            Color.white
-
-            VStack(alignment: .leading, spacing: 0) {
-
-                // DATE 
-                Text(date.formatted(date: .abbreviated, time: .omitted))
-                    .font(TextStyles.heading)
-                    .foregroundColor(Color.brand.textPrimary)
-
-                // BLOCKS
-                let sortedBlocks = blocks.sorted { $0.createdAt < $1.createdAt }
-
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(sortedBlocks.enumerated()), id: \.offset) { index, block in
-                        BlockCard(block: block)
-                            .padding(.top,
-                                index == 0
-                                ? WorkoutListStyle.dateToFirstBlock
-                                : WorkoutListStyle.betweenBlocks
-                            )
-                    }
-                }
+        VStack(alignment: .leading, spacing: CardStyle.sectionSpacing) {
+            // Small subtle date label above the movements
+            DateBadge(date: date)
+                .padding(.bottom, CardStyle.dateToFirstBlock)
+            ForEach(sortedBlocks) { block in
+                BlockCard(block: block)
             }
-            .padding(.horizontal, WorkoutListStyle.cardHorizontalPadding)
-            .padding(.vertical, WorkoutListStyle.cardTopBottomPadding)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .padding(.horizontal, CardStyle.cardHorizontalPadding)
+        .padding(.vertical, CardStyle.cardVerticalPadding)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive, action: onDelete) {
                 Label("Delete", systemImage: "trash")
@@ -296,39 +285,88 @@ struct WorkoutDayCard: View {
     }
 }
 
-// MARK: - BLOCK CARD
+
+private struct DateBadge: View {
+    let date: Date
+
+    // Year only in the previous years
+    private var displayStyle: Date.FormatStyle {
+        let calendar = Calendar.current
+        let currentYear = calendar.component(.year, from: Date())
+        let dateYear = calendar.component(.year, from: date)
+
+        if currentYear == dateYear {
+            // e.g. "Jan 3"
+            return .dateTime.month(.abbreviated).day()
+        } else {
+            // e.g. "Dec 29, 2025"
+            return .dateTime.month(.abbreviated).day().year()
+        }
+    }
+
+    var body: some View {
+        Text(date.formatted(displayStyle))
+            .font(TextStyles.subtext)
+            .foregroundColor(Color.brand.secondary)
+    }
+}
+
+// MARK: - BLOCK CARD (single movement row)
 
 struct BlockCard: View {
     let block: WorkoutBlock
 
-    private var metricText: String? {
-        guard let value = block.trackValue,
-              let type = block.trackType
-        else { return nil }
+    // Load text — e.g. "16kg Single" / "24kg Double"
+    private var loadText: String? {
+        guard let kg = block.loadKg else { return nil }
 
-        switch type {
-        case .weight:
-            let unit = block.trackUnit ?? "kg"
-            let formatted =
-                value.truncatingRemainder(dividingBy: 1) == 0
-                ? "\(Int(value))"
-                : "\(value)"
-            return "\(formatted)\(unit)"
+        let kgString: String =
+            kg.truncatingRemainder(dividingBy: 1) == 0
+            ? "\(Int(kg))"
+            : "\(kg)"
 
-        case .time:
-            let minutes = Int(value) / 60
-            let seconds = Int(value) % 60
-            return seconds == 0
-                ? "\(minutes) mins"
-                : String(format: "%d:%02d mins", minutes, seconds)
-
-        case .reps:
-            let formatted =
-                value.truncatingRemainder(dividingBy: 1) == 0
-                ? "\(Int(value))"
-                : "\(value)"
-            return "\(formatted) reps"
+        let modeLabel: String
+        switch block.loadMode {
+        case .single?:
+            modeLabel = "Single"
+        case .double?:
+            modeLabel = "Double"
+        case nil:
+            modeLabel = ""
         }
+
+        if modeLabel.isEmpty {
+            return "\(kgString)kg"
+        } else {
+            return "\(kgString)kg \(modeLabel)"
+        }
+    }
+
+    // Volume text — e.g. "30 reps" / "20 rounds"
+    private var volumeText: String? {
+        guard let value = block.volumeCount,
+              let kind = block.volumeKind else { return nil }
+
+        let valueString: String =
+            value.truncatingRemainder(dividingBy: 1) == 0
+            ? "\(Int(value))"
+            : "\(value)"
+
+        let label: String
+        switch kind {
+        case .reps:
+            label = "reps"
+        case .rounds:
+            label = "rounds"
+        }
+
+        return "\(valueString) \(label)"
+    }
+
+    // Combined metric line — e.g. "16kg Single • 30 rounds"
+    private var metricLine: String? {
+        let parts = [loadText, volumeText].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " • ")
     }
 
     private var detailsText: String? {
@@ -337,25 +375,26 @@ struct BlockCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: WorkoutListStyle.blockLineSpacing) {
+        VStack(alignment: .leading, spacing: CardStyle.blockLineSpacing) {
 
             // Movement name
             Text(block.name)
                 .font(TextStyles.bodyStrong)
                 .foregroundColor(Color.brand.textPrimary)
 
-            // Metric + details line
-            if metricText != nil || detailsText != nil {
+            // Load / volume / details line
+            if metricLine != nil || detailsText != nil {
                 HStack(spacing: 4) {
-                    if let metricText {
-                        Text(metricText)
+                    if let metricLine {
+                        Text(metricLine)
                             .foregroundColor(Color.brand.textSecondary)
                     }
 
                     if let detailsText {
-                        Text("•")
-                            .foregroundColor(Color.brand.textSecondary)
-
+                        if metricLine != nil {
+                            Text("•")
+                                .foregroundColor(Color.brand.textSecondary)
+                        }
                         Text(detailsText)
                             .foregroundColor(Color.brand.textSecondary)
                     }
@@ -364,20 +403,5 @@ struct BlockCard: View {
             }
         }
         .contentShape(Rectangle())
-    }
-}
-
-// MARK: - MODIFIER
-extension View {
-    @ViewBuilder
-    func `if`<Content: View>(
-        _ condition: Bool,
-        transform: (Self) -> Content
-    ) -> some View {
-        if condition {
-            transform(self)
-        } else {
-            self
-        }
     }
 }

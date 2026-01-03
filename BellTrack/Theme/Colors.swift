@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ColorTheme {
     let primary = Color("BrandPrimary")
+    let secondary = Color("BrandSecondary")
     let background = Color("Background")
     let surface = Color("Surface")
     let textPrimary = Color("TextPrimary")
