@@ -47,7 +47,7 @@ struct PasswordResetView: View {
                     
                     Button(action: sendResetEmail) {
                         if isLoading {
-                            ProgressView()
+                            ProgressListView()
                                 .tint(.white)
                         } else {
                             Text("Send Reset Link")

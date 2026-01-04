@@ -6,6 +6,7 @@ struct HistoryView: View {
     let insight: BlockInsight
 
     @EnvironmentObject var authService: AuthService
+    @Environment(\.dismiss) var dismiss
     private let firestoreService = FirestoreService()
 
     @State private var isRenaming: Bool = false
@@ -40,13 +41,7 @@ struct HistoryView: View {
 
                         if let volume = block.volumeCount,
                            isBest(volume: volume) {
-                            Text("Best")
-                                .font(TextStyles.subtextStrong)
-                                .padding(.horizontal, Spacing.xs)
-                                .padding(.vertical, 2)
-                                .background(Color.brand.primary.opacity(0.08))
-                                .foregroundColor(Color.brand.primary)
-                                .cornerRadius(CornerRadius.sm)
+                            Badge(text: "BEST")
                         }
                     }
 
@@ -54,7 +49,7 @@ struct HistoryView: View {
                     if let metric = metricLine(for: block) {
                         Text(metric)
                             .font(TextStyles.body)
-                            .foregroundColor(Color.brand.textPrimary)
+                            .foregroundColor(Color.brand.textSecondary)
                             .padding(.bottom, 0)
                     }
 
@@ -64,7 +59,7 @@ struct HistoryView: View {
                     if !trimmedDetails.isEmpty {
                         Text(trimmedDetails)
                             .font(TextStyles.subtext)
-                            .foregroundColor(Color.brand.secondary)
+                            .foregroundColor(Color.brand.textSecondary)
                             .padding(.top, CardStyle.bottomSpacer)
                     }
                 }
@@ -84,6 +79,7 @@ struct HistoryView: View {
         .background(Color.brand.background)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+
             ToolbarItem(placement: .principal) {
                 Text(movementName)
                     .font(TextStyles.title)

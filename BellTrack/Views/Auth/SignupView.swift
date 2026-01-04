@@ -62,7 +62,7 @@ struct SignUpView: View {
                     
                     Button(action: signUp) {
                         if isLoading {
-                            ProgressView()
+                            ProgressListView()
                                 .tint(.white)
                         } else {
                             Text("Sign Up")

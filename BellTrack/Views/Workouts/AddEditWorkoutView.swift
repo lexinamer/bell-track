@@ -90,7 +90,7 @@ struct AddEditWorkoutView: View {
                 }
 
                 ToolbarItem(placement: .principal) {
-                    Text(workoutDate != nil ? "Edit Workout" : "Add Workout")
+                    Text(workoutDate != nil ? "Edit Workout" : "Log Workout")
                         .font(TextStyles.title)
                         .foregroundColor(Color.brand.textPrimary)
                 }
@@ -352,7 +352,7 @@ struct BlocksSection: View {
 
                 // Header: label + expand/collapse + delete
                 HStack(alignment: .center) {
-                    Text("Set")
+                    Text("Block")
                         .font(TextStyles.bodyStrong)
                         .foregroundColor(Color.brand.textPrimary)
 
@@ -410,7 +410,7 @@ struct AddBlockButton: View {
         } label: {
             HStack {
                 Image(systemName: "plus.circle.fill")
-                Text("Add Set")
+                Text("Add Block")
             }
             .font(TextStyles.bodyStrong)
             .foregroundColor(Color.brand.primary)

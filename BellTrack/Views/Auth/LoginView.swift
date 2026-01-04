@@ -68,7 +68,7 @@ struct LoginView: View {
 
                     Button(action: signIn) {
                         if isLoading {
-                            ProgressView()
+                            ProgressListView()
                                 .tint(.white)
                         } else {
                             Text("Log In")

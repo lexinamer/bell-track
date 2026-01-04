@@ -34,7 +34,7 @@ struct WorkoutsListView: View {
                 Color.brand.background.ignoresSafeArea()
 
                 if isLoading {
-                    ProgressView()
+                    ProgressListView()
                 } else if groupedBlocks.isEmpty {
                     VStack(spacing: Spacing.sm) {
                         Text("No workouts yet")
@@ -289,25 +289,20 @@ struct WorkoutDayCard: View {
 private struct DateBadge: View {
     let date: Date
 
-    // Year only in the previous years
     private var displayStyle: Date.FormatStyle {
         let calendar = Calendar.current
         let currentYear = calendar.component(.year, from: Date())
         let dateYear = calendar.component(.year, from: date)
 
         if currentYear == dateYear {
-            // e.g. "Jan 3"
             return .dateTime.month(.abbreviated).day()
         } else {
-            // e.g. "Dec 29, 2025"
             return .dateTime.month(.abbreviated).day().year()
         }
     }
 
     var body: some View {
-        Text(date.formatted(displayStyle))
-            .font(TextStyles.subtext)
-            .foregroundColor(Color.brand.secondary)
+        Badge(text: date.formatted(displayStyle).uppercased())
     }
 }
 
@@ -382,24 +377,19 @@ struct BlockCard: View {
                 .font(TextStyles.bodyStrong)
                 .foregroundColor(Color.brand.textPrimary)
 
-            // Load / volume / details line
-            if metricLine != nil || detailsText != nil {
-                HStack(spacing: 4) {
-                    if let metricLine {
-                        Text(metricLine)
-                            .foregroundColor(Color.brand.textSecondary)
-                    }
+            // First metrics line (weight / volume)
+            if let metricLine {
+                Text(metricLine)
+                    .font(TextStyles.body)
+                    .foregroundColor(Color.brand.textSecondary)
+            }
 
-                    if let detailsText {
-                        if metricLine != nil {
-                            Text("•")
-                                .foregroundColor(Color.brand.textSecondary)
-                        }
-                        Text(detailsText)
-                            .foregroundColor(Color.brand.textSecondary)
-                    }
-                }
-                .font(TextStyles.body)
+            // Optional second line for details (scheme / notes)
+            if let detailsText {
+                Text(detailsText)
+                    .font(TextStyles.subtext)
+                    .foregroundColor(Color.brand.textSecondary)
+                    .padding(.top, CardStyle.bottomSpacer)
             }
         }
         .contentShape(Rectangle())

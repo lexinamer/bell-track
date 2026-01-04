@@ -13,9 +13,9 @@ struct CardStyle {
     static let cardHorizontalPadding: CGFloat = Spacing.md
     static let cardVerticalPadding: CGFloat = cardTopBottomPadding
     static let cardTopBottomPadding: CGFloat = Spacing.lg
-    static let dateToFirstBlock: CGFloat = -8
+    static let dateToFirstBlock: CGFloat = -24
     static let blockLineSpacing: CGFloat = Spacing.xs
-    static let sectionSpacing: CGFloat = Spacing.md
+    static let sectionSpacing: CGFloat = 28
     static let bottomSpacer: CGFloat = Spacing.sm
 }
 

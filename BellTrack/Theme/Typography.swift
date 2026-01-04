@@ -18,3 +18,18 @@ struct TextStyles {
     static let subtextStrong = Font.system(size: Typography.sm, weight: .medium)
     static let caption = Font.system(size: Typography.xs, weight: .regular)
 }
+
+// MARK: - Badge
+struct Badge: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(TextStyles.subtextStrong)
+            .padding(.horizontal, Spacing.xs)
+            .padding(.vertical, 2)
+            .background(Color.brand.textSecondary.opacity(0.12))
+            .foregroundColor(Color.brand.textSecondary)
+            .cornerRadius(CornerRadius.sm)
+    }
+}

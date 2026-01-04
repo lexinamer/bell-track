@@ -2,7 +2,7 @@ import SwiftUI
 import FirebaseAuth
 import Foundation
 
-// MARK: - Insight model
+// MARK: - Block insight model
 
 struct BlockInsight: Identifiable {
     let id = UUID()
@@ -15,9 +15,9 @@ struct BlockInsight: Identifiable {
     let blocks: [WorkoutBlock] // all occurrences of this block
 }
 
-// MARK: - Insights View
+// MARK: - Progress View
 
-struct InsightsView: View {
+struct ProgressListView: View {
     @EnvironmentObject var authService: AuthService
     @Environment(\.dismiss) var dismiss
 
@@ -33,22 +33,22 @@ struct InsightsView: View {
                 Color.brand.background.ignoresSafeArea()
 
                 if isLoading {
-                    ProgressView()
-                } else if insights.isEmpty {
+                    SwiftUI.ProgressView()
+                } else if progressItems.isEmpty {
                     VStack(spacing: Spacing.sm) {
-                        Text("No insights yet")
+                        Text("No progress yet")
                             .font(.system(size: Typography.lg, weight: .semibold))
                             .foregroundColor(Color.brand.textPrimary)
 
-                        Text("Track a set to see your progress over time.")
+                        Text("Track a block to see your progress over time.")
                             .font(.system(size: Typography.sm))
                             .foregroundColor(Color.brand.textSecondary)
                     }
                 } else {
                     List {
-                        ForEach(insights) { insight in
+                        ForEach(progressItems) { insight in
                             HStack(spacing: 0) {
-                                InsightRow(insight: insight)
+                                ProgressRow(insight: insight)
                                 Spacer(minLength: 0)
                                 Image(systemName: "chevron.right")
                                     .font(.system(size: 14, weight: .semibold))
@@ -81,8 +81,9 @@ struct InsightsView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // Centered title
                 ToolbarItem(placement: .principal) {
-                    Text("Insights")
+                    Text("Progress")
                         .font(TextStyles.title)
                         .foregroundColor(Color.brand.textPrimary)
                 }
@@ -93,9 +94,9 @@ struct InsightsView: View {
         }
     }
 
-    // MARK: - Derived insights
+    // MARK: - Derived progress
 
-    private var insights: [BlockInsight] {
+    private var progressItems: [BlockInsight] {
         // Only tracked blocks
         let tracked = blocks.filter { $0.isTracked }
 
@@ -103,6 +104,9 @@ struct InsightsView: View {
         let groups = Dictionary(grouping: tracked) { $0.name }
 
         return groups.compactMap { name, items in
+            // Only show progress for blocks that have been tracked more than once
+            guard items.count > 1 else { return nil }
+
             let sortedByDate = items.sorted { $0.date < $1.date }
 
             guard let first = sortedByDate.first,
@@ -138,7 +142,7 @@ struct InsightsView: View {
                 isLoading = false
             }
         } catch {
-            print("Error loading blocks for insights: \(error)")
+            print("Error loading blocks for progress: \(error)")
             await MainActor.run {
                 isLoading = false
             }
@@ -149,7 +153,7 @@ struct InsightsView: View {
 
 // MARK: - Summary row
 
-struct InsightRow: View {
+struct ProgressRow: View {
     let insight: BlockInsight
 
     // Last block (by date)
@@ -213,43 +217,6 @@ struct InsightRow: View {
         }
     }
 
-    // "Best" line: max load and max volume across history
-    private var bestLine: String {
-        // Best load (max kg)
-        let bestLoad = insight.blocks
-            .compactMap { $0.loadKg }
-            .max()
-
-        let loadText: String? = {
-            guard let bestLoad else { return nil }
-            let base = bestLoad.truncatingRemainder(dividingBy: 1) == 0
-                ? "\(Int(bestLoad))kg"
-                : "\(bestLoad)kg"
-            return base
-        }()
-
-        // Best volume (max volumeCount) and its kind
-        let bestVolumeBlock = insight.blocks
-            .filter { $0.volumeCount != nil }
-            .max(by: { ($0.volumeCount ?? 0) < ($1.volumeCount ?? 0) })
-
-        let volumeText: String? = {
-            guard let block = bestVolumeBlock else { return nil }
-            return volumeString(for: block)
-        }()
-
-        switch (loadText, volumeText) {
-        case (nil, nil):
-            return "—"
-        case (let l?, nil):
-            return l
-        case (nil, let v?):
-            return v
-        case (let l?, let v?):
-            return "\(l) · \(v)"
-        }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             Text(insight.name)
@@ -260,15 +227,11 @@ struct InsightRow: View {
                 Text("Last: \(lastLine)")
                     .font(TextStyles.body)
                     .foregroundColor(Color.brand.textSecondary)
-
-                Text("Best: \(bestLine)")
-                    .font(TextStyles.body)
-                    .foregroundColor(Color.brand.textSecondary)
             }
 
             Text("\(insight.count) sessions \(dateRangeText)")
                 .font(TextStyles.subtext)
-                .foregroundColor(Color.brand.secondary)
+                .foregroundColor(Color.brand.textSecondary)
                 .padding(.top, CardStyle.bottomSpacer)
         }
         .padding(.vertical, CardStyle.cardTopBottomPadding)

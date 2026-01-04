@@ -14,10 +14,10 @@ struct MainTabView: View {
 
             // TAB 2 – Insights
             NavigationStack {
-                InsightsView()
+                ProgressListView()
             }
             .tabItem {
-                Label("Insights", systemImage: "chart.line.uptrend.xyaxis")
+                Label("Progress", systemImage: "chart.xyaxis.line")
             }
 
             // TAB 3 – Settings
