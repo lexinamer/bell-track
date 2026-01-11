@@ -31,7 +31,8 @@ struct SessionCard: View {
     }
 
     private var detailsText: String? {
-        let trimmed = (session.details ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = (session.details ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
 
@@ -51,24 +52,35 @@ struct SessionCard: View {
             // Details
             Text(detailsText ?? "No details")
                 .font(TextStyles.bodySmall)
-                .foregroundColor(detailsText == nil ? Color.brand.textSecondary : Color.brand.textPrimary)
+                .foregroundColor(
+                    detailsText == nil
+                    ? Color.brand.textSecondary
+                    : Color.brand.textPrimary
+                )
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Menu (keeps behavior identical everywhere)
+            // Menu
             if hasMenu {
                 menu
             } else {
-                // Keeps right edge alignment consistent vs cards that do have a menu
+                // Keeps right edge alignment consistent
                 Spacer()
                     .frame(width: 32, height: 32)
             }
         }
+        // Comfortable internal padding so single-line doesn’t look awkward
         .padding(.horizontal, Layout.horizontalSpacingNarrow)
-        .padding(.vertical, Layout.cardSpacing)
+        .padding(.vertical, 14)
+
+        // Ensures single-line cards don’t feel vertically cramped
+        .frame(minHeight: 56, alignment: .top)
+
         .cardChrome()
     }
+
+    // MARK: - Menu
 
     private var menu: some View {
         Menu {
@@ -76,7 +88,7 @@ struct SessionCard: View {
                 Button("Edit", action: onEdit)
             }
             if let onDuplicate {
-                Button("Duplicate", action: onDuplicate)
+                Button("Add", action: onDuplicate)
             }
             if let onDelete {
                 Button("Delete", role: .destructive, action: onDelete)

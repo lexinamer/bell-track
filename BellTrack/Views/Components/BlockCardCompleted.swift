@@ -18,5 +18,6 @@ struct BlockCardCompleted: View {
             }
         }
         .buttonStyle(.plain)
+        .pressableCard()
     }
 }

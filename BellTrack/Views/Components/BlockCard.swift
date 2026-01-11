@@ -3,36 +3,39 @@ import SwiftUI
 // MARK: - Block Card Base (shared chrome + building blocks)
 
 enum BlockCardTokens {
-    // Keep card padding consistent across active/completed cards
+    // Controls the padding INSIDE the card (distance from card edge to content).
     static let paddingH: CGFloat = Layout.horizontalSpacingNarrow
     static let paddingV: CGFloat = Layout.sectionSpacing
 }
 
 // MARK: - Container
 
-/// Standard block card container: spacing + padding + shared card chrome.
 struct BlockCardContainer<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Layout.listSpacing) {
+        // Controls spacing between major card rows (header - progress - sessions)
+        VStack(alignment: .leading, spacing: Layout.cardSpacing) {
             content()
         }
+        // Controls padding inside the card.
         .padding(.horizontal, BlockCardTokens.paddingH)
         .padding(.vertical, BlockCardTokens.paddingV)
         .frame(maxWidth: .infinity, alignment: .leading)
+
+        // Controls the shared card styling (surface + radius + shadows).
         .cardChrome()
     }
 }
 
 // MARK: - Header + Subline
 
-/// Shared header: title + trailing content (button/menu/etc).
 struct BlockCardHeader<Trailing: View>: View {
     let title: String
     @ViewBuilder let trailing: () -> Trailing
 
     var body: some View {
+        // Controls spacing INSIDE the header row (Title ↔ trailing action).
         HStack(alignment: .firstTextBaseline, spacing: Layout.contentSpacing) {
             Text(title)
                 .font(TextStyles.cardTitle)
@@ -46,14 +49,13 @@ struct BlockCardHeader<Trailing: View>: View {
     }
 }
 
-/// Shared “status • progress” (or date range • sessions) line.
 struct BlockCardSubline: View {
     let text: String
     var style: Style = .secondary
 
     enum Style {
-        case primary
-        case secondary
+        case primary   // used when you want this line to read as main content
+        case secondary // default muted subline
     }
 
     var body: some View {
@@ -70,24 +72,24 @@ struct BlockCardSubline: View {
 
 // MARK: - Sections
 
-/// Section wrapper inside a block card (sessions list, empty hint, etc).
 struct BlockCardSection<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
-    // This compensates for CardChrome shadow visually shrinking spacing.
+    // Breathing room to match the Figma visual rhythm.
     private let shadowCompensation: CGFloat = 6
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Layout.listSpacing + shadowCompensation) {
+        // Controls spacing BETWEEN session rows (Session 1 ↔ Session 2, etc.)
+        VStack(alignment: .leading, spacing: 12 + shadowCompensation) {
             content()
         }
-        .padding(.top, shadowCompensation)
+        // Adds separation between the subline and the first session row
+        .padding(.top, shadowCompensation + 8)
     }
 }
 
 // MARK: - Actions
 
-/// Standard inline link button used inside block cards (e.g., "Log Session").
 struct BlockCardLinkButton: View {
     let title: String
     let action: () -> Void

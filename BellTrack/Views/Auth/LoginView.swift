@@ -1,7 +1,8 @@
 import SwiftUI
+import Foundation
 
 struct LoginView: View {
-    @EnvironmentObject private var authService: AuthService
+    @EnvironmentObject var authService: AuthService
 
     @State private var email = ""
     @State private var password = ""
@@ -13,123 +14,113 @@ struct LoginView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color.brand.background.ignoresSafeArea()
+            VStack(spacing: Spacing.md) {
 
-                ScrollView {
-                    VStack(spacing: Layout.sectionSpacing) {
-                        header
+                // Push content down slightly (feels centered, not top-heavy)
+                Spacer()
+                    .frame(height: 20)
 
-                        VStack(spacing: Layout.contentSpacing) {
-                            fieldLabel("Email")
-                            TextField("Email", text: $email)
-                                .textInputAutocapitalization(.never)
-                                .keyboardType(.emailAddress)
-                                .autocorrectionDisabled()
-                                .textContentType(.username)
-                                .padding(.horizontal, Layout.horizontalSpacingNarrow)
-                                .padding(.vertical, Layout.contentSpacing)
-                                .background(Color.brand.surface)
-                                .cornerRadius(CornerRadius.md)
+                // Logo + title
+                HStack(spacing: Spacing.sm) {
+                    Image("AppLogo")
+                        .resizable()
+                        .renderingMode(.original)
+                        .frame(width: 40, height: 50)
 
-                            fieldLabel("Password")
-                            SecureField("Password", text: $password)
-                                .textContentType(.password)
-                                .padding(.horizontal, Layout.horizontalSpacingNarrow)
-                                .padding(.vertical, Layout.contentSpacing)
-                                .background(Color.brand.surface)
-                                .cornerRadius(CornerRadius.md)
+                    Text("BELL TRACK")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(Color.brand.primary)
+                        .kerning(2.8)
+                }
 
-                            if !errorMessage.isEmpty {
-                                Text(errorMessage)
-                                    .font(TextStyles.bodySmall)
-                                    .foregroundColor(Color.brand.destructive)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
+                Text("Your workout journal, simplified.")
+                    .font(.system(size: Typography.lg))
+                    .foregroundColor(Color.brand.textPrimary)
+                    .kerning(0.3)
 
-                            Button(action: signIn) {
-                                HStack(spacing: Layout.contentSpacing) {
-                                    if isLoading {
-                                        ProgressView()
-                                    }
-                                    Text(isLoading ? "Logging in…" : "Log In")
-                                        .font(TextStyles.link)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, Layout.contentSpacing)
-                                .foregroundColor(Color.brand.background)
-                                .background(Color.brand.primary)
-                                .cornerRadius(CornerRadius.md)
-                            }
-                            .disabled(isLoading || !canSubmit)
+                Spacer()
+                    .frame(height: 20)
 
-                            Button {
-                                showPasswordReset = true
-                            } label: {
-                                Text("Forgot Password?")
-                                    .font(TextStyles.linkSmall)
-                                    .foregroundColor(Color.brand.textSecondary)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .center)
+                // FORM
+                VStack(spacing: Spacing.md) {
 
-                            Button {
-                                showSignUp = true
-                            } label: {
-                                Text("Don't have an account? Sign Up")
-                                    .font(TextStyles.linkSmall)
-                                    .foregroundColor(Color.brand.primary)
-                            }
-                            .padding(.top, Layout.contentSpacing)
+                    // Email
+                    TextField("Email", text: $email)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.emailAddress)
+                        .disableAutocorrection(true)
+                        .padding()
+                        .background(Color.brand.surface)
+                        .cornerRadius(CornerRadius.md)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: CornerRadius.md)
+                                .stroke(Color.brand.border, lineWidth: 1)
+                        )
+
+                    // Password
+                    SecureField("Password", text: $password)
+                        .padding()
+                        .background(Color.brand.surface)
+                        .cornerRadius(CornerRadius.md)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: CornerRadius.md)
+                                .stroke(Color.brand.border, lineWidth: 1)
+                        )
+
+                    // Error
+                    if !errorMessage.isEmpty {
+                        Text(errorMessage)
+                            .font(.system(size: Typography.sm))
+                            .foregroundColor(Color.brand.destructive)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    // Log In button (close to password — intentionally)
+                    Button(action: signIn) {
+                        if isLoading {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Text("Log In")
+                                .fontWeight(.semibold)
                         }
                     }
-                    .padding(.horizontal, Layout.horizontalSpacing)
-                    .padding(.vertical, Layout.sectionSpacing)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.brand.primary)
+                    .foregroundColor(.white)
+                    .cornerRadius(CornerRadius.md)
+                    .disabled(isLoading)
+
+                    // Forgot password
+                    Button("Forgot Password?") {
+                        showPasswordReset = true
+                    }
+                    .font(.system(size: Typography.md))
+                    .foregroundColor(Color.brand.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                }
+                .padding(.horizontal, Spacing.lg)
+
+                Spacer()
+                    .frame(height: 20)
+
+                // Sign up
+                Button {
+                    showSignUp = true
+                } label: {
+                    Text("Don't have an account? Sign Up")
+                        .foregroundColor(Color.brand.primary)
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
-        }
-        .sheet(isPresented: $showSignUp) {
-            SignUpView()
-        }
-        .sheet(isPresented: $showPasswordReset) {
-            PasswordResetView()
-        }
-    }
-
-    // MARK: - UI
-
-    private var header: some View {
-        VStack(spacing: Layout.contentSpacing) {
-            HStack(spacing: Layout.contentSpacing) {
-                Image("AppLogo")
-                    .resizable()
-                    .renderingMode(.original)
-                    .frame(width: 40, height: 50)
-
-                Text("BELL TRACK")
-                    .font(TextStyles.title)
-                    .foregroundColor(Color.brand.primary)
+            .background(Color.brand.surface)
+            .sheet(isPresented: $showSignUp) {
+                SignUpView()
             }
-
-            Text("Your workout journal, simplified.")
-                .font(TextStyles.body)
-                .foregroundColor(Color.brand.textSecondary)
+            .sheet(isPresented: $showPasswordReset) {
+                PasswordResetView()
+            }
         }
-        .padding(.top, Layout.sectionSpacing)
-    }
-
-    private func fieldLabel(_ text: String) -> some View {
-        Text(text)
-            .font(TextStyles.bodySmall)
-            .foregroundColor(Color.brand.textSecondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    // MARK: - Derived
-
-    private var canSubmit: Bool {
-        !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     // MARK: - Actions
@@ -148,11 +139,16 @@ struct LoginView: View {
 
         Task {
             do {
-                try await authService.signIn(email: trimmedEmail, password: trimmedPassword)
-                await MainActor.run { isLoading = false }
+                try await authService.signIn(
+                    email: trimmedEmail,
+                    password: trimmedPassword
+                )
+                await MainActor.run {
+                    isLoading = false
+                }
             } catch {
                 await MainActor.run {
-                    errorMessage = "Invalid email or password."
+                    errorMessage = "Invalid email or password"
                     isLoading = false
                 }
             }

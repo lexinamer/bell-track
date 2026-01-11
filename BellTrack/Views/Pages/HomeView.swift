@@ -5,20 +5,23 @@ struct HomeView: View {
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var router: AppRouter
 
-    private let firestoreService = FirestoreService()
-
+    // Data
     @State private var blocks: [Block] = []
     @State private var sessionsByBlockId: [String: [Session]] = [:]
     @State private var isLoading: Bool = true
 
-    // Completed section
+    // UI state
     @State private var showCompleted: Bool = false
-
-    // Delete session confirm
     @State private var showDeleteSessionConfirm: Bool = false
     @State private var sessionPendingDelete: (block: Block, session: Session)? = nil
 
+    private let firestoreService = FirestoreService()
+
     // MARK: - Derived
+
+    private var userId: String {
+        authService.user?.uid ?? ""
+    }
 
     private var activeBlocks: [Block] {
         blocks
@@ -46,11 +49,15 @@ struct HomeView: View {
                 content
             }
         }
+
+        // Loads / refresh / data change reload
         .task { await load() }
         .refreshable { await load() }
         .onReceive(NotificationCenter.default.publisher(for: .bellTrackDataDidChange)) { _ in
             Task { await load() }
         }
+
+        // Confirm delete
         .confirmationDialog(
             "Delete session?",
             isPresented: $showDeleteSessionConfirm,
@@ -101,14 +108,15 @@ struct HomeView: View {
 
     private var content: some View {
         ScrollView {
+            // OUTER STACK: spacing between major page sections (Active section ↔ Completed section)
             VStack(alignment: .leading, spacing: Layout.sectionSpacing) {
 
-                // Active blocks
+                // ACTIVE BLOCKS: spacing between block cards
                 VStack(alignment: .leading, spacing: Layout.listSpacing) {
                     ForEach(activeBlocks) { block in
                         BlockCardActive(
                             block: block,
-                            sessions: sessions(for: block.id),               // ✅ full sessions
+                            sessions: sessions(for: block.id),
                             statusLine: activeStatusLine(for: block),
                             onOpen: { router.openBlockDetail(block) },
                             onLogSession: { router.openLogSession(for: block) },
@@ -116,31 +124,36 @@ struct HomeView: View {
                                 router.openEditSession(block: block, session: session)
                             },
                             onDuplicateSession: { session in
+                                // Duplicate should open Log Session (create) with details prefilled
                                 var dup = session
                                 dup.id = nil
                                 dup.date = Date()
-                                router.openEditSession(block: block, session: dup)
+                                router.openLogSession(for: block) // open "create"
+                                // NOTE: if you want prefill, pass dup via router API (needs a new router method).
+                                // For now this guarantees the title/flow is "Log Session".
                             },
                             onDeleteSession: { session in
                                 sessionPendingDelete = (block: block, session: session)
                                 showDeleteSessionConfirm = true
                             }
                         )
+                        .transition(.move(edge: .top).combined(with: .opacity))
                     }
                 }
-                .padding(.horizontal, Layout.horizontalSpacing)
+                .animation(.easeInOut(duration: 0.2), value: activeBlocks)
+                .padding(.horizontal, Layout.horizontalSpacingNarrow)
 
-                // Completed blocks (collapsible)
+                // COMPLETED BLOCKS (collapsible)
                 if !completedBlocks.isEmpty {
                     VStack(alignment: .leading, spacing: Layout.listSpacing) {
 
                         Button {
-                            withAnimation(.easeInOut(duration: 0.2)) {
+                            withAnimation(.easeInOut(duration: 0.25)) {
                                 showCompleted.toggle()
                             }
                         } label: {
                             HStack(spacing: Layout.contentSpacing) {
-                                Text("Completed")
+                                Text("Completed Blocks")
                                     .font(TextStyles.link)
                                     .foregroundColor(Color.brand.textPrimary)
 
@@ -150,11 +163,12 @@ struct HomeView: View {
 
                                 Spacer()
 
-                                Image(systemName: showCompleted ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 14, weight: .semibold))
+                                Image(systemName: "chevron.down")
+                                    .rotationEffect(.degrees(showCompleted ? 180 : 0))
+                                    .animation(.easeInOut(duration: 0.25), value: showCompleted)
                                     .foregroundColor(Color.brand.textSecondary)
                             }
-                            .padding(.horizontal, Layout.horizontalSpacing)
+                            .padding(.horizontal, Layout.horizontalSpacingNarrow)
                         }
                         .buttonStyle(.plain)
 
@@ -166,9 +180,11 @@ struct HomeView: View {
                                         statusLine: completedStatusLine(for: block),
                                         onOpen: { router.openBlockDetail(block) }
                                     )
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
                                 }
                             }
-                            .padding(.horizontal, Layout.horizontalSpacing)
+                            .animation(.easeInOut(duration: 0.2), value: completedBlocks)
+                            .padding(.horizontal, Layout.horizontalSpacingNarrow)
                         }
                     }
                 }
@@ -180,7 +196,7 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Helpers (sessions + status lines)
+    // MARK: - Helpers
 
     private func sessions(for blockId: String?) -> [Session] {
         guard let id = blockId else { return [] }
@@ -228,7 +244,6 @@ struct HomeView: View {
     }
 
     private func dateRangeText(start: Date, end: Date) -> String {
-        // Always include year at the end for completed blocks
         let startText = start.formatted(.dateTime.month(.abbreviated).day())
         let endText = end.formatted(.dateTime.month(.abbreviated).day().year())
         return "\(startText)–\(endText)"
@@ -237,39 +252,39 @@ struct HomeView: View {
     // MARK: - Data
 
     private func load() async {
+        let shouldShowBlockingLoader = blocks.isEmpty
+        if shouldShowBlockingLoader {
+            await MainActor.run { isLoading = true }
+        }
+
         guard let userId = authService.user?.uid else {
-            await MainActor.run {
-                blocks = []
-                sessionsByBlockId = [:]
-                isLoading = false
-            }
+            await MainActor.run { isLoading = false }
             return
         }
 
-        await MainActor.run { isLoading = true }
-
         do {
             let fetchedBlocks = try await firestoreService.fetchBlocks(userId: userId)
-            let sortedBlocks = fetchedBlocks.sorted { $0.startDate > $1.startDate }
 
-            var dict: [String: [Session]] = [:]
-            for block in sortedBlocks {
-                guard let blockId = block.id else { continue }
-                let s = try await firestoreService.fetchSessions(userId: userId, blockId: blockId)
-                dict[blockId] = s.sorted { $0.date > $1.date }
+            var sessionsMap: [String: [Session]] = [:]
+
+            for block in fetchedBlocks {
+                if let blockId = block.id {
+                    let sessions = try await firestoreService.fetchSessions(
+                        userId: userId,
+                        blockId: blockId
+                    )
+                    sessionsMap[blockId] = sessions
+                }
             }
 
             await MainActor.run {
-                blocks = sortedBlocks
-                sessionsByBlockId = dict
+                blocks = fetchedBlocks
+                sessionsByBlockId = sessionsMap
                 isLoading = false
             }
+
         } catch {
-            await MainActor.run {
-                blocks = []
-                sessionsByBlockId = [:]
-                isLoading = false
-            }
+            await MainActor.run { isLoading = false }
         }
     }
 
@@ -280,11 +295,16 @@ struct HomeView: View {
 
         do {
             try await firestoreService.deleteSession(userId: userId, sessionId: sessionId)
-            sessionPendingDelete = nil
+            await MainActor.run {
+                sessionPendingDelete = nil
+                // Optimistic local remove (prevents spinner + makes UI feel instant)
+                if let blockId = pending.block.id {
+                    sessionsByBlockId[blockId]?.removeAll { $0.id == sessionId }
+                }
+            }
             await load()
         } catch {
-            // v1: fail quietly
-            sessionPendingDelete = nil
+            await MainActor.run { sessionPendingDelete = nil }
         }
     }
 }

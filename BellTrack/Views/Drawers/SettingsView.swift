@@ -3,95 +3,168 @@ import FirebaseAuth
 import FirebaseFirestore
 
 struct SettingsView: View {
-    @EnvironmentObject var authService: AuthService
+    @EnvironmentObject private var authService: AuthService
     @Environment(\.dismiss) private var dismiss
-    @State private var showingChangeEmailSheet = false
-    @State private var newEmail: String = ""
-    @State private var showingResetPasswordConfirm = false
-    @State private var showingDeleteAccountConfirm = false
 
-    @State private var statusMessage: String?
+    @State private var feedbackText: String = ""
+
+    @State private var showingDeleteConfirm = false
+    @State private var showingFinalDeleteConfirm = false
+
+    @State private var statusMessage: String? = nil
     @State private var showingStatusAlert = false
+    @State private var isSendingFeedback = false
+    @State private var isDeletingAccount = false
 
     var body: some View {
         NavigationStack {
-            List {
+            ZStack {
+                Color.brand.background.ignoresSafeArea()
 
-                // ACCOUNT SECTION
-                Section {
-                    Button {
-                        showingChangeEmailSheet = true
-                    } label: {
-                        SettingsRowLabel(title: "Change Email")
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+
+                        // FEEDBACK
+                        sectionHeader("Feedback")
+                        card {
+                            VStack(alignment: .leading, spacing: 12) {
+                                TextEditor(text: $feedbackText)
+                                    .font(TextStyles.body)
+                                    .foregroundColor(Color.brand.textPrimary)
+                                    .frame(minHeight: 120)
+                                    .scrollContentBackground(.hidden)
+                                    .background(Color.clear)
+                                    .overlay(alignment: .topLeading) {
+                                        if feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                            Text("Tell me what’s working, what’s annoying, what you want next…")
+                                                .font(TextStyles.body)
+                                                .foregroundColor(Color.brand.textSecondary)
+                                                .padding(.top, 10)
+                                                .padding(.horizontal, 6)
+                                        }
+                                    }
+
+                                Divider()
+
+                                Button {
+                                    Task { await sendFeedback() }
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        if isSendingFeedback {
+                                            ProgressView()
+                                        }
+                                        Text(isSendingFeedback ? "Sending…" : "Send Feedback")
+                                            .font(TextStyles.link)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(isSendingFeedback || feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                .foregroundColor(
+                                    (isSendingFeedback || feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                    ? Color.brand.textSecondary
+                                    : Color.brand.primary
+                                )
+                            }
+                        }
+                        
+                        Spacer()
+
+                        // ACCOUNT
+                        sectionHeader("Account")
+                        card {
+                            VStack(spacing: 0) {
+
+                                settingsRow(
+                                    title: "Log out",
+                                    systemImage: "rectangle.portrait.and.arrow.right",
+                                    titleColor: Color.brand.textPrimary,
+                                    trailing: AnyView(
+                                        Image(systemName: "arrow.right.square")
+                                            .foregroundColor(Color.brand.textSecondary.opacity(0.8))
+                                    )
+                                ) {
+                                    handleLogout()
+                                }
+
+                                Divider()
+
+                                settingsRow(
+                                    title: "Delete account",
+                                    systemImage: "trash",
+                                    titleColor: Color.brand.destructive,
+                                    trailing: AnyView(
+                                        Image(systemName: "trash")
+                                            .foregroundColor(Color.brand.destructive.opacity(0.9))
+                                    )
+                                ) {
+                                    showingDeleteConfirm = true
+                                }
+                            }
+                        }
+
+                        // VERSION (simple line, no label)
+                        Text(appVersionLine)
+                            .font(TextStyles.bodySmall)
+                            .foregroundColor(Color.brand.textSecondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.top, 6)
+
+                        Spacer(minLength: 24)
                     }
-
-                    Button {
-                        showingResetPasswordConfirm = true
-                    } label: {
-                        SettingsRowLabel(title: "Reset Password")
-                    }
-
-                    Button {
-                        handleLogout()
-                    } label: {
-                        SettingsRowLabel(title: "Log Out")
-                    }
-
-                } header: {
-                    Text("Account")
-                }
-
-                // DESTRUCTIVE SECTION
-                Section {
-                    Button(role: .destructive) {
-                        showingDeleteAccountConfirm = true
-                    } label: {
-                        SettingsRowLabel(
-                            title: "Delete Account",
-                            isDestructive: true
-                        )
-                    }
-
-                } header: {
-                    Text(" ")
+                    .padding(.horizontal, 18)
+                    .padding(.top, 14)
+                    .padding(.bottom, 28)
                 }
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .background(Color.brand.background)
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        dismiss()
-                    } label: {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(Color.brand.textSecondary)
+                            .frame(width: 44, height: 44)
+                            .background(Color.brand.surface)
+                            .clipShape(Circle())
                     }
+                    .buttonStyle(.plain)
                     .accessibilityLabel("Close")
                 }
             }
-            .sheet(isPresented: $showingChangeEmailSheet) {
-                changeEmailSheet
-            }
-            .alert("Reset Password", isPresented: $showingResetPasswordConfirm) {
-                Button("Send Reset Email", role: .destructive) {
-                    sendPasswordReset()
+
+            // Delete confirm 1
+            .confirmationDialog(
+                "Delete account?",
+                isPresented: $showingDeleteConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Continue", role: .destructive) {
+                    showingFinalDeleteConfirm = true
                 }
                 Button("Cancel", role: .cancel) { }
             } message: {
-                Text("We'll email a password reset link to your account email.")
+                Text("This will permanently delete your account and workout history.")
             }
-            .alert("Delete Account", isPresented: $showingDeleteAccountConfirm) {
-                Button("Delete", role: .destructive) {
-                    deleteAccount()
+
+            // Delete confirm 2 (final)
+            .confirmationDialog(
+                "This can’t be undone.",
+                isPresented: $showingFinalDeleteConfirm,
+                titleVisibility: .visible
+            ) {
+                Button(isDeletingAccount ? "Deleting…" : "Delete Account", role: .destructive) {
+                    Task { await deleteAccount() }
                 }
+                .disabled(isDeletingAccount)
+
                 Button("Cancel", role: .cancel) { }
             } message: {
-                Text("This will permanently delete your account. You may need to log in again just before deleting if Firebase asks you to re‑authenticate.")
+                Text("You may need to log in again if Firebase asks you to re-authenticate.")
             }
+
+            // Status alert
             .alert("Done", isPresented: $showingStatusAlert, actions: {
                 Button("OK", role: .cancel) { }
             }, message: {
@@ -100,180 +173,150 @@ struct SettingsView: View {
         }
     }
 
-    private var changeEmailSheet: some View {
-        NavigationStack {
-            Form {
-                Section(header: Text("New Email")) {
-                    TextField("name@example.com", text: $newEmail)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                }
+    // MARK: - UI helpers
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(TextStyles.bodySmall)
+            .foregroundColor(Color.brand.textSecondary)
+            .padding(.leading, 6)
+    }
+
+    private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.brand.surface)
+            .clipShape(RoundedRectangle(cornerRadius: CornerRadius.md, style: .continuous))
+            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 2)
+    }
+
+    private func settingsRow(
+        title: String,
+        systemImage: String,
+        titleColor: Color,
+        trailing: AnyView,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Text(title)
+                    .font(TextStyles.body)
+                    .foregroundColor(titleColor)
+
+                Spacer()
+
+                trailing
             }
-            .navigationTitle("Change Email")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        showingChangeEmailSheet = false
-                        newEmail = ""
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        changeEmail()
-                    }
-                    .disabled(newEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var appVersionLine: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        return "Version \(version)"
+    }
+
+    // MARK: - Actions
+
+    private func handleLogout() {
+        do {
+            try authService.signOut()
+            // ContentView's auth gate should take over and show LoginView.
+            dismiss()
+        } catch {
+            statusMessage = "Couldn’t log out. Please try again."
+            showingStatusAlert = true
         }
     }
 
-    private func changeEmail() {
-        let trimmed = newEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func sendFeedback() async {
+        let trimmed = feedbackText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
         guard let user = Auth.auth().currentUser else {
-            statusMessage = "You need to be logged in to change your email."
+            statusMessage = "You need to be logged in to send feedback."
             showingStatusAlert = true
             return
         }
 
-        user.sendEmailVerification(beforeUpdatingEmail: trimmed) { error in
-            if let error = error {
-                statusMessage = "Couldn't start email update: \(error.localizedDescription)"
-            } else {
-                statusMessage = "We've sent a verification email to \(trimmed). Click the link in that email to confirm your new address."
-                newEmail = ""
-                showingChangeEmailSheet = false
+        isSendingFeedback = true
+        defer { isSendingFeedback = false }
+
+        do {
+            let db = Firestore.firestore()
+            try await db.collection("feedback").addDocument(data: [
+                "userId": user.uid,
+                "email": user.email ?? "",
+                "message": trimmed,
+                "createdAt": Timestamp(date: Date())
+            ])
+
+            await MainActor.run {
+                feedbackText = ""
+                statusMessage = "Thanks — feedback sent."
+                showingStatusAlert = true
             }
-            showingStatusAlert = true
+        } catch {
+            await MainActor.run {
+                statusMessage = "Couldn’t send feedback. Try again."
+                showingStatusAlert = true
+            }
         }
     }
 
-    private func deleteAccount() {
+    private func deleteAccount() async {
         guard let user = Auth.auth().currentUser else {
             statusMessage = "You need to be logged in to delete your account."
             showingStatusAlert = true
             return
         }
+
+        isDeletingAccount = true
+        defer { isDeletingAccount = false }
+
         let uid = user.uid
 
-        deleteUserData(for: uid) { dataError in
-            if let dataError = dataError {
-                self.statusMessage = "Couldn't delete your data: \(dataError.localizedDescription)"
-                self.showingStatusAlert = true
-                return
+        do {
+            try await deleteUserData(uid: uid)
+
+            // Delete auth user last
+            try await user.delete()
+
+            await MainActor.run {
+                statusMessage = "Your account and workout history have been deleted."
+                showingStatusAlert = true
             }
 
-            user.delete { error in
-                if let error = error {
-                    self.statusMessage = "Couldn't delete account: \(error.localizedDescription)\nTry logging out and back in, then deleting again."
-                    self.showingStatusAlert = true
-                } else {
-                    self.statusMessage = "Your account and workout history have been deleted."
-                    self.showingStatusAlert = true
-                    do {
-                        try self.authService.signOut()
-                    } catch {
-                        print("Error signing out after delete: \(error)")
-                    }
-                }
+            // Sign out locally (best-effort)
+            do { try authService.signOut() } catch { }
+
+        } catch {
+            await MainActor.run {
+                statusMessage = "Couldn’t delete account. You may need to log out and back in, then try again."
+                showingStatusAlert = true
             }
         }
     }
 
-    private func deleteUserData(for uid: String, completion: @escaping (Error?) -> Void) {
+    private func deleteUserData(uid: String) async throws {
         let db = Firestore.firestore()
-        let collections = ["blocks", "date_notes"]
-        var remaining = collections.count
-        var firstError: Error?
 
-        func checkComplete() {
-            remaining -= 1
-            if remaining == 0 {
-                completion(firstError)
-            }
-        }
+        // Adjust collections here if your schema differs.
+        let collections = ["blocks", "sessions", "feedback"]
 
         for collection in collections {
-            db.collection(collection).whereField("userId", isEqualTo: uid).getDocuments { snapshot, error in
-                if let error = error {
-                    if firstError == nil {
-                        firstError = error
-                    }
-                    checkComplete()
-                    return
-                }
+            let snap = try await db.collection(collection)
+                .whereField("userId", isEqualTo: uid)
+                .getDocuments()
 
-                guard let documents = snapshot?.documents else {
-                    checkComplete()
-                    return
-                }
+            if snap.documents.isEmpty { continue }
 
-                let batch = db.batch()
-                for doc in documents {
-                    batch.deleteDocument(doc.reference)
-                }
-
-                batch.commit { batchError in
-                    if let batchError = batchError {
-                        if firstError == nil {
-                            firstError = batchError
-                        }
-                    }
-                    checkComplete()
-                }
-            }
+            let batch = db.batch()
+            snap.documents.forEach { batch.deleteDocument($0.reference) }
+            try await batch.commit()
         }
-    }
-
-    private func sendPasswordReset() {
-        guard let email = Auth.auth().currentUser?.email else {
-            statusMessage = "We couldn't find an email for your account."
-            showingStatusAlert = true
-            return
-        }
-
-        Auth.auth().sendPasswordReset(withEmail: email) { error in
-            if let error = error {
-                statusMessage = "Couldn't send reset email: \(error.localizedDescription)"
-            } else {
-                statusMessage = "Password reset email sent to \(email)."
-            }
-            showingStatusAlert = true
-        }
-    }
-
-    private func handleLogout() {
-        do {
-            try authService.signOut()
-            // Your auth gate should flip back to LoginView when user becomes nil.
-        } catch {
-            print("Error signing out: \(error)")
-        }
-    }
-}
-
-// MARK: - Row Label
-
-private struct SettingsRowLabel: View {
-    let title: String
-    var isDestructive: Bool = false
-
-    var body: some View {
-        HStack {
-            Text(title)
-                .font(TextStyles.body)
-                .foregroundColor(
-                    isDestructive ? Color.brand.destructive : Color.brand.textPrimary
-                )
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(Color.brand.textSecondary.opacity(0.7))
-        }
-        .contentShape(Rectangle())
     }
 }

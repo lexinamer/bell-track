@@ -81,6 +81,12 @@ final class AppRouter: ObservableObject {
         sheet = nil
         sheetOriginPage = nil
     }
+
+    /// Hard reset to a safe baseline (use on login/logout).
+    func resetToHome() {
+        closeSheet()
+        page = .home
+    }
 }
 
 // MARK: - ContentView
@@ -98,6 +104,11 @@ struct ContentView: View {
             } else {
                 signedInShell
             }
+        }
+        // ✅ This is the fix:
+        // Any time auth flips (logout/login), dump any open sheet and route to Home.
+        .onChange(of: authService.user?.uid) { _, _ in
+            router.resetToHome()
         }
     }
 
@@ -123,8 +134,7 @@ struct ContentView: View {
                     .environmentObject(router)
 
             case .editBlock(let existingBlock):
-                AddEditBlockView(existingBlock) { savedBlock in
-                    Task {
+                AddEditBlockView(existingBlock) { savedBlock in Task {
                         guard let uid = authService.user?.uid else {
                             await MainActor.run { router.closeSheet() }
                             return
@@ -137,6 +147,7 @@ struct ContentView: View {
                         }
 
                         NotificationCenter.default.post(name: .bellTrackDataDidChange, object: nil)
+
                         await MainActor.run {
                             router.page = router.sheetOriginPage ?? router.page
                             router.closeSheet()
@@ -146,7 +157,7 @@ struct ContentView: View {
                 .environmentObject(router)
 
             case .editSession(let block, let existingSession):
-                AddEditSessionView(block: block, session: existingSession) { savedSession in
+                AddEditSessionView(block: block, session: existingSession, onSave: { savedSession in
                     Task {
                         guard let uid = authService.user?.uid else {
                             await MainActor.run { router.closeSheet() }
@@ -160,12 +171,13 @@ struct ContentView: View {
                         }
 
                         NotificationCenter.default.post(name: .bellTrackDataDidChange, object: nil)
+
                         await MainActor.run {
                             router.page = router.sheetOriginPage ?? router.page
                             router.closeSheet()
                         }
                     }
-                }
+                })
                 .environmentObject(router)
             }
         }

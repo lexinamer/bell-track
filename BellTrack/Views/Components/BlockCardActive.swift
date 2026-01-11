@@ -61,5 +61,6 @@ struct BlockCardActive: View {
             }
         }
         .buttonStyle(.plain)
+        .pressableCard()
     }
 }

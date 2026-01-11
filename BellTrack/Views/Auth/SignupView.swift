@@ -1,86 +1,100 @@
 import SwiftUI
 import FirebaseAuth
+import Foundation
 
 struct SignUpView: View {
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var authService: AuthService
+    @Environment(\.dismiss) var dismiss
+    @EnvironmentObject var authService: AuthService
 
     @State private var email = ""
     @State private var password = ""
     @State private var confirmPassword = ""
-
     @State private var errorMessage = ""
     @State private var isLoading = false
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color.brand.background.ignoresSafeArea()
+            VStack(spacing: Spacing.md) {
 
-                VStack(spacing: Layout.sectionSpacing) {
-                    Text("Create Account")
-                        .font(TextStyles.title)
-                        .foregroundColor(Color.brand.textPrimary)
+                // Push content down (matches Login + Reset)
+                Spacer()
+                    .frame(height: 20)
 
-                    VStack(spacing: Layout.contentSpacing) {
-                        fieldLabel("Email")
-                        TextField("Email", text: $email)
-                            .textInputAutocapitalization(.never)
-                            .keyboardType(.emailAddress)
-                            .autocorrectionDisabled()
-                            .textContentType(.username)
-                            .padding(.horizontal, Layout.horizontalSpacingNarrow)
-                            .padding(.vertical, Layout.contentSpacing)
-                            .background(Color.brand.surface)
-                            .cornerRadius(CornerRadius.md)
+                // Title
+                Text("Create Account")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(Color.brand.textPrimary)
 
-                        fieldLabel("Password")
-                        SecureField("Password", text: $password)
-                            .textContentType(.newPassword)
-                            .padding(.horizontal, Layout.horizontalSpacingNarrow)
-                            .padding(.vertical, Layout.contentSpacing)
-                            .background(Color.brand.surface)
-                            .cornerRadius(CornerRadius.md)
+                Spacer()
+                    .frame(height: 20)
 
-                        fieldLabel("Confirm Password")
-                        SecureField("Confirm Password", text: $confirmPassword)
-                            .textContentType(.newPassword)
-                            .padding(.horizontal, Layout.horizontalSpacingNarrow)
-                            .padding(.vertical, Layout.contentSpacing)
-                            .background(Color.brand.surface)
-                            .cornerRadius(CornerRadius.md)
+                // FORM
+                VStack(spacing: Spacing.md) {
 
-                        if !errorMessage.isEmpty {
-                            Text(errorMessage)
-                                .font(TextStyles.bodySmall)
-                                .foregroundColor(Color.brand.destructive)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
+                    TextField("Email", text: $email)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.emailAddress)
+                        .disableAutocorrection(true)
+                        .padding()
+                        .background(Color.brand.surface)
+                        .cornerRadius(CornerRadius.md)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: CornerRadius.md)
+                                .stroke(Color.brand.border, lineWidth: 1)
+                        )
 
-                        Button(action: signUp) {
-                            HStack(spacing: Layout.contentSpacing) {
-                                if isLoading { ProgressView() }
-                                Text(isLoading ? "Creating…" : "Sign Up")
-                                    .font(TextStyles.link)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, Layout.contentSpacing)
-                            .foregroundColor(Color.brand.background)
-                            .background(Color.brand.primary)
-                            .cornerRadius(CornerRadius.md)
-                        }
-                        .disabled(isLoading || !canSubmit)
+                    SecureField("Password", text: $password)
+                        .padding()
+                        .background(Color.brand.surface)
+                        .cornerRadius(CornerRadius.md)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: CornerRadius.md)
+                                .stroke(Color.brand.border, lineWidth: 1)
+                        )
+
+                    SecureField("Confirm Password", text: $confirmPassword)
+                        .padding()
+                        .background(Color.brand.surface)
+                        .cornerRadius(CornerRadius.md)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: CornerRadius.md)
+                                .stroke(Color.brand.border, lineWidth: 1)
+                        )
+
+                    if !errorMessage.isEmpty {
+                        Text(errorMessage)
+                            .font(.system(size: Typography.sm))
+                            .foregroundColor(Color.brand.destructive)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    Spacer()
+                    Button(action: signUp) {
+                        if isLoading {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Text("Sign Up")
+                                .fontWeight(.semibold)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.brand.primary)
+                    .foregroundColor(.white)
+                    .cornerRadius(CornerRadius.md)
+                    .disabled(isLoading)
                 }
-                .padding(.horizontal, Layout.horizontalSpacing)
-                .padding(.vertical, Layout.sectionSpacing)
+                .padding(.horizontal, Spacing.lg)
+
+                Spacer()
             }
+            .background(Color.brand.surface)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { dismiss() } label: {
+                    Button {
+                        dismiss()
+                    } label: {
                         Image(systemName: "xmark")
                             .foregroundColor(Color.brand.textPrimary)
                     }
@@ -89,18 +103,7 @@ struct SignUpView: View {
         }
     }
 
-    private func fieldLabel(_ text: String) -> some View {
-        Text(text)
-            .font(TextStyles.bodySmall)
-            .foregroundColor(Color.brand.textSecondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var canSubmit: Bool {
-        !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        password.count >= 6 &&
-        password == confirmPassword
-    }
+    // MARK: - Actions
 
     private func signUp() {
         errorMessage = ""
@@ -109,10 +112,25 @@ struct SignUpView: View {
         let trimmedPassword = password.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedConfirm = confirmPassword.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard !trimmedEmail.isEmpty else { errorMessage = "Please enter an email."; return }
-        guard !trimmedPassword.isEmpty else { errorMessage = "Please enter a password."; return }
-        guard trimmedPassword.count >= 6 else { errorMessage = "Password must be at least 6 characters."; return }
-        guard trimmedPassword == trimmedConfirm else { errorMessage = "Passwords don't match."; return }
+        guard !trimmedEmail.isEmpty else {
+            errorMessage = "Please enter an email."
+            return
+        }
+
+        guard !trimmedPassword.isEmpty else {
+            errorMessage = "Please enter a password."
+            return
+        }
+
+        guard trimmedPassword == trimmedConfirm else {
+            errorMessage = "Passwords don’t match."
+            return
+        }
+
+        guard trimmedPassword.count >= 6 else {
+            errorMessage = "Password must be at least 6 characters."
+            return
+        }
 
         isLoading = true
 
@@ -124,28 +142,26 @@ struct SignUpView: View {
                     dismiss()
                 }
             } catch {
+                let nsError = error as NSError
+                let authCode = AuthErrorCode(rawValue: nsError.code)
+
+                let message: String
+                switch authCode {
+                case .some(.invalidEmail):
+                    message = "That email address looks invalid."
+                case .some(.emailAlreadyInUse):
+                    message = "An account with this email already exists."
+                case .some(.weakPassword):
+                    message = "Password must be at least 6 characters."
+                default:
+                    message = "Failed to create account. Please try again."
+                }
+
                 await MainActor.run {
-                    errorMessage = friendlySignUpError(error)
+                    errorMessage = message
                     isLoading = false
                 }
             }
         }
-    }
-
-    private func friendlySignUpError(_ error: Error) -> String {
-        let nsError = error as NSError
-        if let authError = AuthErrorCode(_bridgedNSError: nsError) {
-            switch authError.code {
-            case .invalidEmail:
-                return "That email address looks invalid."
-            case .emailAlreadyInUse:
-                return "An account with this email already exists."
-            case .weakPassword:
-                return "Password must be at least 6 characters."
-            default:
-                return "Failed to create account. Please try again."
-            }
-        }
-        return "Failed to create account. Please try again."
     }
 }

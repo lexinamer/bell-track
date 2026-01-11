@@ -32,6 +32,7 @@ struct BlockDetailView: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: Layout.listSpacing) {
 
+                            // MARK: - Toolbar
                             // Status • Progress
                             VStack(alignment: .leading, spacing: Layout.contentSpacing) {
                                 Text("Progress")
@@ -42,6 +43,12 @@ struct BlockDetailView: View {
                                     text: statusLine,
                                     style: .primary
                                 )
+
+                                if !block.isCompleted, let endDateText = endDateHelperText {
+                                    Text(endDateText)
+                                        .font(TextStyles.body)
+                                        .foregroundColor(Color.brand.textSecondary)
+                                }
                             }
                             .padding(.bottom, Layout.cardSpacing)
                             
@@ -79,6 +86,7 @@ struct BlockDetailView: View {
                                             showDeleteSessionConfirm = true
                                         }
                                     )
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
                                 }
 
                                 if sessions.isEmpty {
@@ -87,6 +95,7 @@ struct BlockDetailView: View {
                                         .foregroundColor(Color.brand.textSecondary)
                                 }
                             }
+                            .animation(.easeInOut(duration: 0.2), value: sessions)
                         }
                         .padding(.horizontal, Layout.horizontalSpacing)
                         .padding(.top, Layout.sectionSpacing)
@@ -210,6 +219,18 @@ struct BlockDetailView: View {
 
     private var statusLine: String {
         "\(block.statusText) • \(sessions.count) \(sessions.count == 1 ? "session" : "sessions")"
+    }
+    
+    private var endDateHelperText: String? {
+        guard let end = block.endDate else { return nil }
+
+        let formatted = end.formatted(
+            .dateTime.month(.abbreviated).day()
+        )
+
+        return block.isCompleted
+            ? "Ended \(formatted)"
+            : "Ends \(formatted)"
     }
 
     // MARK: - Data

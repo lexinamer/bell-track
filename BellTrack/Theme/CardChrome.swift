@@ -57,3 +57,29 @@ private extension Color {
         self.init(.sRGB, red: r, green: g, blue: b, opacity: alpha)
     }
 }
+
+
+// Subtle press feedback for tappable cards.
+struct PressableCard: ViewModifier {
+    @GestureState private var isPressed = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isPressed ? 0.98 : 1.0)
+            .opacity(isPressed ? 0.97 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: isPressed)
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .updating($isPressed) { _, state, _ in
+                        state = true
+                    }
+            )
+    }
+}
+
+extension View {
+    /// Apply to tappable cards only.
+    func pressableCard() -> some View {
+        modifier(PressableCard())
+    }
+}
