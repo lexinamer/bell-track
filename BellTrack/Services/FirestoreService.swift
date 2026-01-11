@@ -1,57 +1,82 @@
 import Foundation
 import FirebaseFirestore
 
-class FirestoreService {
+final class FirestoreService {
     private let db = Firestore.firestore()
-    
-    // MARK: - Workout Blocks
-    
-    func fetchBlocks(userId: String) async throws -> [WorkoutBlock] {
-        let snapshot = try await db.collection("blocks")
+
+    private var blocksRef: CollectionReference { db.collection("blocks") }
+    private var sessionsRef: CollectionReference { db.collection("sessions") }
+
+    // MARK: - Blocks
+
+    func fetchBlocks(userId: String) async throws -> [Block] {
+        let snapshot = try await blocksRef
             .whereField("userId", isEqualTo: userId)
-            .order(by: "date", descending: true)
-            .limit(to: 500)
             .getDocuments()
-        
-        return snapshot.documents.compactMap { doc in
-            try? doc.data(as: WorkoutBlock.self)
-        }
+
+        let blocks = snapshot.documents.compactMap(Block.init(from:))
+        return blocks.sorted { $0.startDate > $1.startDate }
     }
-    
-    func saveBlock(_ block: WorkoutBlock) async throws {
+
+    /// Creates or updates.
+    func saveBlock(userId: String, block: Block) async throws {
+        var block = block
+        block.userId = userId
+
+        let data = block.firestoreData
+
         if let id = block.id {
-            try db.collection("blocks")
-                .document(id)
-                .setData(from: block)
+            try await blocksRef.document(id).setData(data, merge: true)
         } else {
-            _ = try db.collection("blocks")
-                .addDocument(from: block)
+            _ = try await blocksRef.addDocument(data: data)
         }
     }
-    
-    func deleteBlock(id: String) async throws {
-        try await db.collection("blocks").document(id).delete()
-    }
-    
-    // MARK: - Settings
-    
-    func fetchSettings(userId: String) async throws -> UserSettings? {
-        let snapshot = try await db.collection("settings")
+
+    /// v1: Prefer cascade delete sessions.
+    func deleteBlock(userId: String, blockId: String) async throws {
+        // Delete block doc
+        try await blocksRef.document(blockId).delete()
+
+        // Delete sessions for that block (and user)
+        let snapshot = try await sessionsRef
             .whereField("userId", isEqualTo: userId)
-            .limit(to: 1)
+            .whereField("blockId", isEqualTo: blockId)
             .getDocuments()
-        
-        return snapshot.documents.first.flatMap { try? $0.data(as: UserSettings.self) }
-    }
-    
-    func saveSettings(_ settings: UserSettings) async throws {
-        if let id = settings.id {
-            try db.collection("settings")
-                .document(id)
-                .setData(from: settings)
-        } else {
-            _ = try db.collection("settings")
-                .addDocument(from: settings)
+
+        for doc in snapshot.documents {
+            try await doc.reference.delete()
         }
+    }
+
+    // MARK: - Sessions
+
+    func fetchSessions(userId: String, blockId: String) async throws -> [Session] {
+        let snapshot = try await sessionsRef
+            .whereField("userId", isEqualTo: userId)
+            .whereField("blockId", isEqualTo: blockId)
+            .getDocuments()
+
+        let sessions = snapshot.documents.compactMap(Session.init(from:))
+        return sessions.sorted { $0.date > $1.date }
+    }
+
+    /// Creates or updates.
+    func saveSession(userId: String, session: Session) async throws {
+        var session = session
+        session.userId = userId
+
+        let data = session.firestoreData
+
+        if let id = session.id {
+            try await sessionsRef.document(id).setData(data, merge: true)
+        } else {
+            _ = try await sessionsRef.addDocument(data: data)
+        }
+    }
+
+    func deleteSession(userId: String, sessionId: String) async throws {
+        // If you want to enforce ownership, you can read+verify first.
+        // For v1 simplicity, delete directly:
+        try await sessionsRef.document(sessionId).delete()
     }
 }

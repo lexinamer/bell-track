@@ -1,35 +1,29 @@
 import SwiftUI
 
 struct Typography {
-    static let xs: CGFloat = 12
-    static let sm: CGFloat = 14
-    static let md: CGFloat = 16
-    static let lg: CGFloat = 18
-    static let xl: CGFloat = 20
-    static let xxl: CGFloat = 24
+    static let sm: CGFloat = 12
+    static let md: CGFloat = 14
+    static let lg: CGFloat = 16
+    static let xl: CGFloat = 18
 }
 
 struct TextStyles {
-    static let title = Font.system(size: Typography.lg, weight: .bold)
-    static let heading = Font.system(size: Typography.md, weight: .semibold)
-    static let bodyStrong = Font.system(size: Typography.md, weight: .medium)
-    static let body = Font.system(size: Typography.md, weight: .regular)
-    static let subtext = Font.system(size: Typography.sm, weight: .regular)
-    static let subtextStrong = Font.system(size: Typography.sm, weight: .medium)
-    static let caption = Font.system(size: Typography.xs, weight: .regular)
-}
 
-// MARK: - Badge
-struct Badge: View {
-    let text: String
+    // Navigation
+    static let title = Font.system(size: Typography.xl, weight: .bold)
 
-    var body: some View {
-        Text(text)
-            .font(TextStyles.subtextStrong)
-            .padding(.horizontal, Spacing.xs)
-            .padding(.vertical, 2)
-            .background(Color.brand.textSecondary.opacity(0.12))
-            .foregroundColor(Color.brand.textSecondary)
-            .cornerRadius(CornerRadius.sm)
-    }
+    // Cards
+    static let cardTitle = Font.system(size: Typography.lg, weight: .semibold)
+    static let cardMeta = Font.system(size: Typography.md, weight: .regular)
+
+    // Content
+    static let body = Font.system(size: Typography.lg, weight: .regular)
+    static let bodySmall = Font.system(size: Typography.md, weight: .regular)
+
+    // Actions / links
+    static let link = Font.system(size: Typography.lg, weight: .semibold)
+    static let linkSmall = Font.system(size: Typography.md, weight: .semibold)
+
+    // Micro / badges / helper
+    static let micro = Font.system(size: Typography.sm, weight: .regular)
 }

@@ -1,9 +1,9 @@
-import SwiftU
+import SwiftUI
 
 // Old Color Files
 
 struct ColorTheme {
-    let primary = Color("BrandPrimary")
+    let primary = Color("AccentColor")
     let secondary = Color("BrandSecondary")
     let background = Color("Background")
     let surface = Color("Surface")

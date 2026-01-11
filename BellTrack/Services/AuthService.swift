@@ -2,45 +2,35 @@ import Foundation
 import FirebaseAuth
 import Combine
 
-class AuthService: ObservableObject {
-    @Published var user: User?
-    @Published var isAuthenticated = false
-    private var authStateListenerHandle: AuthStateDidChangeListenerHandle?
-    
-    init() {
-        self.user = Auth.auth().currentUser
-        self.isAuthenticated = self.user != nil
+@MainActor
+final class AuthService: ObservableObject {
+    @Published private(set) var user: User?
 
-        // Keep user state in sync with Firebase
+    private var authStateListenerHandle: AuthStateDidChangeListenerHandle?
+
+    init() {
+        user = Auth.auth().currentUser
+
         authStateListenerHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
-            guard let self = self else { return }
-            self.user = user
-            self.isAuthenticated = (user != nil)
+            self?.user = user
         }
     }
-    
+
     func signUp(email: String, password: String) async throws {
-        let result = try await Auth.auth().createUser(withEmail: email, password: password)
-        await MainActor.run {
-            self.user = result.user
-            self.isAuthenticated = true
-        }
+        // Listener will update `user`, but we still await completion for error handling.
+        _ = try await Auth.auth().createUser(withEmail: email, password: password)
     }
-    
+
     func signIn(email: String, password: String) async throws {
-        let result = try await Auth.auth().signIn(withEmail: email, password: password)
-        await MainActor.run {
-            self.user = result.user
-            self.isAuthenticated = true
-        }
+        _ = try await Auth.auth().signIn(withEmail: email, password: password)
     }
-    
+
     func signOut() throws {
         try Auth.auth().signOut()
-        self.user = nil
-        self.isAuthenticated = false
+        // Listener will also fire, but setting immediately keeps UI snappy.
+        user = nil
     }
-    
+
     deinit {
         if let handle = authStateListenerHandle {
             Auth.auth().removeStateDidChangeListener(handle)
