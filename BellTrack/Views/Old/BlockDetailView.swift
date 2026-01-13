@@ -2,6 +2,7 @@ import SwiftUI
 import FirebaseAuth
 
 struct BlockDetailView: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var router: AppRouter
     @EnvironmentObject private var authService: AuthService
 
@@ -38,17 +39,17 @@ struct BlockDetailView: View {
                                 Text("Progress")
                                     .font(TextStyles.bodySmall)
                                     .foregroundColor(Color.brand.textSecondary)
+                                
+                                if !block.isCompleted, let rangeText = activeDateRangeText {
+                                    Text(rangeText)
+                                        .font(TextStyles.body)
+                                        .foregroundColor(Color.brand.textPrimary)
+                                }
 
                                 BlockCardSubline(
                                     text: statusLine,
                                     style: .primary
                                 )
-
-                                if !block.isCompleted, let endDateText = endDateHelperText {
-                                    Text(endDateText)
-                                        .font(TextStyles.body)
-                                        .foregroundColor(Color.brand.textSecondary)
-                                }
                             }
                             .padding(.bottom, Layout.cardSpacing)
                             
@@ -67,35 +68,51 @@ struct BlockDetailView: View {
                             }
 
                             // Sessions (full list)
-                            VStack(spacing: Layout.listSpacing) {
-                                ForEach(sessions) { session in
-                                    SessionCard(
-                                        session: session,
-                                        dateStyle: .compact,
-                                        onEdit: {
-                                            router.openEditSession(block: block, session: session)
-                                        },
-                                        onDuplicate: {
-                                            var dup = session
-                                            dup.id = nil
-                                            dup.date = Date()
-                                            router.openEditSession(block: block, session: dup)
-                                        },
-                                        onDelete: {
-                                            pendingSessionDelete = session
-                                            showDeleteSessionConfirm = true
-                                        }
-                                    )
-                                    .transition(.opacity.combined(with: .move(edge: .top)))
-                                }
-
-                                if sessions.isEmpty {
-                                    Text("No sessions yet.")
+                            if sessions.isEmpty {
+                                // Empty state styled like a card so it matches the session rows.
+                                VStack(alignment: .leading, spacing: Layout.contentSpacing) {
+                                    Text("No sessions yet")
                                         .font(TextStyles.bodySmall)
                                         .foregroundColor(Color.brand.textSecondary)
+
+                                    Button {
+                                        router.openLogSession(for: block)
+                                    } label: {
+                                        Text("+ Log Session")
+                                            .font(TextStyles.linkSmall)
+                                            .foregroundColor(Color.brand.primary)
+                                    }
+                                    .buttonStyle(.plain)
                                 }
+                                .padding(.horizontal, Layout.horizontalSpacingNarrow)
+                                .padding(.vertical, Layout.sectionSpacing)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .cardChrome()
+                            } else {
+                                VStack(spacing: Layout.listSpacing) {
+                                    ForEach(sessions) { session in
+                                        SessionCard(
+                                            session: session,
+                                            dateStyle: .compact,
+                                            onEdit: {
+                                                router.openEditSession(block: block, session: session)
+                                            },
+                                            onDuplicate: {
+                                                var dup = session
+                                                dup.id = nil
+                                                dup.date = Date()
+                                                router.openEditSession(block: block, session: dup)
+                                            },
+                                            onDelete: {
+                                                pendingSessionDelete = session
+                                                showDeleteSessionConfirm = true
+                                            }
+                                        )
+                                        .transition(.opacity.combined(with: .move(edge: .top)))
+                                    }
+                                }
+                                .animation(.easeInOut(duration: 0.2), value: sessions)
                             }
-                            .animation(.easeInOut(duration: 0.2), value: sessions)
                         }
                         .padding(.horizontal, Layout.horizontalSpacing)
                         .padding(.top, Layout.sectionSpacing)
@@ -167,7 +184,7 @@ struct BlockDetailView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .navigationBarLeading) {
-            Button { router.closeSheet() } label: {
+            Button { dismiss() } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(Color.brand.textSecondary)
@@ -221,16 +238,21 @@ struct BlockDetailView: View {
         "\(block.statusText) • \(sessions.count) \(sessions.count == 1 ? "session" : "sessions")"
     }
     
-    private var endDateHelperText: String? {
+    /// Full date range shown only for ACTIVE blocks in the detail header.
+    /// Example: "Feb 5, 2025 - Mar 15, 2025"
+    private var activeDateRangeText: String? {
+        // Only show this helper for active blocks.
+        guard !block.isCompleted else { return nil }
         guard let end = block.endDate else { return nil }
 
-        let formatted = end.formatted(
-            .dateTime.month(.abbreviated).day()
+        let startText = block.startDate.formatted(
+            .dateTime.month(.abbreviated).day().year()
+        )
+        let endText = end.formatted(
+            .dateTime.month(.abbreviated).day().year()
         )
 
-        return block.isCompleted
-            ? "Ended \(formatted)"
-            : "Ends \(formatted)"
+        return "\(startText) - \(endText)"
     }
 
     // MARK: - Data
@@ -299,7 +321,7 @@ struct BlockDetailView: View {
             try await firestoreService.saveBlock(userId: userId, block: updated)
             await MainActor.run {
                 NotificationCenter.default.post(name: .bellTrackDataDidChange, object: nil)
-                router.closeSheet()
+                dismiss()
             }
         } catch {
             await MainActor.run { actionErrorMessage = error.localizedDescription }
@@ -320,11 +342,10 @@ struct BlockDetailView: View {
             try await firestoreService.deleteBlock(userId: userId, blockId: blockId)
             await MainActor.run {
                 NotificationCenter.default.post(name: .bellTrackDataDidChange, object: nil)
-                router.closeSheet()
+                dismiss()
             }
         } catch {
             await MainActor.run { actionErrorMessage = error.localizedDescription }
         }
     }
 }
-

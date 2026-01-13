@@ -88,7 +88,7 @@ struct SessionCard: View {
                 Button("Edit", action: onEdit)
             }
             if let onDuplicate {
-                Button("Add", action: onDuplicate)
+                Button("Duplicate", action: onDuplicate)
             }
             if let onDelete {
                 Button("Delete", role: .destructive, action: onDelete)

@@ -33,7 +33,7 @@ struct LoginView: View {
                         .kerning(2.8)
                 }
 
-                Text("Your workout journal, simplified.")
+                Text("A simple way to track training blocks.")
                     .font(.system(size: Typography.lg))
                     .foregroundColor(Color.brand.textPrimary)
                     .kerning(0.3)

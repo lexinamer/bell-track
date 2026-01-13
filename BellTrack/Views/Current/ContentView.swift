@@ -18,10 +18,10 @@ final class AppRouter: ObservableObject {
 
     @Published var page: RootPage = .home
 
-    /// Remembers which root page opened the current sheet so we can return there after save.
-    @Published var sheetOriginPage: RootPage?
+    @Published var modal: Modal?
+    @Published var modalOrigin: ModalOrigin?
 
-    enum Sheet: Identifiable {
+    enum Modal: Identifiable {
         case settings
         case blockDetail(Block)
         case editBlock(Block?) // nil = create
@@ -41,50 +41,62 @@ final class AppRouter: ObservableObject {
         }
     }
 
-    @Published var sheet: Sheet?
+    enum ModalOrigin {
+        case home
+        case blockDetail(Block)
+    }
 
-    private func captureSheetOrigin() {
-        sheetOriginPage = page
+    private func captureModalOrigin() {
+        if let modal = modal {
+            switch modal {
+            case .blockDetail(let block):
+                modalOrigin = .blockDetail(block)
+            default:
+                modalOrigin = .home
+            }
+        } else {
+            modalOrigin = .home
+        }
     }
 
     func openSettings() {
-        captureSheetOrigin()
-        sheet = .settings
+        captureModalOrigin()
+        modal = .settings
     }
 
     func openBlockDetail(_ block: Block) {
-        captureSheetOrigin()
-        sheet = .blockDetail(block)
+        captureModalOrigin()
+        modal = .blockDetail(block)
     }
 
     func openCreateBlock() {
-        captureSheetOrigin()
-        sheet = .editBlock(nil)
+        captureModalOrigin()
+        modal = .editBlock(nil)
     }
 
     func openEditBlock(_ block: Block) {
-        captureSheetOrigin()
-        sheet = .editBlock(block)
+        captureModalOrigin()
+        modal = .editBlock(block)
     }
 
     func openLogSession(for block: Block) {
-        captureSheetOrigin()
-        sheet = .editSession(block: block, session: nil)
+        captureModalOrigin()
+        modal = .editSession(block: block, session: nil)
     }
 
     func openEditSession(block: Block, session: Session) {
-        captureSheetOrigin()
-        sheet = .editSession(block: block, session: session)
+        captureModalOrigin()
+        modal = .editSession(block: block, session: session)
     }
 
-    func closeSheet() {
-        sheet = nil
-        sheetOriginPage = nil
+    func closeModal() {
+        modal = nil
+        modalOrigin = nil
     }
 
     /// Hard reset to a safe baseline (use on login/logout).
     func resetToHome() {
-        closeSheet()
+        closeModal()
         page = .home
     }
 }
@@ -106,7 +118,7 @@ struct ContentView: View {
             }
         }
         // ✅ This is the fix:
-        // Any time auth flips (logout/login), dump any open sheet and route to Home.
+        // Any time auth flips (logout/login), dump any open modal and route to Home.
         .onChange(of: authService.user?.uid) { _, _ in
             router.resetToHome()
         }
@@ -122,9 +134,10 @@ struct ContentView: View {
             .toolbar { toolbarContent }
         }
         .environmentObject(router)
-        .fullScreenCover(item: $router.sheet) { sheet in
-            switch sheet {
 
+        // Full-screen covers: Settings + Block Detail + Add/Edit Block + Add/Edit Session
+        .fullScreenCover(item: $router.modal) { modal in
+            switch modal {
             case .settings:
                 SettingsView()
                     .environmentObject(router)
@@ -134,9 +147,12 @@ struct ContentView: View {
                     .environmentObject(router)
 
             case .editBlock(let existingBlock):
-                AddEditBlockView(existingBlock) { savedBlock in Task {
+                AddEditBlockView(existingBlock) { savedBlock in
+                    let isEditing = (existingBlock != nil)
+
+                    Task {
                         guard let uid = authService.user?.uid else {
-                            await MainActor.run { router.closeSheet() }
+                            await MainActor.run { router.closeModal() }
                             return
                         }
 
@@ -149,18 +165,23 @@ struct ContentView: View {
                         NotificationCenter.default.post(name: .bellTrackDataDidChange, object: nil)
 
                         await MainActor.run {
-                            router.page = router.sheetOriginPage ?? router.page
-                            router.closeSheet()
+                            if isEditing {
+                                // Return to Block Detail and ensure it re-renders with the updated block.
+                                router.modal = .blockDetail(savedBlock)
+                            } else {
+                                // New blocks are only created from Home.
+                                router.resetToHome()
+                            }
                         }
                     }
                 }
                 .environmentObject(router)
 
             case .editSession(let block, let existingSession):
-                AddEditSessionView(block: block, session: existingSession, onSave: { savedSession in
+                AddEditSessionView(block: block, session: existingSession) { savedSession in
                     Task {
                         guard let uid = authService.user?.uid else {
-                            await MainActor.run { router.closeSheet() }
+                            await MainActor.run { router.closeModal() }
                             return
                         }
 
@@ -173,11 +194,15 @@ struct ContentView: View {
                         NotificationCenter.default.post(name: .bellTrackDataDidChange, object: nil)
 
                         await MainActor.run {
-                            router.page = router.sheetOriginPage ?? router.page
-                            router.closeSheet()
+                            switch router.modalOrigin {
+                            case .blockDetail(let originBlock):
+                                router.modal = .blockDetail(originBlock)
+                            default:
+                                router.closeModal()
+                            }
                         }
                     }
-                })
+                }
                 .environmentObject(router)
             }
         }

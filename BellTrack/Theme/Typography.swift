@@ -18,7 +18,7 @@ struct TextStyles {
 
     // Content
     static let body = Font.system(size: Typography.lg, weight: .regular)
-    static let bodySmall = Font.system(size: Typography.md, weight: .regular)
+    static let bodySmall = Font.system(size: Typography.lg, weight: .regular)
 
     // Actions / links
     static let link = Font.system(size: Typography.lg, weight: .semibold)
