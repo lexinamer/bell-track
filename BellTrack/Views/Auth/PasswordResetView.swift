@@ -11,7 +11,7 @@ struct PasswordResetView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: Spacing.md) {
+            VStack(spacing: Theme.Space.md) {
 
                 // Push content down slightly (matches LoginView)
                 Spacer()
@@ -19,20 +19,20 @@ struct PasswordResetView: View {
 
                 // Title
                 Text("Reset Password")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(Theme.Font.title)
                     .foregroundColor(Color.brand.textPrimary)
 
                 Text("Enter your email to receive a password reset link.")
-                    .font(.system(size: 16))
+                    .font(Theme.Font.body)
                     .foregroundColor(Color.brand.textSecondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, Spacing.md)
+                    .padding(.horizontal, Theme.Space.md)
 
                 Spacer()
                     .frame(height: 20)
 
                 // FORM
-                VStack(spacing: Spacing.md) {
+                VStack(spacing: Theme.Space.md) {
 
                     TextField("Email", text: $email)
                         .textInputAutocapitalization(.never)
@@ -40,19 +40,19 @@ struct PasswordResetView: View {
                         .disableAutocorrection(true)
                         .padding()
                         .background(Color.brand.surface)
-                        .cornerRadius(CornerRadius.md)
+                        .cornerRadius(Theme.Radius.md)
                         .overlay(
-                            RoundedRectangle(cornerRadius: CornerRadius.md)
+                            RoundedRectangle(cornerRadius: Theme.Radius.md)
                                 .stroke(Color.brand.border, lineWidth: 1)
                         )
 
                     if !message.isEmpty {
                         Text(message)
-                            .font(.system(size: Typography.sm))
+                            .font(.system(size: Theme.TypeSize.sm))
                             .foregroundColor(
                                 message.contains("sent")
-                                ? Color.brand.success
-                                : Color.brand.destructive
+                                ? .green
+                                : .red
                             )
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -70,10 +70,10 @@ struct PasswordResetView: View {
                     .padding()
                     .background(Color.brand.primary)
                     .foregroundColor(.white)
-                    .cornerRadius(CornerRadius.md)
+                    .cornerRadius(Theme.Radius.md)
                     .disabled(isLoading || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                .padding(.horizontal, Spacing.lg)
+                .padding(.horizontal, Theme.Space.lg)
 
                 Spacer()
             }

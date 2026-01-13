@@ -1,17 +1,12 @@
 import SwiftUI
 
-// Old Color Files
-
 struct ColorTheme {
     let primary = Color("AccentColor")
-    let secondary = Color("BrandSecondary")
     let background = Color("Background")
     let surface = Color("Surface")
-    let textPrimary = Color("TextPrimary")
-    let textSecondary = Color("TextSecondary")
+    let textPrimary = Color("TextPrimary")     // #333
+    let textSecondary = Color("TextSecondary") // #666
     let border = Color("Border")
-    let destructive = Color("Destructive")
-    let success = Color("Success")
 }
 
 extension Color {

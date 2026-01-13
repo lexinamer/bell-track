@@ -2,6 +2,7 @@ import Foundation
 import FirebaseFirestore
 
 struct Block: Identifiable, Codable, Equatable {
+
     var id: String?
     var userId: String
 
@@ -34,9 +35,6 @@ struct Block: Identifiable, Codable, Equatable {
         self.updatedAt = updatedAt
     }
 
-    // MARK: - Derived (not stored)
-
-    /// Complete the day AFTER endDate (end Feb 1 -> complete Feb 2)
     var isCompleted: Bool {
         guard let endDate else { return false }
         let cal = Calendar.current
@@ -45,50 +43,11 @@ struct Block: Identifiable, Codable, Equatable {
         return today > endDay
     }
 
-    /// - If endDate exists: "X of Y weeks" while active, otherwise "Complete"
-    /// - If no endDate: "Ongoing"
-    var statusText: String {
-        guard let endDate else { return "Ongoing" }
-        return isCompleted ? "Complete" : weekProgressText(start: startDate, end: endDate)
-    }
-
-    /// Only for completed blocks
-    var dateRangeText: String? {
-        guard isCompleted else { return nil }
-        return Self.formatDateRange(start: startDate, end: endDate)
-    }
-
-    private func weekProgressText(start: Date, end: Date) -> String {
-        let cal = Calendar.current
-
-        // inclusive range (start..end)
-        let totalDays = max(1, (cal.dateComponents([.day], from: start, to: end).day ?? 0) + 1)
-        let totalWeeks = max(1, Int(ceil(Double(totalDays) / 7.0)))
-
-        let elapsedDays = max(0, (cal.dateComponents([.day], from: start, to: Date()).day ?? 0))
-        let currentWeek = min(totalWeeks, (elapsedDays / 7) + 1)
-
-        return "\(currentWeek) of \(totalWeeks) weeks"
-    }
-
-    private static func formatDateRange(start: Date, end: Date?) -> String? {
-        guard let end else { return nil }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        let yearFormatter = DateFormatter()
-        yearFormatter.dateFormat = "yyyy"
-
-        let startText = formatter.string(from: start)
-        let endText = formatter.string(from: end)
-        let yearText = yearFormatter.string(from: end)
-
-        return "\(startText)–\(endText) \(yearText)"
-    }
+    var isActive: Bool { !isCompleted }
 }
 
-// MARK: - Firestore mapping
-
 extension Block {
+
     init?(from doc: DocumentSnapshot) {
         guard
             let data = doc.data(),
@@ -118,9 +77,24 @@ extension Block {
             "updatedAt": Timestamp(date: Date())
         ]
 
-        if let notes, !notes.isEmpty { data["notes"] = notes }
-        if let endDate { data["endDate"] = Timestamp(date: endDate) }
+        if let notes, !notes.isEmpty {
+            data["notes"] = notes
+        }
+
+        if let endDate {
+            data["endDate"] = Timestamp(date: endDate)
+        }
 
         return data
+    }
+}
+
+extension Block {
+
+    var fullDateRangeText: String {
+        let start = startDate.formatted(.dateTime.month(.abbreviated).day().year())
+        guard let endDate else { return start }
+        let end = endDate.formatted(.dateTime.month(.abbreviated).day().year())
+        return "\(start) – \(end)"
     }
 }

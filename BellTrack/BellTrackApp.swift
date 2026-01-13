@@ -3,12 +3,11 @@ import FirebaseCore
 
 @main
 struct BellTrackApp: App {
+
     @StateObject private var authService = AuthService()
 
     init() {
-        if FirebaseApp.app() == nil {
-            FirebaseApp.configure()
-        }
+        FirebaseApp.configure()
     }
 
     var body: some Scene {

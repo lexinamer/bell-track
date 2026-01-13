@@ -14,14 +14,14 @@ struct LoginView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: Spacing.md) {
+            VStack(spacing: Theme.Space.md) {
 
                 // Push content down slightly (feels centered, not top-heavy)
                 Spacer()
                     .frame(height: 20)
 
                 // Logo + title
-                HStack(spacing: Spacing.sm) {
+                HStack(spacing: Theme.Space.sm) {
                     Image("AppLogo")
                         .resizable()
                         .renderingMode(.original)
@@ -34,7 +34,7 @@ struct LoginView: View {
                 }
 
                 Text("A simple way to track training blocks.")
-                    .font(.system(size: Typography.lg))
+                    .font(.system(size: Theme.TypeSize.lg))
                     .foregroundColor(Color.brand.textPrimary)
                     .kerning(0.3)
 
@@ -42,7 +42,7 @@ struct LoginView: View {
                     .frame(height: 20)
 
                 // FORM
-                VStack(spacing: Spacing.md) {
+                VStack(spacing: Theme.Space.md) {
 
                     // Email
                     TextField("Email", text: $email)
@@ -51,9 +51,9 @@ struct LoginView: View {
                         .disableAutocorrection(true)
                         .padding()
                         .background(Color.brand.surface)
-                        .cornerRadius(CornerRadius.md)
+                        .cornerRadius(Theme.Radius.md)
                         .overlay(
-                            RoundedRectangle(cornerRadius: CornerRadius.md)
+                            RoundedRectangle(cornerRadius: Theme.Radius.md)
                                 .stroke(Color.brand.border, lineWidth: 1)
                         )
 
@@ -61,17 +61,17 @@ struct LoginView: View {
                     SecureField("Password", text: $password)
                         .padding()
                         .background(Color.brand.surface)
-                        .cornerRadius(CornerRadius.md)
+                        .cornerRadius(Theme.Radius.md)
                         .overlay(
-                            RoundedRectangle(cornerRadius: CornerRadius.md)
+                            RoundedRectangle(cornerRadius: Theme.Radius.md)
                                 .stroke(Color.brand.border, lineWidth: 1)
                         )
 
                     // Error
                     if !errorMessage.isEmpty {
                         Text(errorMessage)
-                            .font(.system(size: Typography.sm))
-                            .foregroundColor(Color.brand.destructive)
+                            .font(.system(size: Theme.TypeSize.sm))
+                            .foregroundColor(.red)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
@@ -89,18 +89,18 @@ struct LoginView: View {
                     .padding()
                     .background(Color.brand.primary)
                     .foregroundColor(.white)
-                    .cornerRadius(CornerRadius.md)
+                    .cornerRadius(Theme.Radius.md)
                     .disabled(isLoading)
 
                     // Forgot password
                     Button("Forgot Password?") {
                         showPasswordReset = true
                     }
-                    .font(.system(size: Typography.md))
+                    .font(.system(size: Theme.TypeSize.md))
                     .foregroundColor(Color.brand.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .center)
                 }
-                .padding(.horizontal, Spacing.lg)
+                .padding(.horizontal, Theme.Space.lg)
 
                 Spacer()
                     .frame(height: 20)
@@ -115,7 +115,7 @@ struct LoginView: View {
             }
             .background(Color.brand.surface)
             .sheet(isPresented: $showSignUp) {
-                SignUpView()
+                SignupView()
             }
             .sheet(isPresented: $showPasswordReset) {
                 PasswordResetView()

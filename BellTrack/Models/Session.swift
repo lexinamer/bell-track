@@ -2,6 +2,7 @@ import Foundation
 import FirebaseFirestore
 
 struct Session: Identifiable, Codable, Equatable {
+
     var id: String?
     var userId: String
     var blockId: String
@@ -29,11 +30,17 @@ struct Session: Identifiable, Codable, Equatable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
+
+    var trimmedDetails: String? {
+        let t = (details ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : t
+    }
+
+    var hasDetails: Bool { trimmedDetails != nil }
 }
 
-// MARK: - Firestore mapping
-
 extension Session {
+
     init?(from doc: DocumentSnapshot) {
         guard
             let data = doc.data(),
@@ -62,7 +69,9 @@ extension Session {
             "updatedAt": Timestamp(date: Date())
         ]
 
-        if let details, !details.isEmpty { data["details"] = details }
+        if let t = trimmedDetails {
+            data["details"] = t
+        }
 
         return data
     }

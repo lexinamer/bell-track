@@ -2,7 +2,7 @@ import SwiftUI
 import FirebaseAuth
 import Foundation
 
-struct SignUpView: View {
+struct SignupView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var authService: AuthService
 
@@ -14,7 +14,7 @@ struct SignUpView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: Spacing.md) {
+            VStack(spacing: Theme.Space.md) {
 
                 // Push content down (matches Login + Reset)
                 Spacer()
@@ -22,14 +22,14 @@ struct SignUpView: View {
 
                 // Title
                 Text("Create Account")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(Theme.Font.title)
                     .foregroundColor(Color.brand.textPrimary)
 
                 Spacer()
                     .frame(height: 20)
 
                 // FORM
-                VStack(spacing: Spacing.md) {
+                VStack(spacing: Theme.Space.md) {
 
                     TextField("Email", text: $email)
                         .textInputAutocapitalization(.never)
@@ -37,34 +37,34 @@ struct SignUpView: View {
                         .disableAutocorrection(true)
                         .padding()
                         .background(Color.brand.surface)
-                        .cornerRadius(CornerRadius.md)
+                        .cornerRadius(Theme.Radius.md)
                         .overlay(
-                            RoundedRectangle(cornerRadius: CornerRadius.md)
+                            RoundedRectangle(cornerRadius: Theme.Radius.md)
                                 .stroke(Color.brand.border, lineWidth: 1)
                         )
 
                     SecureField("Password", text: $password)
                         .padding()
                         .background(Color.brand.surface)
-                        .cornerRadius(CornerRadius.md)
+                        .cornerRadius(Theme.Radius.md)
                         .overlay(
-                            RoundedRectangle(cornerRadius: CornerRadius.md)
+                            RoundedRectangle(cornerRadius: Theme.Radius.md)
                                 .stroke(Color.brand.border, lineWidth: 1)
                         )
 
                     SecureField("Confirm Password", text: $confirmPassword)
                         .padding()
                         .background(Color.brand.surface)
-                        .cornerRadius(CornerRadius.md)
+                        .cornerRadius(Theme.Radius.md)
                         .overlay(
-                            RoundedRectangle(cornerRadius: CornerRadius.md)
+                            RoundedRectangle(cornerRadius: Theme.Radius.md)
                                 .stroke(Color.brand.border, lineWidth: 1)
                         )
 
                     if !errorMessage.isEmpty {
                         Text(errorMessage)
-                            .font(.system(size: Typography.sm))
-                            .foregroundColor(Color.brand.destructive)
+                            .font(.system(size: Theme.TypeSize.sm))
+                            .foregroundColor(.red)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
@@ -81,14 +81,14 @@ struct SignUpView: View {
                     .padding()
                     .background(Color.brand.primary)
                     .foregroundColor(.white)
-                    .cornerRadius(CornerRadius.md)
+                    .cornerRadius(Theme.Radius.md)
                     .disabled(isLoading)
                 }
-                .padding(.horizontal, Spacing.lg)
+                .padding(.horizontal, Theme.Space.lg)
 
                 Spacer()
             }
-            .background(Color.brand.surface)
+            .background(Color.brand.background)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

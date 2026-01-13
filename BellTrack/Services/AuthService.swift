@@ -17,7 +17,6 @@ final class AuthService: ObservableObject {
     }
 
     func signUp(email: String, password: String) async throws {
-        // Listener will update `user`, but we still await completion for error handling.
         _ = try await Auth.auth().createUser(withEmail: email, password: password)
     }
 
@@ -27,7 +26,12 @@ final class AuthService: ObservableObject {
 
     func signOut() throws {
         try Auth.auth().signOut()
-        // Listener will also fire, but setting immediately keeps UI snappy.
+        user = nil
+    }
+
+    func deleteAccount() async throws {
+        guard let currentUser = Auth.auth().currentUser else { return }
+        try await currentUser.delete()
         user = nil
     }
 
