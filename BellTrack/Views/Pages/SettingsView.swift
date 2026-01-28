@@ -7,7 +7,6 @@ struct SettingsView: View {
 
     // MARK: - Environment
     @EnvironmentObject private var authService: AuthService
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
     // MARK: - State
@@ -82,17 +81,6 @@ struct SettingsView: View {
                 .scrollContentBackground(.hidden)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button {
-                            dismiss()
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(Color.brand.textPrimary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-
                     ToolbarItem(placement: .principal) {
                         Text("Settings")
                             .font(Theme.Font.title)
@@ -167,7 +155,6 @@ struct SettingsView: View {
     private func signOut() {
         do {
             try Auth.auth().signOut()
-            dismiss()
         } catch {
             print("Error signing out:", error)
         }
@@ -192,7 +179,6 @@ struct SettingsView: View {
             try await user.delete()
 
             try? Auth.auth().signOut()
-            dismiss()
 
         } catch {
             let nsError = error as NSError
@@ -206,28 +192,23 @@ struct SettingsView: View {
     }
 
     private func deleteUserData(db: Firestore, uid: String) async throws {
-        let blocksRef = db.collection("blocks")
-        let sessionsRef = db.collection("sessions")
+        let userRef = db.collection("users").document(uid)
+        let blocksRef = userRef.collection("blocks")
 
-        let blockSnapshot = try await blocksRef
-            .whereField("userId", isEqualTo: uid)
-            .getDocuments()
+        let blockSnapshot = try await blocksRef.getDocuments()
 
-        let sessionSnapshot = try await sessionsRef
-            .whereField("userId", isEqualTo: uid)
-            .getDocuments()
+        for blockDoc in blockSnapshot.documents {
+            let logsSnapshot = try await blockDoc.reference.collection("logs").getDocuments()
 
-        let batch = db.batch()
-
-        for doc in blockSnapshot.documents {
-            batch.deleteDocument(doc.reference)
+            let batch = db.batch()
+            for logDoc in logsSnapshot.documents {
+                batch.deleteDocument(logDoc.reference)
+            }
+            batch.deleteDocument(blockDoc.reference)
+            try await batch.commit()
         }
 
-        for doc in sessionSnapshot.documents {
-            batch.deleteDocument(doc.reference)
-        }
-
-        try await batch.commit()
+        try await userRef.delete()
     }
 
     // MARK: - Feedback

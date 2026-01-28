@@ -1,246 +1,268 @@
 import SwiftUI
-import FirebaseAuth
-
-extension Notification.Name {
-    static let bellTrackDataDidChange = Notification.Name("bellTrackDataDidChange")
-}
 
 struct HomeView: View {
+    @EnvironmentObject private var appViewModel: AppViewModel
 
-    @EnvironmentObject private var authService: AuthService
-    @StateObject private var vm = HomeViewModel()
-
-    @State private var showingAddBlock = false
-    @State private var editingBlock: Block? = nil
-    @State private var sessionRoute: SessionRoute? = nil
-
-    @State private var blockPendingDelete: Block? = nil
-    @State private var showDeleteBlockConfirm = false
-
-    @State private var expandedBlockIds: Set<String> = []
-
-    private var userId: String { authService.user?.uid ?? "" }
+    @State private var showingBlockCreation = false
+    @State private var showingEndBlockAlert = false
+    @State private var showingRenameSheet = false
+    @State private var newBlockName = ""
+    @State private var progressData: [String: (first: String?, last: String?)] = [:]
 
     var body: some View {
-        List {
+        ZStack {
+            Color.brand.background.ignoresSafeArea()
 
-            header
-                .listRowBackground(Color.brand.background)
-                .listRowSeparator(.hidden)
-                .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
-
-            if vm.isLoading {
-                HStack {
-                    Spacer()
-                    ProgressView()
-                    Spacer()
-                }
-                .listRowBackground(Color.brand.background)
-                .listRowSeparator(.hidden)
-
-            } else if vm.filteredBlocks.isEmpty {
-                emptyStateRow
-                    .listRowBackground(Color.brand.background)
-                    .listRowSeparator(.hidden)
-
+            if appViewModel.isLoading {
+                ProgressView()
+            } else if let block = appViewModel.activeBlock {
+                activeBlockContent(block)
             } else {
-                ForEach(vm.filteredBlocks) { block in
-                    let blockId = stableBlockId(for: block)
+                noBlockContent
+            }
+        }
+        .sheet(isPresented: $showingBlockCreation) {
+            BlockCreationView()
+        }
+        .sheet(isPresented: $showingRenameSheet) {
+            renameSheet
+        }
+        .alert("End Block", isPresented: $showingEndBlockAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("End Block", role: .destructive) {
+                Task {
+                    await appViewModel.endCurrentBlock()
+                }
+            }
+        } message: {
+            Text("This will mark the current block as completed. You can view it in History.")
+        }
+    }
 
-                    let allSessions = vm.sessions(for: block)
-                    let isExpanded = expandedBlockIds.contains(blockId)
-                    let visibleSessions = isExpanded ? allSessions : Array(allSessions.prefix(3))
+    private func activeBlockContent(_ block: Block) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Theme.Space.lg) {
+                blockHeader(block)
+                progressSection(block)
+                actionsSection
+            }
+            .padding(Theme.Space.md)
+        }
+        .refreshable {
+            await appViewModel.loadData()
+            await loadProgress(for: block)
+        }
+        .task {
+            await loadProgress(for: block)
+        }
+    }
 
-                    BlockRow(
-                        block: block,
-                        onEdit: { editingBlock = block },
-                        onComplete: {
-                            Task { await vm.completeBlock(userId: userId, block: block) }
-                        },
-                        onDelete: {
-                            blockPendingDelete = block
-                            showDeleteBlockConfirm = true
-                        }
-                    )
-                    .listRowBackground(Color.brand.surface)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(.init(top: Theme.Space.sm, leading: 0, bottom: 0, trailing: 0))
+    private func blockHeader(_ block: Block) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
+            Text(block.name)
+                .font(.system(size: Theme.TypeSize.xl, weight: .semibold))
+                .foregroundColor(.brand.textPrimary)
 
-                    ForEach(visibleSessions) { session in
-                        SessionRow(
-                            session: session,
-                            onTap: { sessionRoute = SessionRoute(block: block, session: session) }
+            Text(block.statusText)
+                .font(Theme.Font.body)
+                .foregroundColor(.brand.textSecondary)
+
+            Text(block.dateRangeText)
+                .font(Theme.Font.meta)
+                .foregroundColor(.brand.textSecondary)
+        }
+    }
+
+    private func progressSection(_ block: Block) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
+            Text("Progress")
+                .font(Theme.Font.title)
+                .foregroundColor(.brand.textPrimary)
+
+            ForEach(block.workouts) { workout in
+                workoutProgressCard(workout)
+            }
+        }
+    }
+
+    private func workoutProgressCard(_ workout: Workout) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.sm) {
+            Text("Workout \(workout.name)")
+                .font(Theme.Font.body)
+                .fontWeight(.medium)
+                .foregroundColor(.brand.textPrimary)
+
+            ForEach(workout.exercises) { exercise in
+                exerciseProgressRow(exercise)
+            }
+        }
+        .padding(Theme.Space.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.brand.surface)
+        .cornerRadius(Theme.Radius.sm)
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.sm)
+                .stroke(Color.brand.border, lineWidth: 1)
+        )
+    }
+
+    private func exerciseProgressRow(_ exercise: Exercise) -> some View {
+        let progress = progressData[exercise.id]
+
+        return HStack {
+            Text(exercise.name)
+                .font(Theme.Font.meta)
+                .foregroundColor(.brand.textPrimary)
+
+            Spacer()
+
+            if let first = progress?.first, let last = progress?.last {
+                Text("\(first) → \(last)")
+                    .font(Theme.Font.meta)
+                    .foregroundColor(.brand.textSecondary)
+            } else {
+                Text("—")
+                    .font(Theme.Font.meta)
+                    .foregroundColor(.brand.textSecondary)
+            }
+        }
+    }
+
+    private var actionsSection: some View {
+        VStack(spacing: Theme.Space.sm) {
+            Button {
+                if let block = appViewModel.activeBlock {
+                    newBlockName = block.name
+                }
+                showingRenameSheet = true
+            } label: {
+                HStack {
+                    Image(systemName: "pencil")
+                    Text("Rename Block")
+                }
+                .font(Theme.Font.body)
+                .foregroundColor(.brand.textPrimary)
+                .frame(maxWidth: .infinity)
+                .padding(Theme.Space.md)
+                .background(Color.brand.surface)
+                .cornerRadius(Theme.Radius.sm)
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.sm)
+                        .stroke(Color.brand.border, lineWidth: 1)
+                )
+            }
+
+            Button {
+                showingEndBlockAlert = true
+            } label: {
+                HStack {
+                    Image(systemName: "checkmark.circle")
+                    Text("End Block")
+                }
+                .font(Theme.Font.body)
+                .foregroundColor(.red)
+                .frame(maxWidth: .infinity)
+                .padding(Theme.Space.md)
+                .background(Color.brand.surface)
+                .cornerRadius(Theme.Radius.sm)
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.sm)
+                        .stroke(Color.brand.border, lineWidth: 1)
+                )
+            }
+        }
+    }
+
+    private var noBlockContent: some View {
+        VStack(spacing: Theme.Space.lg) {
+            Text("No active block")
+                .font(Theme.Font.title)
+                .foregroundColor(.brand.textPrimary)
+
+            Text("Create a training block to start tracking your workouts.")
+                .font(Theme.Font.body)
+                .foregroundColor(.brand.textSecondary)
+                .multilineTextAlignment(.center)
+
+            Button {
+                showingBlockCreation = true
+            } label: {
+                Text("Create Block")
+                    .font(Theme.Font.body)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, Theme.Space.lg)
+                    .padding(.vertical, Theme.Space.md)
+                    .background(Color.brand.primary)
+                    .cornerRadius(Theme.Radius.sm)
+            }
+        }
+        .padding(Theme.Space.xl)
+    }
+
+    private var renameSheet: some View {
+        NavigationStack {
+            ZStack {
+                Color.brand.background.ignoresSafeArea()
+
+                VStack(alignment: .leading, spacing: Theme.Space.md) {
+                    Text("Block Name")
+                        .font(Theme.Font.meta)
+                        .foregroundColor(.brand.textSecondary)
+
+                    TextField("Block name", text: $newBlockName)
+                        .font(Theme.Font.body)
+                        .padding(Theme.Space.md)
+                        .background(Color.brand.surface)
+                        .cornerRadius(Theme.Radius.sm)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.Radius.sm)
+                                .stroke(Color.brand.border, lineWidth: 1)
                         )
-                        .listRowBackground(Color.brand.surface)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(.init(top: 0, leading: Theme.Space.lg, bottom: 0, trailing: Theme.Space.lg))
+
+                    Spacer()
+                }
+                .padding(Theme.Space.md)
+            }
+            .navigationTitle("Rename Block")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        showingRenameSheet = false
                     }
+                    .foregroundColor(.brand.textSecondary)
+                }
 
-                    if allSessions.count > 3 {
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                toggleExpanded(blockId)
-                            }
-                        } label: {
-                            HStack(spacing: 6) {
-                                Text(isExpanded ? "Show less" : "Show all (\(allSessions.count))")
-                                    .font(Theme.Font.meta)
-                                    .foregroundColor(Color.brand.textSecondary)
-
-                                Image(systemName: "chevron.down")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(Color.brand.textSecondary)
-                                    .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                            }
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, 6)
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        Task {
+                            await renameBlock()
                         }
-                        .buttonStyle(.plain)
-                        .listRowBackground(Color.brand.surface)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(.init(top: 0, leading: Theme.Space.lg, bottom: 0, trailing: Theme.Space.lg))
                     }
-
-                    Button {
-                        guard !block.isCompleted else { return }
-                        let draft = vm.makePrefilledNewSession(userId: userId, block: block)
-                        sessionRoute = SessionRoute(block: block, session: draft)
-                    } label: {
-                        Label("Add session", systemImage: "plus")
-                            .font(Theme.Font.body)
-                            .fontWeight(.semibold)
-                            .foregroundColor(block.isCompleted ? Color.brand.textSecondary : Color.brand.primary)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(block.isCompleted)
-                    .listRowBackground(Color.brand.surface)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(.init(top: Theme.Space.sm, leading: Theme.Space.lg, bottom: Theme.Space.md, trailing: Theme.Space.lg))
+                    .fontWeight(.semibold)
                 }
-            }
-        }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background(Color.brand.background)
-        .refreshable { await vm.load(userId: userId) }
-        .task { await vm.load(userId: userId) }
-        .onReceive(NotificationCenter.default.publisher(for: .bellTrackDataDidChange)) { _ in
-            Task { await vm.load(userId: userId) }
-        }
-
-        .sheet(isPresented: $showingAddBlock) {
-            AddEditBlockView(nil) { block in
-                Task { await vm.saveBlock(userId: userId, block: block) }
-                showingAddBlock = false
-            }
-        }
-        .sheet(item: $editingBlock) { block in
-            AddEditBlockView(block) { updated in
-                Task { await vm.saveBlock(userId: userId, block: updated) }
-                editingBlock = nil
-            }
-        }
-        .sheet(item: $sessionRoute) { route in
-            AddEditSessionView(
-                block: route.block,
-                session: route.session,
-                onSave: { session in
-                    Task { await vm.saveSession(userId: userId, session: session) }
-                    sessionRoute = nil
-                },
-                onDelete: route.session?.id == nil ? nil : {
-                    guard let s = route.session else { return }
-                    Task { await vm.deleteSession(userId: userId, session: s) }
-                    sessionRoute = nil
-                }
-            )
-        }
-
-        .confirmationDialog("Delete block?", isPresented: $showDeleteBlockConfirm) {
-            Button("Delete", role: .destructive) {
-                guard let b = blockPendingDelete else { return }
-                Task { await vm.deleteBlock(userId: userId, block: b) }
-                blockPendingDelete = nil
-            }
-            Button("Cancel", role: .cancel) {
-                blockPendingDelete = nil
             }
         }
     }
 
-    private var header: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: Theme.Space.md) {
+    private func loadProgress(for block: Block) async {
+        var newProgress: [String: (first: String?, last: String?)] = [:]
 
-                Button {
-                    NotificationCenter.default.post(name: .bellTrackDataDidChange, object: nil)
-                } label: {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 22, weight: .regular))
-                        .foregroundColor(Color.brand.textPrimary)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
-
-                Text("Workouts")
-                    .font(Theme.Font.title)
-                    .foregroundColor(Color.brand.textPrimary)
-
-                Spacer()
-
-                if vm.filter == .active {
-                    Button { showingAddBlock = true } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 22, weight: .regular))
-                            .foregroundColor(Color.brand.textPrimary)
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    Color.clear.frame(width: 44, height: 44)
-                }
+        for workout in block.workouts {
+            for exercise in workout.exercises {
+                let progress = await appViewModel.getProgress(for: exercise.id)
+                newProgress[exercise.id] = progress
             }
-            .frame(height: 44)
-            .padding(.horizontal, Theme.Space.md)
-
-            Rectangle()
-                .fill(Color.brand.border)
-                .frame(height: 1)
-
-            Picker("", selection: $vm.filter) {
-                ForEach(BlockFilter.allCases, id: \.self) { Text($0.rawValue) }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, Theme.Space.md)
-            .padding(.vertical, Theme.Space.md)
         }
+
+        progressData = newProgress
     }
 
-    private var emptyStateRow: some View {
-        VStack(spacing: Theme.Space.md) {
-            Text("No blocks yet").font(Theme.Font.title)
-
-            Button("+ Add Block") { showingAddBlock = true }
-                .font(Theme.Font.link)
-                .foregroundColor(Color.brand.primary)
-        }
-        .padding(.top, Theme.Space.lg)
-        .frame(maxWidth: .infinity, alignment: .center)
-    }
-
-    private func stableBlockId(for block: Block) -> String {
-        block.id ?? "\(block.userId)|\(block.name)|\(block.startDate.timeIntervalSince1970)"
-    }
-
-    private func toggleExpanded(_ blockId: String) {
-        if expandedBlockIds.contains(blockId) {
-            expandedBlockIds.remove(blockId)
-        } else {
-            expandedBlockIds.insert(blockId)
-        }
+    private func renameBlock() async {
+        guard var block = appViewModel.activeBlock else { return }
+        block.name = newBlockName.trimmingCharacters(in: .whitespacesAndNewlines)
+        await appViewModel.saveBlock(block)
+        showingRenameSheet = false
     }
 }

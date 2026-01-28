@@ -1,15 +1,14 @@
 import Foundation
 import FirebaseFirestore
 
-struct Session: Identifiable, Codable, Equatable {
-
+struct WorkoutLog: Identifiable, Codable, Equatable {
     var id: String?
     var userId: String
     var blockId: String
-
+    var workoutId: String
+    var workoutName: String
     var date: Date
-    var details: String?
-
+    var exerciseResults: [ExerciseResult]
     var createdAt: Date
     var updatedAt: Date
 
@@ -17,62 +16,76 @@ struct Session: Identifiable, Codable, Equatable {
         id: String? = nil,
         userId: String,
         blockId: String,
-        date: Date,
-        details: String? = nil,
+        workoutId: String,
+        workoutName: String,
+        date: Date = Date(),
+        exerciseResults: [ExerciseResult] = [],
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
         self.id = id
         self.userId = userId
         self.blockId = blockId
+        self.workoutId = workoutId
+        self.workoutName = workoutName
         self.date = date
-        self.details = details
+        self.exerciseResults = exerciseResults
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
 
-    var trimmedDetails: String? {
-        let t = (details ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return t.isEmpty ? nil : t
+    var formattedDate: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter.string(from: date)
     }
 
-    var hasDetails: Bool { trimmedDetails != nil }
+    var shortDate: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: date)
+    }
 }
 
-extension Session {
-
+extension WorkoutLog {
     init?(from doc: DocumentSnapshot) {
         guard
             let data = doc.data(),
             let userId = data["userId"] as? String,
             let blockId = data["blockId"] as? String,
+            let workoutId = data["workoutId"] as? String,
+            let workoutName = data["workoutName"] as? String,
             let dateTimestamp = data["date"] as? Timestamp
         else { return nil }
+
+        var exerciseResults: [ExerciseResult] = []
+        if let resultsData = data["exerciseResults"] as? [[String: Any]] {
+            exerciseResults = resultsData.compactMap(ExerciseResult.init(from:))
+        }
 
         self.init(
             id: doc.documentID,
             userId: userId,
             blockId: blockId,
+            workoutId: workoutId,
+            workoutName: workoutName,
             date: dateTimestamp.dateValue(),
-            details: data["details"] as? String,
+            exerciseResults: exerciseResults,
             createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? dateTimestamp.dateValue(),
             updatedAt: (data["updatedAt"] as? Timestamp)?.dateValue() ?? Date()
         )
     }
 
     var firestoreData: [String: Any] {
-        var data: [String: Any] = [
+        [
             "userId": userId,
             "blockId": blockId,
+            "workoutId": workoutId,
+            "workoutName": workoutName,
             "date": Timestamp(date: date),
+            "exerciseResults": exerciseResults.map { $0.firestoreData },
             "createdAt": Timestamp(date: createdAt),
             "updatedAt": Timestamp(date: Date())
         ]
-
-        if let t = trimmedDetails {
-            data["details"] = t
-        }
-
-        return data
     }
 }
