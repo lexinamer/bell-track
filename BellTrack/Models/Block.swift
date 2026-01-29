@@ -1,128 +1,97 @@
 import Foundation
 import FirebaseFirestore
 
-enum BlockDuration: Int, CaseIterable, Identifiable {
-    case one = 1
-    case two = 2
-    case four = 4
-    case six = 6
-    case eight = 8
-    case ten = 10
+// MARK: - Block Duration
 
-    var id: Int { rawValue }
-
-    var displayName: String {
-        "\(rawValue) week\(rawValue == 1 ? "" : "s")"
-    }
+enum BlockDuration: Int, CaseIterable, Codable {
+    case twoWeeks = 2
+    case fourWeeks = 4
+    case sixWeeks = 6
+    case eightWeeks = 8
 }
 
-struct Block: Identifiable, Codable, Equatable {
-    var id: String?
-    var userId: String
-    var name: String
-    var startDate: Date
-    var durationWeeks: Int
-    var workouts: [Workout]
-    var createdAt: Date
-    var updatedAt: Date
+// MARK: - Block Model
+
+struct Block: Identifiable {
+
+    // MARK: - Stored Properties (REAL DATA)
+
+    let id: String
+    var name: String                 // MUST be var (HomeView renames blocks)
+    let startDate: Date
+    let duration: BlockDuration
+
+    // MARK: - App Init
 
     init(
-        id: String? = nil,
-        userId: String,
+        id: String = UUID().uuidString,
         name: String,
-        startDate: Date = Date(),
-        durationWeeks: Int = 4,
-        workouts: [Workout] = [],
-        createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        startDate: Date,
+        duration: BlockDuration
     ) {
         self.id = id
-        self.userId = userId
         self.name = name
         self.startDate = startDate
-        self.durationWeeks = durationWeeks
-        self.workouts = workouts
-        self.createdAt = createdAt
-        self.updatedAt = updatedAt
+        self.duration = duration
     }
 
-    var endDate: Date {
-        Calendar.current.date(byAdding: .weekOfYear, value: durationWeeks, to: startDate) ?? startDate
-    }
+    // MARK: - Firestore Init
 
-    var isCompleted: Bool {
-        Date() > endDate
-    }
+    init?(from document: DocumentSnapshot) {
+        let data = document.data() ?? [:]
 
-    var isActive: Bool { !isCompleted }
-
-    var weeksRemaining: Int {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.weekOfYear], from: Date(), to: endDate)
-        return max(0, components.weekOfYear ?? 0)
-    }
-
-    var currentWeek: Int {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.weekOfYear], from: startDate, to: Date())
-        return min(durationWeeks, max(1, (components.weekOfYear ?? 0) + 1))
-    }
-}
-
-extension Block {
-    init?(from doc: DocumentSnapshot) {
         guard
-            let data = doc.data(),
-            let userId = data["userId"] as? String,
             let name = data["name"] as? String,
             let startTimestamp = data["startDate"] as? Timestamp,
-            let durationWeeks = data["durationWeeks"] as? Int
-        else { return nil }
-
-        var workouts: [Workout] = []
-        if let workoutsData = data["workouts"] as? [[String: Any]] {
-            workouts = workoutsData.compactMap(Workout.init(from:))
+            let durationRaw = data["duration"] as? Int,
+            let duration = BlockDuration(rawValue: durationRaw)
+        else {
+            return nil
         }
 
-        self.init(
-            id: doc.documentID,
-            userId: userId,
-            name: name,
-            startDate: startTimestamp.dateValue(),
-            durationWeeks: durationWeeks,
-            workouts: workouts,
-            createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? startTimestamp.dateValue(),
-            updatedAt: (data["updatedAt"] as? Timestamp)?.dateValue() ?? Date()
-        )
+        self.id = document.documentID
+        self.name = name
+        self.startDate = startTimestamp.dateValue()
+        self.duration = duration
     }
+
+    // MARK: - Firestore Encoding
 
     var firestoreData: [String: Any] {
         [
-            "userId": userId,
             "name": name,
             "startDate": Timestamp(date: startDate),
-            "durationWeeks": durationWeeks,
-            "workouts": workouts.map { $0.firestoreData },
-            "createdAt": Timestamp(date: createdAt),
-            "updatedAt": Timestamp(date: Date())
+            "duration": duration.rawValue
         ]
     }
 }
 
+// MARK: - Computed Properties (USED BY HOMEVIEW)
+
 extension Block {
-    var dateRangeText: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        let start = formatter.string(from: startDate)
-        let end = formatter.string(from: endDate)
-        return "\(start) – \(end)"
+
+    /// Text shown under the block title on HomeView
+    var statusText: String {
+        "Active"
     }
 
-    var statusText: String {
-        if isCompleted {
-            return "Completed"
-        } else {
-            return "Week \(currentWeek) of \(durationWeeks)"
-        }
+    /// Date range text shown on HomeView
+    var dateRangeText: String {
+        let endDate = Calendar.current.date(
+            byAdding: .weekOfYear,
+            value: duration.rawValue,
+            to: startDate
+        ) ?? startDate
+
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+
+        return "\(formatter.string(from: startDate)) – \(formatter.string(from: endDate))"
+    }
+
+    /// Compile-time property only.
+    /// HomeView expects this to exist, real workouts come from AppViewModel.
+    var workouts: [Workout] {
+        []
     }
 }

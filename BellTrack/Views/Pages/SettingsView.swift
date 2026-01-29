@@ -79,16 +79,8 @@ struct SettingsView: View {
                     }
                 }
                 .scrollContentBackground(.hidden)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .principal) {
-                        Text("Settings")
-                            .font(Theme.Font.title)
-                            .foregroundColor(Color.brand.textPrimary)
-                    }
-                }
-                .toolbarBackground(Color.brand.background, for: .navigationBar)
-                .toolbarBackground(.visible, for: .navigationBar)
+                .navigationTitle("Settings")
+                .navigationBarTitleDisplayMode(.large)
             }
         }
         // MARK: - Delete flow

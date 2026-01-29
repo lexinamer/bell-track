@@ -1,15 +1,34 @@
 import SwiftUI
 
 struct ContentView: View {
-    @EnvironmentObject private var authService: AuthService
+
+    @StateObject private var appViewModel = AppViewModel()
+    @State private var selectedTab: Tab = .home
+
+    enum Tab {
+        case home
+        case settings
+    }
 
     var body: some View {
-        Group {
-            if authService.user == nil {
-                LoginView()
-            } else {
-                MainTabView()
+        TabView(selection: $selectedTab) {
+
+            NavigationStack {
+                HomeView()
             }
+            .tabItem {
+                Label("Home", systemImage: "house")
+            }
+            .tag(Tab.home)
+
+            NavigationStack {
+                SettingsView()
+            }
+            .tabItem {
+                Label("Settings", systemImage: "gear")
+            }
+            .tag(Tab.settings)
         }
+        .environmentObject(appViewModel)
     }
 }

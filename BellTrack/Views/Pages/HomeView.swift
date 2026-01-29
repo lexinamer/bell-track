@@ -7,14 +7,14 @@ struct HomeView: View {
     @State private var showingEndBlockAlert = false
     @State private var showingRenameSheet = false
     @State private var newBlockName = ""
-    @State private var progressData: [String: (first: String?, last: String?)] = [:]
+    @State private var isRefreshing = false
 
     var body: some View {
         ZStack {
             Color.brand.background.ignoresSafeArea()
 
             if appViewModel.isLoading {
-                ProgressView()
+                ProgressView("Loading...")
             } else if let block = appViewModel.activeBlock {
                 activeBlockContent(block)
             } else {
@@ -37,6 +37,25 @@ struct HomeView: View {
         } message: {
             Text("This will mark the current block as completed. You can view it in History.")
         }
+        .alert("Error", isPresented: .constant(appViewModel.error != nil)) {
+            Button("OK") {
+                appViewModel.clearError()
+            }
+            Button("Retry") {
+                Task {
+                    await appViewModel.loadData()
+                }
+            }
+        } message: {
+            Text(appViewModel.error?.errorDescription ?? "Unknown error")
+        }
+        .snackbar(
+            message: appViewModel.successMessage ?? "",
+            isShowing: .constant(appViewModel.successMessage != nil),
+            onDismiss: {
+                appViewModel.clearSuccessMessage()
+            }
+        )
     }
 
     private func activeBlockContent(_ block: Block) -> some View {
@@ -49,11 +68,9 @@ struct HomeView: View {
             .padding(Theme.Space.md)
         }
         .refreshable {
+            isRefreshing = true
             await appViewModel.loadData()
-            await loadProgress(for: block)
-        }
-        .task {
-            await loadProgress(for: block)
+            isRefreshing = false
         }
     }
 
@@ -75,12 +92,39 @@ struct HomeView: View {
 
     private func progressSection(_ block: Block) -> some View {
         VStack(alignment: .leading, spacing: Theme.Space.md) {
-            Text("Progress")
-                .font(Theme.Font.title)
-                .foregroundColor(.brand.textPrimary)
+            HStack {
+                Text("Progress")
+                    .font(Theme.Font.title)
+                    .foregroundColor(.brand.textPrimary)
+                
+                Spacer()
+                
+                if isRefreshing {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                } else {
+                    Button("Refresh") {
+                        Task {
+                            await appViewModel.refreshProgress()
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundColor(.brand.primary)
+                }
+            }
 
-            ForEach(block.workouts) { workout in
-                workoutProgressCard(workout)
+            if block.workouts.isEmpty {
+                Text("No workouts in this block")
+                    .font(Theme.Font.body)
+                    .foregroundColor(.brand.textSecondary)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.brand.surface)
+                    .cornerRadius(Theme.Radius.sm)
+            } else {
+                ForEach(block.workouts) { workout in
+                    workoutProgressCard(workout)
+                }
             }
         }
     }
@@ -92,8 +136,15 @@ struct HomeView: View {
                 .fontWeight(.medium)
                 .foregroundColor(.brand.textPrimary)
 
-            ForEach(workout.exercises) { exercise in
-                exerciseProgressRow(exercise)
+            if workout.exercises.isEmpty {
+                Text("No exercises added")
+                    .font(Theme.Font.meta)
+                    .foregroundColor(.brand.textSecondary)
+                    .italic()
+            } else {
+                ForEach(workout.exercises) { exercise in
+                    exerciseProgressRow(exercise)
+                }
             }
         }
         .padding(Theme.Space.md)
@@ -107,7 +158,7 @@ struct HomeView: View {
     }
 
     private func exerciseProgressRow(_ exercise: Exercise) -> some View {
-        let progress = progressData[exercise.id]
+        let progress = appViewModel.getProgress(for: exercise.id)
 
         return HStack {
             Text(exercise.name)
@@ -116,14 +167,22 @@ struct HomeView: View {
 
             Spacer()
 
-            if let first = progress?.first, let last = progress?.last {
-                Text("\(first) → \(last)")
-                    .font(Theme.Font.meta)
-                    .foregroundColor(.brand.textSecondary)
-            } else {
-                Text("—")
-                    .font(Theme.Font.meta)
-                    .foregroundColor(.brand.textSecondary)
+            Group {
+                if let first = progress.first, let last = progress.last {
+                    if first == last {
+                        Text(first)
+                            .font(Theme.Font.meta)
+                            .foregroundColor(.brand.textSecondary)
+                    } else {
+                        Text("\(first) → \(last)")
+                            .font(Theme.Font.meta)
+                            .foregroundColor(.brand.textSecondary)
+                    }
+                } else {
+                    Text("—")
+                        .font(Theme.Font.meta)
+                        .foregroundColor(.brand.textSecondary)
+                }
             }
         }
     }
@@ -151,12 +210,18 @@ struct HomeView: View {
                         .stroke(Color.brand.border, lineWidth: 1)
                 )
             }
+            .disabled(appViewModel.isSaving)
 
             Button {
                 showingEndBlockAlert = true
             } label: {
                 HStack {
-                    Image(systemName: "checkmark.circle")
+                    if appViewModel.isSaving {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "checkmark.circle")
+                    }
                     Text("End Block")
                 }
                 .font(Theme.Font.body)
@@ -170,6 +235,7 @@ struct HomeView: View {
                         .stroke(Color.brand.border, lineWidth: 1)
                 )
             }
+            .disabled(appViewModel.isSaving)
         }
     }
 
@@ -187,16 +253,27 @@ struct HomeView: View {
             Button {
                 showingBlockCreation = true
             } label: {
-                Text("Create Block")
-                    .font(Theme.Font.body)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, Theme.Space.lg)
-                    .padding(.vertical, Theme.Space.md)
-                    .background(Color.brand.primary)
-                    .cornerRadius(Theme.Radius.sm)
+                HStack {
+                    if appViewModel.isSaving {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "plus")
+                    }
+                    Text("Create Block")
+                }
+                .font(Theme.Font.body)
+                .fontWeight(.semibold)
+                .foregroundColor(.white)
+                .padding(.horizontal, Theme.Space.lg)
+                .padding(.vertical, Theme.Space.md)
+                .background(Color.brand.primary)
+                .cornerRadius(Theme.Radius.sm)
             }
+            .disabled(appViewModel.isSaving)
         }
+        .navigationTitle("Log Workout")
+        .navigationBarTitleDisplayMode(.large)
         .padding(Theme.Space.xl)
     }
 
@@ -232,6 +309,7 @@ struct HomeView: View {
                         showingRenameSheet = false
                     }
                     .foregroundColor(.brand.textSecondary)
+                    .disabled(appViewModel.isSaving)
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
@@ -241,28 +319,68 @@ struct HomeView: View {
                         }
                     }
                     .fontWeight(.semibold)
+                    .disabled(newBlockName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || appViewModel.isSaving)
                 }
             }
         }
     }
 
-    private func loadProgress(for block: Block) async {
-        var newProgress: [String: (first: String?, last: String?)] = [:]
-
-        for workout in block.workouts {
-            for exercise in workout.exercises {
-                let progress = await appViewModel.getProgress(for: exercise.id)
-                newProgress[exercise.id] = progress
-            }
-        }
-
-        progressData = newProgress
-    }
-
     private func renameBlock() async {
         guard var block = appViewModel.activeBlock else { return }
-        block.name = newBlockName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = newBlockName.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !trimmedName.isEmpty else { return }
+        
+        block.name = trimmedName
         await appViewModel.saveBlock(block)
         showingRenameSheet = false
+    }
+}
+
+// MARK: - Snackbar View Extension
+
+extension View {
+    func snackbar(
+        message: String,
+        isShowing: Binding<Bool>,
+        onDismiss: @escaping () -> Void
+    ) -> some View {
+        ZStack {
+            self
+            
+            if isShowing.wrappedValue && !message.isEmpty {
+                VStack {
+                    Spacer()
+                    
+                    HStack {
+                        Text(message)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white)
+                            .multilineTextAlignment(.leading)
+                        
+                        Spacer()
+                        
+                        Button("Dismiss") {
+                            onDismiss()
+                        }
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.8))
+                    }
+                    .padding()
+                    .background(Color.green)
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                    .padding(.bottom, 80) // Above tab bar
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        withAnimation {
+                            onDismiss()
+                        }
+                    }
+                }
+            }
+        }
     }
 }

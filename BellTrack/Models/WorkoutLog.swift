@@ -1,91 +1,51 @@
 import Foundation
 import FirebaseFirestore
 
-struct WorkoutLog: Identifiable, Codable, Equatable {
-    var id: String?
-    var userId: String
-    var blockId: String
-    var workoutId: String
-    var workoutName: String
-    var date: Date
-    var exerciseResults: [ExerciseResult]
-    var createdAt: Date
-    var updatedAt: Date
+struct WorkoutLog: Identifiable {
+
+    let id: String
+    let workoutId: String
+    let date: Date
+    let exerciseResults: [ExerciseResult]
 
     init(
-        id: String? = nil,
-        userId: String,
-        blockId: String,
+        id: String = UUID().uuidString,
         workoutId: String,
-        workoutName: String,
-        date: Date = Date(),
-        exerciseResults: [ExerciseResult] = [],
-        createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        date: Date,
+        exerciseResults: [ExerciseResult]
     ) {
         self.id = id
-        self.userId = userId
-        self.blockId = blockId
         self.workoutId = workoutId
-        self.workoutName = workoutName
         self.date = date
         self.exerciseResults = exerciseResults
-        self.createdAt = createdAt
-        self.updatedAt = updatedAt
     }
 
-    var formattedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d, yyyy"
-        return formatter.string(from: date)
-    }
+    // Firestore Init
+    init?(from document: DocumentSnapshot) {
+        let data = document.data() ?? [:]
 
-    var shortDate: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        return formatter.string(from: date)
-    }
-}
-
-extension WorkoutLog {
-    init?(from doc: DocumentSnapshot) {
         guard
-            let data = doc.data(),
-            let userId = data["userId"] as? String,
-            let blockId = data["blockId"] as? String,
             let workoutId = data["workoutId"] as? String,
-            let workoutName = data["workoutName"] as? String,
-            let dateTimestamp = data["date"] as? Timestamp
-        else { return nil }
-
-        var exerciseResults: [ExerciseResult] = []
-        if let resultsData = data["exerciseResults"] as? [[String: Any]] {
-            exerciseResults = resultsData.compactMap(ExerciseResult.init(from:))
+            let timestamp = data["date"] as? Timestamp,
+            let resultsData = data["exerciseResults"] as? [[String: Any]]
+        else {
+            return nil
         }
 
-        self.init(
-            id: doc.documentID,
-            userId: userId,
-            blockId: blockId,
-            workoutId: workoutId,
-            workoutName: workoutName,
-            date: dateTimestamp.dateValue(),
-            exerciseResults: exerciseResults,
-            createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? dateTimestamp.dateValue(),
-            updatedAt: (data["updatedAt"] as? Timestamp)?.dateValue() ?? Date()
-        )
+        self.id = document.documentID
+        self.workoutId = workoutId
+        self.date = timestamp.dateValue()
+        self.exerciseResults = resultsData.compactMap {
+            ExerciseResult(from: $0)
+        }
     }
 
+    // Firestore Encoding
     var firestoreData: [String: Any] {
         [
-            "userId": userId,
-            "blockId": blockId,
             "workoutId": workoutId,
-            "workoutName": workoutName,
             "date": Timestamp(date: date),
-            "exerciseResults": exerciseResults.map { $0.firestoreData },
-            "createdAt": Timestamp(date: createdAt),
-            "updatedAt": Timestamp(date: Date())
+            "exerciseResults": exerciseResults.map { $0.firestoreData }
         ]
     }
 }

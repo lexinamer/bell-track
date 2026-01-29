@@ -1,34 +1,51 @@
 import Foundation
 
-struct Exercise: Identifiable, Codable, Equatable, Hashable {
-    var id: String
-    var name: String
-    var trackingType: TrackingType
+struct Exercise: Identifiable {
 
-    init(id: String = UUID().uuidString, name: String, trackingType: TrackingType = .weightReps) {
+    // MARK: - Stored Properties
+
+    let id: String
+    let name: String
+    let trackingTypes: [TrackingType]
+
+    // MARK: - App Init
+
+    init(
+        id: String = UUID().uuidString,
+        name: String,
+        trackingTypes: [TrackingType]
+    ) {
         self.id = id
         self.name = name
-        self.trackingType = trackingType
+        self.trackingTypes = trackingTypes
     }
 
-    var firestoreData: [String: Any] {
-        [
-            "id": id,
-            "name": name,
-            "trackingType": trackingType.rawValue
-        ]
-    }
+    // MARK: - Firestore Init
 
     init?(from data: [String: Any]) {
         guard
             let id = data["id"] as? String,
             let name = data["name"] as? String,
-            let trackingTypeRaw = data["trackingType"] as? String,
-            let trackingType = TrackingType(rawValue: trackingTypeRaw)
-        else { return nil }
+            let rawTypes = data["trackingTypes"] as? [String]
+        else {
+            return nil
+        }
+
+        let types = rawTypes.compactMap { TrackingType(rawValue: $0) }
+        guard !types.isEmpty else { return nil }
 
         self.id = id
         self.name = name
-        self.trackingType = trackingType
+        self.trackingTypes = types
+    }
+
+    // MARK: - Firestore Encoding
+
+    var firestoreData: [String: Any] {
+        [
+            "id": id,
+            "name": name,
+            "trackingTypes": trackingTypes.map { $0.rawValue }
+        ]
     }
 }

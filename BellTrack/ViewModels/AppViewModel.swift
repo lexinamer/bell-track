@@ -1,135 +1,157 @@
 import Foundation
-import Combine
+import SwiftUI
+import Combine   // ← THIS WAS MISSING
 
 @MainActor
 final class AppViewModel: ObservableObject {
-    private let firestoreService = FirestoreService()
+
+    // MARK: - Dependencies
+    private let firestore = FirestoreService()
+
+    // MARK: - Published State
+    @Published var blocks: [Block] = []
+    @Published var workouts: [Workout] = []
+    @Published var workoutLogs: [WorkoutLog] = []
 
     @Published var activeBlock: Block?
-    @Published var blocks: [Block] = []
-    @Published var logs: [WorkoutLog] = []
-    @Published var isLoading = false
-    @Published var error: String?
+    @Published var isSaving: Bool = false
 
-    var userId: String?
+    @Published var error: AppError?
+    @Published var successMessage: String?
+    @Published var isLoading: Bool = false
 
-    var completedBlocks: [Block] {
-        blocks.filter { $0.isCompleted }
-    }
-
-    // MARK: - Block Operations
+    // MARK: - Load
 
     func loadData() async {
-        guard let userId else { return }
-
         isLoading = true
-        error = nil
+        defer { isLoading = false }
 
         do {
-            blocks = try await firestoreService.fetchBlocks(userId: userId)
-            activeBlock = blocks.first(where: { $0.isActive })
+            let fetchedBlocks = try await firestore.fetchBlocks()
+            blocks = fetchedBlocks
+            activeBlock = fetchedBlocks.first
 
-            if let activeBlock, let blockId = activeBlock.id {
-                logs = try await firestoreService.fetchLogs(userId: userId, blockId: blockId)
-            } else {
-                logs = []
+            guard let block = activeBlock else {
+                workouts = []
+                workoutLogs = []
+                return
             }
-        } catch {
-            self.error = error.localizedDescription
-        }
 
-        isLoading = false
+            let fetchedWorkouts = try await firestore.fetchWorkouts(for: block.id)
+            workouts = fetchedWorkouts
+
+            var allLogs: [WorkoutLog] = []
+            for workout in fetchedWorkouts {
+                let logs = try await firestore.fetchLogs(for: workout.id)
+                allLogs.append(contentsOf: logs)
+            }
+            workoutLogs = allLogs
+
+        } catch {
+            self.error = .dataError(error.localizedDescription)
+        }
     }
+
+    // MARK: - Blocks
 
     func saveBlock(_ block: Block) async {
-        guard let userId else { return }
-
+        isSaving = true
         do {
-            _ = try await firestoreService.saveBlock(userId: userId, block: block)
+            try await firestore.saveBlock(block)
+            successMessage = "Block saved"
             await loadData()
         } catch {
-            self.error = error.localizedDescription
+            self.error = .dataError(error.localizedDescription)
         }
-    }
-
-    func endCurrentBlock() async {
-        guard let userId, let activeBlock, let blockId = activeBlock.id else { return }
-
-        do {
-            try await firestoreService.endBlock(userId: userId, blockId: blockId)
-            await loadData()
-        } catch {
-            self.error = error.localizedDescription
-        }
+        isSaving = false
     }
 
     func deleteBlock(_ blockId: String) async {
-        guard let userId else { return }
-
+        isSaving = true
         do {
-            try await firestoreService.deleteBlock(userId: userId, blockId: blockId)
+            try await firestore.deleteBlock(blockId)
+            successMessage = "Block deleted"
             await loadData()
         } catch {
-            self.error = error.localizedDescription
+            self.error = .dataError(error.localizedDescription)
         }
+        isSaving = false
     }
 
-    // MARK: - Log Operations
-
-    func loadLogsForBlock(_ blockId: String) async {
-        guard let userId else { return }
-
-        do {
-            logs = try await firestoreService.fetchLogs(userId: userId, blockId: blockId)
-        } catch {
-            self.error = error.localizedDescription
-        }
+    func endCurrentBlock() async {
+        guard let block = activeBlock else { return }
+        await deleteBlock(block.id)
     }
 
-    func saveLog(_ log: WorkoutLog) async {
-        guard let userId else { return }
+    // MARK: - Workouts
 
-        do {
-            try await firestoreService.saveLog(userId: userId, log: log)
-            await loadLogsForBlock(log.blockId)
-        } catch {
-            self.error = error.localizedDescription
-        }
+    func workouts(for block: Block) -> [Workout] {
+        workouts.filter { $0.blockId == block.id }
     }
 
-    func deleteLog(_ log: WorkoutLog) async {
-        guard let userId, let logId = log.id else { return }
-
+    func saveWorkout(_ workout: Workout) async {
+        isSaving = true
         do {
-            try await firestoreService.deleteLog(userId: userId, blockId: log.blockId, logId: logId)
-            await loadLogsForBlock(log.blockId)
+            try await firestore.saveWorkout(workout)
+            successMessage = "Workout saved"
+            await loadData()
         } catch {
-            self.error = error.localizedDescription
+            self.error = .dataError(error.localizedDescription)
         }
+        isSaving = false
+    }
+
+    // MARK: - Logs
+
+    func saveWorkoutLog(_ log: WorkoutLog) async {
+        isSaving = true
+        do {
+            try await firestore.saveWorkoutLog(log)
+            successMessage = "Workout logged"
+            await loadData()
+        } catch {
+            self.error = .dataError(error.localizedDescription)
+        }
+        isSaving = false
     }
 
     // MARK: - Progress
 
-    func getProgress(for exerciseId: String) async -> (first: String?, last: String?) {
-        guard let userId, let activeBlock, let blockId = activeBlock.id else {
-            return (nil, nil)
-        }
+    func getProgress(for exerciseId: String) -> (first: String?, last: String?) {
+        let results = workoutLogs
+            .flatMap { $0.exerciseResults }
+            .filter { $0.exerciseId == exerciseId }
 
-        do {
-            return try await firestoreService.calculateProgress(
-                userId: userId,
-                blockId: blockId,
-                exerciseId: exerciseId
-            )
-        } catch {
-            return (nil, nil)
-        }
+        let first = results.first?.values.values.first
+        let last = results.last?.values.values.first
+
+        return (first, last)
     }
 
-    func getLastLog(for workoutId: String) -> WorkoutLog? {
-        logs
-            .filter { $0.workoutId == workoutId }
-            .sorted { $0.date > $1.date }
-            .first
+    func refreshProgress() async {
+        await loadData()
+    }
+
+    // MARK: - Messaging
+
+    func clearError() {
+        error = nil
+    }
+
+    func clearSuccessMessage() {
+        successMessage = nil
+    }
+}
+
+// MARK: - AppError
+
+enum AppError: Error, LocalizedError {
+    case dataError(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .dataError(let message):
+            return message
+        }
     }
 }

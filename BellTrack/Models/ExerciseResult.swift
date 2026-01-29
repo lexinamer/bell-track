@@ -1,54 +1,51 @@
 import Foundation
 
-struct ExerciseResult: Identifiable, Codable, Equatable, Hashable {
-    var id: String
-    var exerciseId: String
-    var exerciseName: String
-    var trackingType: TrackingType
-    var value: String
+struct ExerciseResult: Identifiable {
+
+    let id: String
+    let exerciseId: String
+    let values: [TrackingType: String]
 
     init(
         id: String = UUID().uuidString,
         exerciseId: String,
-        exerciseName: String,
-        trackingType: TrackingType,
-        value: String = ""
+        values: [TrackingType: String]
     ) {
         self.id = id
         self.exerciseId = exerciseId
-        self.exerciseName = exerciseName
-        self.trackingType = trackingType
-        self.value = value
+        self.values = values
     }
 
-    var firestoreData: [String: Any] {
-        [
-            "id": id,
-            "exerciseId": exerciseId,
-            "exerciseName": exerciseName,
-            "trackingType": trackingType.rawValue,
-            "value": value
-        ]
-    }
-
+    // Firestore Init
     init?(from data: [String: Any]) {
         guard
             let id = data["id"] as? String,
             let exerciseId = data["exerciseId"] as? String,
-            let exerciseName = data["exerciseName"] as? String,
-            let trackingTypeRaw = data["trackingType"] as? String,
-            let trackingType = TrackingType(rawValue: trackingTypeRaw),
-            let value = data["value"] as? String
-        else { return nil }
+            let rawValues = data["values"] as? [String: String]
+        else {
+            return nil
+        }
+
+        var parsed: [TrackingType: String] = [:]
+        for (key, value) in rawValues {
+            if let type = TrackingType(rawValue: key) {
+                parsed[type] = value
+            }
+        }
 
         self.id = id
         self.exerciseId = exerciseId
-        self.exerciseName = exerciseName
-        self.trackingType = trackingType
-        self.value = value
+        self.values = parsed
     }
 
-    var hasValue: Bool {
-        !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    // Firestore Encoding
+    var firestoreData: [String: Any] {
+        [
+            "id": id,
+            "exerciseId": exerciseId,
+            "values": Dictionary(
+                uniqueKeysWithValues: values.map { ($0.key.rawValue, $0.value) }
+            )
+        ]
     }
 }
