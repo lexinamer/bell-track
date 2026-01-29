@@ -5,201 +5,116 @@ import FirebaseAuth
 @MainActor
 final class FirestoreService {
 
+    static let shared = FirestoreService()
     private let db = Firestore.firestore()
 
-    // MARK: - Helpers
+    private init() {}
 
-    private func userRef() throws -> DocumentReference {
+    // MARK: - Auth Helper
+
+    private func requireUserID() throws -> String {
         guard let uid = Auth.auth().currentUser?.uid else {
-            throw FirestoreError.noUser
+            throw NSError(domain: "Auth", code: 401, userInfo: [
+                NSLocalizedDescriptionKey: "User not authenticated"
+            ])
         }
-        return db.collection("users").document(uid)
+        return uid
     }
 
     // MARK: - Blocks
 
     func fetchBlocks() async throws -> [Block] {
-        let snapshot = try await userRef()
+        let uid = try requireUserID()
+
+        let snapshot = try await db
+            .collection("users")
+            .document(uid)
             .collection("blocks")
-            .order(by: "startDate", descending: true)
             .getDocuments()
 
-        return snapshot.documents.compactMap { doc in
-            guard
-                let name = doc["name"] as? String,
-                let startDate = (doc["startDate"] as? Timestamp)?.dateValue(),
-                let durationRaw = doc["duration"] as? Int,
-                let duration = BlockDuration(rawValue: durationRaw)
-            else {
-                return nil
-            }
-
-            return Block(
-                id: doc.documentID,
-                name: name,
-                startDate: startDate,
-                duration: duration
-            )
+        return snapshot.documents.compactMap {
+            try? $0.data(as: Block.self)
         }
     }
 
     func saveBlock(_ block: Block) async throws {
-        let data: [String: Any] = [
-            "name": block.name,
-            "startDate": block.startDate,
-            "duration": block.duration.rawValue
-        ]
+        let uid = try requireUserID()
 
-        if block.id.isEmpty {
-            try await userRef()
-                .collection("blocks")
-                .addDocument(data: data)
-        } else {
-            try await userRef()
-                .collection("blocks")
-                .document(block.id)
-                .setData(data, merge: true)
-        }
+        try db
+            .collection("users")
+            .document(uid)
+            .collection("blocks")
+            .document(block.id)
+            .setData(from: block)
     }
 
-    func deleteBlock(_ blockId: String) async throws {
-        try await userRef()
+    func deleteBlock(blockID: String) async throws {
+        let uid = try requireUserID()
+
+        // delete workouts under this block
+        let workouts = try await fetchWorkouts(for: blockID)
+        for workout in workouts {
+            try await deleteWorkout(workoutID: workout.id)
+        }
+
+        try await db
+            .collection("users")
+            .document(uid)
             .collection("blocks")
-            .document(blockId)
+            .document(blockID)
             .delete()
     }
 
-    // MARK: - Workouts
+    // MARK: - Workouts (logged workouts)
 
-    func fetchWorkouts(for blockId: String) async throws -> [Workout] {
-        let snapshot = try await userRef()
-            .collection("blocks")
-            .document(blockId)
+    func fetchWorkouts() async throws -> [Workout] {
+        let uid = try requireUserID()
+
+        let snapshot = try await db
+            .collection("users")
+            .document(uid)
             .collection("workouts")
             .getDocuments()
 
-        return snapshot.documents.compactMap { doc in
-            guard let name = doc["name"] as? String else { return nil }
+        return snapshot.documents.compactMap {
+            try? $0.data(as: Workout.self)
+        }
+    }
 
-            let exercisesData = doc["exercises"] as? [[String: Any]] ?? []
+    func fetchWorkouts(for blockID: String) async throws -> [Workout] {
+        let uid = try requireUserID()
 
-            let exercises: [Exercise] = exercisesData.compactMap { data in
-                guard
-                    let id = data["id"] as? String,
-                    let name = data["name"] as? String,
-                    let rawTypes = data["trackingTypes"] as? [String]
-                else { return nil }
+        let snapshot = try await db
+            .collection("users")
+            .document(uid)
+            .collection("workouts")
+            .whereField("blockID", isEqualTo: blockID)
+            .getDocuments()
 
-                let types = rawTypes.compactMap { TrackingType(rawValue: $0) }
-
-                return Exercise(
-                    id: id,
-                    name: name,
-                    trackingTypes: types
-                )
-            }
-
-            return Workout(
-                id: doc.documentID,
-                blockId: blockId,
-                name: name,
-                exercises: exercises
-            )
+        return snapshot.documents.compactMap {
+            try? $0.data(as: Workout.self)
         }
     }
 
     func saveWorkout(_ workout: Workout) async throws {
-        let exercisesData: [[String: Any]] = workout.exercises.map {
-            [
-                "id": $0.id,
-                "name": $0.name,
-                "trackingTypes": $0.trackingTypes.map { $0.rawValue }
-            ]
-        }
+        let uid = try requireUserID()
 
-        let data: [String: Any] = [
-            "name": workout.name,
-            "exercises": exercisesData
-        ]
-
-        try await userRef()
-            .collection("blocks")
-            .document(workout.blockId)
+        try db
+            .collection("users")
+            .document(uid)
             .collection("workouts")
             .document(workout.id)
-            .setData(data, merge: true)
+            .setData(from: workout)
     }
 
-    // MARK: - Logs
+    func deleteWorkout(workoutID: String) async throws {
+        let uid = try requireUserID()
 
-    func fetchLogs(for workoutId: String) async throws -> [WorkoutLog] {
-        let snapshot = try await userRef()
-            .collection("logs")
-            .whereField("workoutId", isEqualTo: workoutId)
-            .order(by: "date", descending: true)
-            .getDocuments()
-
-        return snapshot.documents.compactMap { doc in
-            guard
-                let workoutId = doc["workoutId"] as? String,
-                let date = (doc["date"] as? Timestamp)?.dateValue(),
-                let resultsData = doc["exerciseResults"] as? [[String: Any]]
-            else { return nil }
-
-            let results: [ExerciseResult] = resultsData.compactMap { data in
-                guard
-                    let exerciseId = data["exerciseId"] as? String,
-                    let values = data["values"] as? [String: String]
-                else { return nil }
-
-                let mappedValues = Dictionary(
-                    uniqueKeysWithValues:
-                        values.compactMap { key, value in
-                            TrackingType(rawValue: key).map { ($0, value) }
-                        }
-                )
-
-                return ExerciseResult(
-                    exerciseId: exerciseId,
-                    values: mappedValues
-                )
-            }
-
-            return WorkoutLog(
-                id: doc.documentID,
-                workoutId: workoutId,
-                date: date,
-                exerciseResults: results
-            )
-        }
+        try await db
+            .collection("users")
+            .document(uid)
+            .collection("workouts")
+            .document(workoutID)
+            .delete()
     }
-
-    func saveWorkoutLog(_ log: WorkoutLog) async throws {
-        let resultsData: [[String: Any]] = log.exerciseResults.map {
-            [
-                "exerciseId": $0.exerciseId,
-                "values": Dictionary(
-                    uniqueKeysWithValues:
-                        $0.values.map { ($0.key.rawValue, $0.value) }
-                )
-            ]
-        }
-
-        let data: [String: Any] = [
-            "workoutId": log.workoutId,
-            "date": log.date,
-            "exerciseResults": resultsData
-        ]
-
-        try await userRef()
-            .collection("logs")
-            .document(log.id)
-            .setData(data)
-    }
-}
-
-// MARK: - Errors
-
-enum FirestoreError: Error {
-    case noUser
 }

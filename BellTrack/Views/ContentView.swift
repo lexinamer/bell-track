@@ -2,24 +2,39 @@ import SwiftUI
 
 struct ContentView: View {
 
-    @StateObject private var appViewModel = AppViewModel()
-    @State private var selectedTab: Tab = .home
+    @EnvironmentObject private var authService: AuthService
 
-    enum Tab {
-        case home
-        case settings
-    }
+    @State private var selectedTab: Tab = .home
+    @State private var showLogWorkout = false
 
     var body: some View {
+        Group {
+            if authService.user != nil {
+                mainApp
+            } else {
+                LoginView()
+            }
+        }
+    }
+
+    private var mainApp: some View {
         TabView(selection: $selectedTab) {
 
             NavigationStack {
-                HomeView()
+                HomeView(showLogWorkout: $showLogWorkout)
             }
             .tabItem {
                 Label("Home", systemImage: "house")
             }
             .tag(Tab.home)
+
+            NavigationStack {
+                TrainingView()
+            }
+            .tabItem {
+                Label("Training", systemImage: "list.bullet")
+            }
+            .tag(Tab.training)
 
             NavigationStack {
                 SettingsView()
@@ -29,6 +44,14 @@ struct ContentView: View {
             }
             .tag(Tab.settings)
         }
-        .environmentObject(appViewModel)
+        .sheet(isPresented: $showLogWorkout) {
+            LogWorkoutView()
+        }
     }
+}
+
+enum Tab {
+    case home
+    case training
+    case settings
 }

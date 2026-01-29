@@ -24,7 +24,8 @@ enum Theme {
     }
 
     enum Font {
-        static let title = SwiftUI.Font.system(size: TypeSize.lg, weight: .semibold)
+        static let title = SwiftUI.Font.system(size: TypeSize.xl, weight: .semibold)
+        static let bodyStrong  = SwiftUI.Font.system(size: TypeSize.md, weight: .semibold)
         static let body  = SwiftUI.Font.system(size: TypeSize.md, weight: .regular)
         static let meta  = SwiftUI.Font.system(size: TypeSize.sm, weight: .regular)
         static let link  = SwiftUI.Font.system(size: TypeSize.sm, weight: .semibold)

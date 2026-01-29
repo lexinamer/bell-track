@@ -1,22 +1,27 @@
 import Foundation
 
-struct Workout: Identifiable {
-    let id: String
-    let blockId: String
+struct Workout: Identifiable, Codable {
 
-    // MUST be var for editors
-    var name: String
-    var exercises: [Exercise]
+    let id: String
+    let blockID: String
+    let workoutTemplateID: String
+    let workoutName: String
+    let date: Date
+    let results: [ExerciseResult]
 
     init(
         id: String = UUID().uuidString,
-        blockId: String,
-        name: String,
-        exercises: [Exercise] = []
+        blockID: String,
+        workoutTemplateID: String,
+        workoutName: String,
+        date: Date,
+        results: [ExerciseResult]
     ) {
         self.id = id
-        self.blockId = blockId
-        self.name = name
-        self.exercises = exercises
+        self.blockID = blockID
+        self.workoutTemplateID = workoutTemplateID
+        self.workoutName = workoutName
+        self.date = date
+        self.results = results
     }
 }
