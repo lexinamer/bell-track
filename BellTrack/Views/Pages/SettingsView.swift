@@ -1,7 +1,6 @@
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
-import UIKit
 
 struct SettingsView: View {
 
@@ -11,11 +10,15 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
 
     // MARK: - State
+    @State private var firestoreService = FirestoreService()
+    @State private var exercises: [String] = []
+    @State private var newExercise = ""
+    @State private var isLoading = true
+    
     @State private var showingDeleteConfirm1 = false
     @State private var showingDeleteConfirm2 = false
     @State private var deleteConfirmText: String = ""
     @State private var isDeletingAccount = false
-
     @State private var showingReauthAlert = false
     @State private var deleteErrorMessage: String? = nil
 
@@ -25,6 +28,48 @@ struct SettingsView: View {
                 Color.brand.background.ignoresSafeArea()
 
                 List {
+                    
+                    // MARK: - Exercises
+                    Section {
+                        HStack {
+                            TextField("Add exercise", text: $newExercise)
+                                .font(Theme.Font.body)
+                                .foregroundColor(Color.brand.textPrimary)
+                                .submitLabel(.done)
+                                .onSubmit {
+                                    addExercise()
+                                }
+                            
+                            Button {
+                                addExercise()
+                            } label: {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(newExercise.isEmpty ? Color.brand.textSecondary : Color.brand.primary)
+                            }
+                            .disabled(newExercise.isEmpty)
+                        }
+                    }
+                    
+                    Section("Exercises") {
+                        if isLoading {
+                            HStack {
+                                Spacer()
+                                ProgressView()
+                                Spacer()
+                            }
+                        } else {
+                            ForEach(exercises, id: \.self) { exercise in
+                                Text(exercise)
+                                    .font(Theme.Font.body)
+                                    .foregroundColor(Color.brand.textPrimary)
+                            }
+                            .onDelete { indexSet in
+                                exercises.remove(atOffsets: indexSet)
+                                Task { await saveSettings() }
+                            }
+                        }
+                    }
 
                     // MARK: - Feedback
                     Section("Feedback") {
@@ -103,6 +148,9 @@ struct SettingsView: View {
                 .toolbarBackground(.visible, for: .navigationBar)
             }
         }
+        .task {
+            await loadSettings()
+        }
         // MARK: - Delete flow
         .alert("Delete account?", isPresented: $showingDeleteConfirm1) {
             Button("Continue", role: .destructive) {
@@ -127,7 +175,7 @@ struct SettingsView: View {
         } message: {
             Text("Type DELETE to confirm.")
         }
-        .alert("Can’t delete right now", isPresented: $showingReauthAlert) {
+        .alert("Can't delete right now", isPresented: $showingReauthAlert) {
             Button("Log out", role: .destructive) {
                 signOut()
             }
@@ -160,8 +208,40 @@ struct SettingsView: View {
                 )
         }
     }
+    
+    // MARK: - Exercise Actions
+    
+    private func addExercise() {
+        let trimmed = newExercise.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        exercises.append(trimmed)
+        newExercise = ""
+        Task { await saveSettings() }
+    }
+    
+    private func loadSettings() async {
+        guard let userId = authService.user?.uid else { return }
+        isLoading = true
+        do {
+            let settings = try await firestoreService.fetchSettings(userId: userId)
+            exercises = settings.exercises
+        } catch {
+            print("Error loading settings: \(error)")
+        }
+        isLoading = false
+    }
+    
+    private func saveSettings() async {
+        guard let userId = authService.user?.uid else { return }
+        let settings = Settings(id: userId, userId: userId, exercises: exercises)
+        do {
+            try await firestoreService.saveSettings(settings)
+        } catch {
+            print("Error saving settings: \(error)")
+        }
+    }
 
-    // MARK: - Actions
+    // MARK: - Account Actions
 
     @MainActor
     private func signOut() {
@@ -206,26 +286,20 @@ struct SettingsView: View {
     }
 
     private func deleteUserData(db: Firestore, uid: String) async throws {
-        let blocksRef = db.collection("blocks")
-        let sessionsRef = db.collection("sessions")
+        let workoutsRef = db.collection("workouts")
+        let settingsRef = db.collection("settings")
 
-        let blockSnapshot = try await blocksRef
-            .whereField("userId", isEqualTo: uid)
-            .getDocuments()
-
-        let sessionSnapshot = try await sessionsRef
+        let workoutSnapshot = try await workoutsRef
             .whereField("userId", isEqualTo: uid)
             .getDocuments()
 
         let batch = db.batch()
 
-        for doc in blockSnapshot.documents {
+        for doc in workoutSnapshot.documents {
             batch.deleteDocument(doc.reference)
         }
-
-        for doc in sessionSnapshot.documents {
-            batch.deleteDocument(doc.reference)
-        }
+        
+        batch.deleteDocument(settingsRef.document(uid))
 
         try await batch.commit()
     }

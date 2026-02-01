@@ -3,109 +3,57 @@ import FirebaseFirestore
 
 final class FirestoreService {
     private let db = Firestore.firestore()
-
-    // MARK: - References
-
-    private func userRef(_ userId: String) -> DocumentReference {
-        db.collection("users").document(userId)
-    }
-
-    private func blocksRef(userId: String) -> CollectionReference {
-        userRef(userId).collection("blocks")
-    }
-
-    private func sessionsRef(userId: String, blockId: String) -> CollectionReference {
-        blocksRef(userId: userId)
-            .document(blockId)
-            .collection("sessions")
-    }
-
-    // MARK: - Blocks
-
-    func fetchBlocks(userId: String) async throws -> [Block] {
-        let snapshot = try await blocksRef(userId: userId)
-            .order(by: "startDate", descending: true)
-            .getDocuments()
-
-        return snapshot.documents.compactMap(Block.init(from:))
-    }
-
-    func saveBlock(userId: String, block: Block) async throws {
-        var block = block
-        block.userId = userId
-
-        let data = block.firestoreData
-
-        if let id = block.id {
-            try await blocksRef(userId: userId)
-                .document(id)
-                .setData(data, merge: true)
-        } else {
-            _ = try await blocksRef(userId: userId)
-                .addDocument(data: data)
-        }
-    }
-
-    func deleteBlock(userId: String, blockId: String) async throws {
-        let blockRef = blocksRef(userId: userId).document(blockId)
-
-        // delete sessions
-        let sessionsSnapshot = try await blockRef
-            .collection("sessions")
-            .getDocuments()
-
-        let batch = db.batch()
-        for doc in sessionsSnapshot.documents {
-            batch.deleteDocument(doc.reference)
-        }
-
-        batch.deleteDocument(blockRef)
-        try await batch.commit()
-    }
-
-    // MARK: - Sessions
-
-    func fetchSessions(userId: String, blockId: String) async throws -> [Session] {
-        let snapshot = try await sessionsRef(userId: userId, blockId: blockId)
+    
+    // MARK: - Workouts
+    func fetchWorkouts(userId: String) async throws -> [Workout] {
+        let snapshot = try await db.collection("users/\(userId)/workouts")
             .order(by: "date", descending: true)
             .getDocuments()
-
-        return snapshot.documents.compactMap(Session.init(from:))
+        
+        return snapshot.documents.compactMap { try? $0.data(as: Workout.self) }
     }
 
-    func fetchRecentSessions(
-        userId: String,
-        blockId: String,
-        limit: Int = 3
-    ) async throws -> [Session] {
-        let snapshot = try await sessionsRef(userId: userId, blockId: blockId)
-            .order(by: "date", descending: true)
-            .limit(to: limit)
-            .getDocuments()
-
-        return snapshot.documents.compactMap(Session.init(from:))
-    }
-
-    func saveSession(userId: String, session: Session) async throws {
-        let data = session.firestoreData
-
-        if let id = session.id {
-            try await sessionsRef(userId: userId, blockId: session.blockId)
-                .document(id)
-                .setData(data, merge: true)
+    func saveWorkout(_ workout: Workout) async throws {
+        let userId = workout.userId
+        let workoutsRef = db.collection("users/\(userId)/workouts")
+        
+        if let id = workout.id {
+            // Update existing
+            try workoutsRef.document(id).setData(from: workout)
         } else {
-            _ = try await sessionsRef(userId: userId, blockId: session.blockId)
-                .addDocument(data: data)
+            // Create new
+            _ = try workoutsRef.addDocument(from: workout)
         }
     }
 
-    func deleteSession(
-        userId: String,
-        blockId: String,
-        sessionId: String
-    ) async throws {
-        try await sessionsRef(userId: userId, blockId: blockId)
-            .document(sessionId)
-            .delete()
+    func deleteWorkout(_ workout: Workout) async throws {
+        guard let id = workout.id else { return }
+        let userId = workout.userId
+        try await db.collection("users/\(userId)/workouts").document(id).delete()
+    }
+
+    func duplicateWorkout(_ workout: Workout, userId: String) async throws {
+        var newWorkout = workout
+        newWorkout.id = nil
+        newWorkout.date = Date()
+        newWorkout.userId = userId
+        try await saveWorkout(newWorkout)
+    }
+    
+    // MARK: - Settings
+    func fetchSettings(userId: String) async throws -> Settings {
+        let docRef = db.collection("users/\(userId)/settings").document("main")
+        
+        if let settings = try? await docRef.getDocument(as: Settings.self) {
+            return settings
+        } else {
+            let newSettings = Settings(id: "main", userId: userId, exercises: Settings.defaultExercises)
+            try docRef.setData(from: newSettings)
+            return newSettings
+        }
+    }
+    
+    func saveSettings(_ settings: Settings) async throws {
+        try db.collection("users/\(settings.userId)/settings").document("main").setData(from: settings)
     }
 }
