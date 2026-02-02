@@ -10,6 +10,8 @@ struct LogView: View {
     @State private var exercises: [Exercise] = []
     @State private var availableExercises: [String] = []
     @State private var workoutDate: Date = Date()
+    @State private var showToast = false
+    @State private var toastMessage = ""
     
     var editingWorkout: Workout?
     
@@ -52,35 +54,58 @@ struct LogView: View {
                             )
                         }
                         
-                        // Add button
-                        Button {
-                            exercises.append(Exercise(
-                                exerciseName: availableExercises.first ?? "",
-                                rounds: nil,
-                                reps: nil,
-                                time: nil,
-                                weightKg: nil,
-                                isDoubleWeight: false,
-                                note: nil
-                            ))
-                        } label: {
-                            HStack {
-                                Image(systemName: "plus.circle.fill")
-                                Text("Add Exercise")
+                        // Add button or empty state
+                        if availableExercises.isEmpty {
+                            VStack(spacing: Theme.Space.sm) {
+                                Image(systemName: "dumbbell")
+                                    .font(.system(size: 32))
+                                    .foregroundColor(Color.brand.textSecondary)
+                                Text("No exercises available")
+                                    .font(Theme.Font.body)
+                                    .foregroundColor(Color.brand.textSecondary)
+                                Text("Add exercises in Settings first")
+                                    .font(Theme.Font.meta)
+                                    .foregroundColor(Color.brand.textSecondary)
                             }
-                            .font(Theme.Font.body)
-                            .fontWeight(.semibold)
-                            .foregroundColor(Color.brand.primary)
                             .frame(maxWidth: .infinity)
-                            .padding()
+                            .padding(Theme.Space.lg)
                             .background(Color.brand.surface)
                             .cornerRadius(Theme.Radius.md)
                             .overlay(
                                 RoundedRectangle(cornerRadius: Theme.Radius.md)
                                     .stroke(Color.brand.border, lineWidth: 1)
                             )
+                            .padding(.horizontal, Theme.Space.md)
+                        } else {
+                            Button {
+                                exercises.append(Exercise(
+                                    exerciseName: availableExercises.first ?? "Exercise",
+                                    rounds: nil,
+                                    reps: nil,
+                                    time: nil,
+                                    weightKg: nil,
+                                    isDoubleWeight: false,
+                                    note: nil
+                                ))
+                            } label: {
+                                HStack {
+                                    Image(systemName: "plus.circle.fill")
+                                    Text("Add Exercise")
+                                }
+                                .font(Theme.Font.body)
+                                .fontWeight(.semibold)
+                                .foregroundColor(Color.brand.primary)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.brand.surface)
+                                .cornerRadius(Theme.Radius.md)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: Theme.Radius.md)
+                                        .stroke(Color.brand.border, lineWidth: 1)
+                                )
+                            }
+                            .padding(.horizontal, Theme.Space.md)
                         }
-                        .padding(.horizontal, Theme.Space.md)
                     }
                     .padding(.vertical, Theme.Space.md)
                 }
@@ -117,24 +142,26 @@ struct LogView: View {
                     workoutDate = workout.date
                 }
             }
+            .toast(isShowing: $showToast, message: toastMessage, type: .error)
         }
     }
     
     private func saveWorkout() async {
         guard let userId = authService.user?.uid else { return }
-        
+
         let workout = Workout(
             id: editingWorkout?.id,
             userId: userId,
             date: workoutDate,
             exercises: exercises
         )
-        
+
         do {
             try await firestoreService.saveWorkout(workout)
             dismiss()
         } catch {
-            print("Error saving workout: \(error)")
+            toastMessage = "Failed to save workout"
+            showToast = true
         }
     }
     
@@ -142,9 +169,10 @@ struct LogView: View {
         guard let userId = authService.user?.uid else { return }
         do {
             let settings = try await firestoreService.fetchSettings(userId: userId)
-            availableExercises = settings.exercises
+            availableExercises = settings.visibleExerciseNames
         } catch {
-            print("Error loading settings: \(error)")
+            toastMessage = "Failed to load exercises"
+            showToast = true
         }
     }
 }

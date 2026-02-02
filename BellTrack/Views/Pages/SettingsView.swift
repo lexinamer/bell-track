@@ -11,16 +11,21 @@ struct SettingsView: View {
 
     // MARK: - State
     @State private var firestoreService = FirestoreService()
-    @State private var exercises: [String] = []
+    @State private var exercises: [ExerciseDefinition] = []
     @State private var newExercise = ""
     @State private var isLoading = true
-    
+    @State private var editingExerciseId: UUID? = nil
+    @State private var editingName = ""
+
     @State private var showingDeleteConfirm1 = false
     @State private var showingDeleteConfirm2 = false
     @State private var deleteConfirmText: String = ""
     @State private var isDeletingAccount = false
     @State private var showingReauthAlert = false
     @State private var deleteErrorMessage: String? = nil
+    @State private var showToast = false
+    @State private var toastMessage = ""
+    @State private var toastType: ToastType = .error
 
     var body: some View {
         NavigationStack {
@@ -28,8 +33,8 @@ struct SettingsView: View {
                 Color.brand.background.ignoresSafeArea()
 
                 List {
-                    
-                    // MARK: - Exercises
+
+                    // MARK: - Add Exercise
                     Section {
                         HStack {
                             TextField("Add exercise", text: $newExercise)
@@ -39,7 +44,7 @@ struct SettingsView: View {
                                 .onSubmit {
                                     addExercise()
                                 }
-                            
+
                             Button {
                                 addExercise()
                             } label: {
@@ -50,8 +55,9 @@ struct SettingsView: View {
                             .disabled(newExercise.isEmpty)
                         }
                     }
-                    
-                    Section("Exercises") {
+
+                    // MARK: - Exercises List
+                    Section {
                         if isLoading {
                             HStack {
                                 Spacer()
@@ -59,15 +65,39 @@ struct SettingsView: View {
                                 Spacer()
                             }
                         } else {
-                            ForEach(exercises, id: \.self) { exercise in
-                                Text(exercise)
-                                    .font(Theme.Font.body)
-                                    .foregroundColor(Color.brand.textPrimary)
+                            ForEach($exercises) { $exercise in
+                                SettingsExerciseRow(
+                                    exercise: $exercise,
+                                    isEditing: editingExerciseId == exercise.id,
+                                    editingName: $editingName,
+                                    onTap: {
+                                        startEditing(exercise)
+                                    },
+                                    onCommit: {
+                                        commitEdit(for: exercise.id)
+                                    },
+                                    onToggleHidden: {
+                                        exercise.isHidden.toggle()
+                                        Task { await saveSettings() }
+                                    }
+                                )
+                            }
+                            .onMove { from, to in
+                                exercises.move(fromOffsets: from, toOffset: to)
+                                Task { await saveSettings() }
                             }
                             .onDelete { indexSet in
                                 exercises.remove(atOffsets: indexSet)
                                 Task { await saveSettings() }
                             }
+                        }
+                    } header: {
+                        HStack {
+                            Text("Exercises")
+                            Spacer()
+                            EditButton()
+                                .font(Theme.Font.meta)
+                                .foregroundColor(Color.brand.primary)
                         }
                     }
 
@@ -151,7 +181,6 @@ struct SettingsView: View {
         .task {
             await loadSettings()
         }
-        // MARK: - Delete flow
         .alert("Delete account?", isPresented: $showingDeleteConfirm1) {
             Button("Continue", role: .destructive) {
                 deleteConfirmText = ""
@@ -183,6 +212,7 @@ struct SettingsView: View {
         } message: {
             Text(deleteErrorMessage ?? "Please log out and log back in, then try again.")
         }
+        .toast(isShowing: $showToast, message: toastMessage, type: toastType)
     }
 
     // MARK: - Row helper
@@ -208,17 +238,46 @@ struct SettingsView: View {
                 )
         }
     }
-    
+
     // MARK: - Exercise Actions
-    
+
     private func addExercise() {
         let trimmed = newExercise.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        exercises.append(trimmed)
+
+        // Check for duplicate (case-insensitive)
+        let isDuplicate = exercises.contains { $0.name.lowercased() == trimmed.lowercased() }
+        if isDuplicate {
+            toastMessage = "Exercise already exists"
+            toastType = .error
+            showToast = true
+            return
+        }
+
+        exercises.append(ExerciseDefinition(name: trimmed))
         newExercise = ""
         Task { await saveSettings() }
     }
-    
+
+    private func startEditing(_ exercise: ExerciseDefinition) {
+        editingExerciseId = exercise.id
+        editingName = exercise.name
+    }
+
+    private func commitEdit(for id: UUID) {
+        let trimmed = editingName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            editingExerciseId = nil
+            return
+        }
+
+        if let index = exercises.firstIndex(where: { $0.id == id }) {
+            exercises[index].name = trimmed
+            Task { await saveSettings() }
+        }
+        editingExerciseId = nil
+    }
+
     private func loadSettings() async {
         guard let userId = authService.user?.uid else { return }
         isLoading = true
@@ -226,18 +285,22 @@ struct SettingsView: View {
             let settings = try await firestoreService.fetchSettings(userId: userId)
             exercises = settings.exercises
         } catch {
-            print("Error loading settings: \(error)")
+            toastMessage = "Failed to load settings"
+            toastType = .error
+            showToast = true
         }
         isLoading = false
     }
-    
+
     private func saveSettings() async {
         guard let userId = authService.user?.uid else { return }
-        let settings = Settings(id: userId, userId: userId, exercises: exercises)
+        let settings = Settings(id: "main", userId: userId, exercises: exercises)
         do {
             try await firestoreService.saveSettings(settings)
         } catch {
-            print("Error saving settings: \(error)")
+            toastMessage = "Failed to save settings"
+            toastType = .error
+            showToast = true
         }
     }
 
@@ -249,7 +312,9 @@ struct SettingsView: View {
             try Auth.auth().signOut()
             dismiss()
         } catch {
-            print("Error signing out:", error)
+            toastMessage = "Failed to sign out"
+            toastType = .error
+            showToast = true
         }
     }
 
@@ -286,20 +351,18 @@ struct SettingsView: View {
     }
 
     private func deleteUserData(db: Firestore, uid: String) async throws {
-        let workoutsRef = db.collection("workouts")
-        let settingsRef = db.collection("settings")
+        let workoutsRef = db.collection("users/\(uid)/workouts")
+        let settingsRef = db.collection("users/\(uid)/settings")
 
-        let workoutSnapshot = try await workoutsRef
-            .whereField("userId", isEqualTo: uid)
-            .getDocuments()
+        let workoutSnapshot = try await workoutsRef.getDocuments()
 
         let batch = db.batch()
 
         for doc in workoutSnapshot.documents {
             batch.deleteDocument(doc.reference)
         }
-        
-        batch.deleteDocument(settingsRef.document(uid))
+
+        batch.deleteDocument(settingsRef.document("main"))
 
         try await batch.commit()
     }
@@ -327,5 +390,55 @@ struct SettingsView: View {
     private var appVersionText: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
         return "Version \(version)"
+    }
+}
+
+// MARK: - Settings Exercise Row Component
+
+struct SettingsExerciseRow: View {
+    @Binding var exercise: ExerciseDefinition
+    let isEditing: Bool
+    @Binding var editingName: String
+    let onTap: () -> Void
+    let onCommit: () -> Void
+    let onToggleHidden: () -> Void
+
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        HStack {
+            if isEditing {
+                TextField("Exercise name", text: $editingName)
+                    .font(Theme.Font.body)
+                    .foregroundColor(Color.brand.textPrimary)
+                    .focused($isFocused)
+                    .submitLabel(.done)
+                    .onSubmit {
+                        onCommit()
+                    }
+                    .onAppear {
+                        isFocused = true
+                    }
+            } else {
+                Text(exercise.name)
+                    .font(Theme.Font.body)
+                    .foregroundColor(exercise.isHidden ? Color.brand.textSecondary : Color.brand.textPrimary)
+                    .strikethrough(exercise.isHidden)
+                    .onTapGesture {
+                        onTap()
+                    }
+            }
+
+            Spacer()
+
+            Button {
+                onToggleHidden()
+            } label: {
+                Image(systemName: exercise.isHidden ? "eye.slash" : "eye")
+                    .font(.system(size: 16))
+                    .foregroundColor(exercise.isHidden ? Color.brand.textSecondary : Color.brand.primary)
+            }
+            .buttonStyle(.plain)
+        }
     }
 }
