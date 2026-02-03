@@ -28,9 +28,21 @@ struct LogWorkoutView: View {
         self.onSave = onSave
         self.onCancel = onCancel
 
+        print("🔍 LogWorkoutView init - workout: \(workout?.id ?? "nil")")
+        print("🔍 LogWorkoutView init - date: \(workout?.date ?? Date())")
+        print("🔍 LogWorkoutView init - blockId: \(workout?.blockId ?? "nil")")
+        print("🔍 LogWorkoutView init - logs count: \(workout?.logs.count ?? 0)")
+        
         _date = State(initialValue: workout?.date ?? Date())
         _blockId = State(initialValue: workout?.blockId)
         _logs = State(initialValue: workout?.logs ?? [])
+        
+        // Debug the logs
+        if let logs = workout?.logs {
+            for (index, log) in logs.enumerated() {
+                print("🔍 Log \(index): \(log.exerciseName) - rounds: \(log.rounds ?? 0) - reps: \(log.reps ?? "nil") - time: \(log.time ?? "nil")")
+            }
+        }
     }
 
     // MARK: - Body
@@ -214,13 +226,26 @@ struct LogWorkoutView: View {
                         
                         // Toggle between Reps and Time
                         Picker("Measurement Type", selection: Binding(
-                            get: { log.reps.wrappedValue != nil ? "reps" : "time" },
+                            get: {
+                                // Check if reps has actual content (not nil and not empty)
+                                if let reps = log.reps.wrappedValue, !reps.isEmpty {
+                                    return "reps"
+                                }
+                                // Check if time has actual content (not nil and not empty)
+                                else if let time = log.time.wrappedValue, !time.isEmpty {
+                                    return "time"
+                                }
+                                // Default to reps if both are empty/nil
+                                else {
+                                    return "reps"
+                                }
+                            },
                             set: { newValue in
                                 if newValue == "reps" {
-                                    log.reps.wrappedValue = ""
+                                    log.reps.wrappedValue = log.reps.wrappedValue ?? ""
                                     log.time.wrappedValue = nil
                                 } else {
-                                    log.time.wrappedValue = ""
+                                    log.time.wrappedValue = log.time.wrappedValue ?? ""
                                     log.reps.wrappedValue = nil
                                 }
                             }
@@ -232,6 +257,7 @@ struct LogWorkoutView: View {
                         .frame(width: 120)
                     }
                     
+                    // Show reps input if reps is selected or has existing data
                     if log.reps.wrappedValue != nil {
                         TextField("e.g. 8 or 2/1/3", text: Binding(
                             get: { log.reps.wrappedValue ?? "" },
@@ -242,6 +268,7 @@ struct LogWorkoutView: View {
                         .cornerRadius(8)
                     }
                     
+                    // Show time input if time is selected or has existing data
                     if log.time.wrappedValue != nil {
                         TextField("e.g. 1:30", text: Binding(
                             get: { log.time.wrappedValue ?? "" },
@@ -301,7 +328,7 @@ struct LogWorkoutView: View {
                 exerciseId: "",
                 exerciseName: "",
                 rounds: nil,
-                reps: "", // Default to reps
+                reps: "", // Initialize as empty string, not nil
                 time: nil,
                 weight: nil,
                 note: nil

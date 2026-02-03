@@ -12,46 +12,54 @@ struct ExercisesView: View {
         ZStack {
             Color.brand.background.ignoresSafeArea()
 
-            if vm.exercises.isEmpty {
-                emptyState
-            } else {
-                List {
-                    ForEach(vm.exercises) { exercise in
-                        Button {
-                            editingExercise = exercise
-                            nameInput = exercise.name
-                            showingForm = true
-                        } label: {
-                            Text(exercise.name)
-                                .font(Theme.Font.body)
-                                .foregroundColor(Color.brand.textPrimary)
-                        }
-                    }
-                    .onDelete { indexSet in
-                        Task {
-                            for index in indexSet {
-                                let id = vm.exercises[index].id
-                                await vm.deleteExercise(id: id)
-                            }
-                        }
-                    }
-                }
-                .listStyle(.plain)
-            }
-        }
-        .navigationTitle("Exercises")
-        .navigationBarTitleDisplayMode(.large)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
+            VStack(spacing: 0) {
+                // Shared header component
+                PageHeader(
+                    title: "Exercises",
+                    buttonText: "Add Exercise"
+                ) {
                     editingExercise = nil
                     nameInput = ""
                     showingForm = true
-                } label: {
-                    Image(systemName: "plus")
+                }
+                
+                // Content
+                if vm.exercises.isEmpty {
+                    Spacer()
+                    emptyState
+                    Spacer()
+                } else {
+                    List {
+                        ForEach(vm.exercises) { exercise in
+                            exerciseRow(exercise)
+                                .listRowInsets(EdgeInsets())
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button("Delete", role: .destructive) {
+                                        Task {
+                                            await vm.deleteExercise(id: exercise.id)
+                                        }
+                                    }
+                                    .tint(.red)
+                                    
+                                    Button("Edit") {
+                                        editingExercise = exercise
+                                        nameInput = exercise.name
+                                        showingForm = true
+                                    }
+                                    .tint(.orange)
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 6)
+                        }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
                 }
             }
         }
+        .navigationBarHidden(true)
         .sheet(isPresented: $showingForm) {
             exerciseForm
         }
@@ -60,18 +68,40 @@ struct ExercisesView: View {
         }
     }
 
+    // MARK: - Exercise Row
+
+    private func exerciseRow(_ exercise: Exercise) -> some View {
+        HStack {
+            Text(exercise.name)
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            Spacer()
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            editingExercise = exercise
+            nameInput = exercise.name
+            showingForm = true
+        }
+    }
+
     // MARK: - Form
 
     private var exerciseForm: some View {
         NavigationStack {
-            VStack(spacing: Theme.Space.md) {
-
+            VStack(spacing: 20) {
                 TextField("Exercise name", text: $nameInput)
                     .textFieldStyle(.roundedBorder)
+                    .padding(.horizontal)
 
                 Spacer()
             }
-            .padding(Theme.Space.md)
+            .padding(.top)
             .background(Color.brand.background)
             .navigationTitle(editingExercise == nil ? "New Exercise" : "Edit Exercise")
             .navigationBarTitleDisplayMode(.inline)
@@ -104,20 +134,20 @@ struct ExercisesView: View {
         nameInput = ""
     }
 
-    // MARK: - Empty
+    // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: Theme.Space.md) {
+        VStack(spacing: 20) {
             Image(systemName: "dumbbell")
                 .font(.system(size: 40))
-                .foregroundColor(Color.brand.textSecondary)
+                .foregroundColor(.secondary)
 
             Text("No exercises yet")
-                .font(Theme.Font.headline)
+                .font(.headline)
 
             Text("Add your first exercise.")
-                .font(Theme.Font.body)
-                .foregroundColor(Color.brand.textSecondary)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
         }
     }
 }

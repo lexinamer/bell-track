@@ -65,7 +65,6 @@ struct SettingsView: View {
                 Section {
                     VStack(alignment: .leading, spacing: Theme.Space.xs) {
                         Text(appVersionText)
-                        Text("Workout tracking built for simplicity.")
                     }
                     .font(Theme.Font.meta)
                     .foregroundColor(Color.brand.textSecondary)
