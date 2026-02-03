@@ -1,15 +1,49 @@
 import SwiftUI
 
 struct ContentView: View {
+
     @EnvironmentObject var authService: AuthService
-    
+
     var body: some View {
-        Group {
-            if authService.user != nil {
-                WorkoutsView()
-            } else {
-                LoginView()
+        if authService.user != nil {
+            TabView {
+
+                NavigationStack {
+                    WorkoutsView()
+                }
+                .tabItem {
+                    Image(systemName: "doc.plaintext")
+                    Text("Workouts")
+                }
+
+                NavigationStack {
+                    BlocksView()
+                }
+                .tabItem {
+                    Image(systemName: "square.split.1x2")
+                    Text("Blocks")
+                }
+
+                NavigationStack {
+                    ExercisesView()
+                }
+                .tabItem {
+                    Image(systemName: "dumbbell")
+                    Text("Exercises")
+                }
+
+                NavigationStack {
+                    SettingsView()
+                }
+                .tabItem {
+                    Image(systemName: "gearshape")
+                    Text("Settings")
+                }
             }
+            .tint(Color.brand.primary)
+            .background(Color.brand.background)
+        } else {
+            LoginView()
         }
     }
 }
