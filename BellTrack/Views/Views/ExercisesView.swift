@@ -6,7 +6,8 @@ struct ExercisesView: View {
 
     @State private var showingForm = false
     @State private var editingExercise: Exercise?
-    @State private var nameInput = ""
+    @State private var showingDetail = false
+    @State private var selectedExercise: Exercise?
 
     var body: some View {
         ZStack {
@@ -19,7 +20,6 @@ struct ExercisesView: View {
                     buttonText: "Add Exercise"
                 ) {
                     editingExercise = nil
-                    nameInput = ""
                     showingForm = true
                 }
                 
@@ -31,21 +31,13 @@ struct ExercisesView: View {
                 } else {
                     List {
                         ForEach(vm.exercises) { exercise in
-                            exerciseRow(exercise)
+                            exerciseCard(exercise)
                                 .listRowInsets(EdgeInsets())
                                 .listRowSeparator(.hidden)
                                 .listRowBackground(Color.clear)
                                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button("Delete", role: .destructive) {
-                                        Task {
-                                            await vm.deleteExercise(id: exercise.id)
-                                        }
-                                    }
-                                    .tint(.red)
-                                    
                                     Button("Edit") {
                                         editingExercise = exercise
-                                        nameInput = exercise.name
                                         showingForm = true
                                     }
                                     .tint(.orange)
@@ -61,68 +53,61 @@ struct ExercisesView: View {
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showingForm) {
-            exerciseForm
+            ExerciseFormView(
+                exercise: editingExercise,
+                onSave: { name in
+                    Task {
+                        await vm.saveExercise(
+                            id: editingExercise?.id,
+                            name: name
+                        )
+                        dismissForm()
+                    }
+                },
+                onCancel: {
+                    dismissForm()
+                }
+            )
+        }
+        .sheet(isPresented: $showingDetail) {
+            if let exercise = selectedExercise {
+                DetailView(exercise: exercise)
+            }
         }
         .task {
             await vm.load()
         }
     }
 
-    // MARK: - Exercise Row
+    // MARK: - Exercise Card
 
-    private func exerciseRow(_ exercise: Exercise) -> some View {
-        HStack {
-            Text(exercise.name)
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            Spacer()
-        }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            editingExercise = exercise
-            nameInput = exercise.name
-            showingForm = true
-        }
-    }
-
-    // MARK: - Form
-
-    private var exerciseForm: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                TextField("Exercise name", text: $nameInput)
-                    .textFieldStyle(.roundedBorder)
-                    .padding(.horizontal)
-
-                Spacer()
-            }
-            .padding(.top)
-            .background(Color.brand.background)
-            .navigationTitle(editingExercise == nil ? "New Exercise" : "Edit Exercise")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismissForm()
-                    }
-                }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        Task {
-                            await vm.saveExercise(
-                                id: editingExercise?.id,
-                                name: nameInput
-                            )
-                            dismissForm()
-                        }
-                    }
-                    .disabled(nameInput.trimmingCharacters(in: .whitespaces).isEmpty)
+    private func exerciseCard(_ exercise: Exercise) -> some View {
+        SimpleCard(onTap: {
+            selectedExercise = exercise
+            showingDetail = true
+        }) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(exercise.name)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                    .lineLimit(2)
+                
+                HStack {
+                    Image(systemName: "dumbbell")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text("\(vm.workoutCounts[exercise.id] ?? 0) workouts")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    Image(systemName: "clock")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text("\(vm.setCounts[exercise.id] ?? 0) sets")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
                 }
             }
         }
@@ -131,7 +116,6 @@ struct ExercisesView: View {
     private func dismissForm() {
         showingForm = false
         editingExercise = nil
-        nameInput = ""
     }
 
     // MARK: - Empty State

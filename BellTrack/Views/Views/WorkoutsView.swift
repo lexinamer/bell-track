@@ -63,8 +63,8 @@ struct WorkoutsView: View {
             }
         }
         .navigationBarHidden(true)
-        .sheet(isPresented: $showingLog) {
-            LogWorkoutView(
+        .fullScreenCover(isPresented: $showingLog) {
+            WorkoutFormView(
                 workout: editingWorkout,
                 onSave: {
                     showingLog = false
@@ -186,7 +186,7 @@ struct WorkoutsView: View {
     // MARK: - Helpers
 
     private func totalSets(for workout: Workout) -> Int {
-        workout.logs.compactMap { $0.rounds }.reduce(0, +)
+        workout.logs.compactMap { $0.sets }.reduce(0, +)
     }
 
     private func duplicateWorkout(_ workout: Workout) {
@@ -201,9 +201,8 @@ struct WorkoutsView: View {
                     id: UUID().uuidString, // New log IDs
                     exerciseId: log.exerciseId,
                     exerciseName: log.exerciseName,
-                    rounds: log.rounds,
+                    sets: log.sets,
                     reps: log.reps,
-                    time: log.time,
                     weight: log.weight,
                     note: log.note
                 )
@@ -220,24 +219,18 @@ struct WorkoutsView: View {
         // Exercise name
         components.append(log.exerciseName)
         
-        // Rounds and Reps/Time
-        if let rounds = log.rounds, rounds > 0 {
-            var measurement = ""
-            
+        // Sets and Reps
+        if let sets = log.sets, sets > 0 {
             if let reps = log.reps, !reps.isEmpty {
-                measurement = "\(rounds) x \(reps)"
-            } else if let time = log.time, !time.isEmpty {
-                measurement = "\(rounds) x \(time)"
+                components.append("\(sets)x\(reps)")
             } else {
-                measurement = "\(rounds) sets"
+                components.append("\(sets) sets")
             }
-            
-            components.append(measurement)
         }
         
-        // Weight
-        if let weight = log.weight, weight > 0 {
-            components.append("\(Int(weight))kg")
+        // Weight (now String)
+        if let weight = log.weight, !weight.isEmpty {
+            components.append("\(weight)kg")
         }
         
         // Notes

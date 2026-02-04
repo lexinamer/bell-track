@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct LogWorkoutView: View {
+struct WorkoutFormView: View {
 
     let workout: Workout?
     let onSave: () -> Void
@@ -27,22 +27,10 @@ struct LogWorkoutView: View {
         self.workout = workout
         self.onSave = onSave
         self.onCancel = onCancel
-
-        print("🔍 LogWorkoutView init - workout: \(workout?.id ?? "nil")")
-        print("🔍 LogWorkoutView init - date: \(workout?.date ?? Date())")
-        print("🔍 LogWorkoutView init - blockId: \(workout?.blockId ?? "nil")")
-        print("🔍 LogWorkoutView init - logs count: \(workout?.logs.count ?? 0)")
         
         _date = State(initialValue: workout?.date ?? Date())
         _blockId = State(initialValue: workout?.blockId)
         _logs = State(initialValue: workout?.logs ?? [])
-        
-        // Debug the logs
-        if let logs = workout?.logs {
-            for (index, log) in logs.enumerated() {
-                print("🔍 Log \(index): \(log.exerciseName) - rounds: \(log.rounds ?? 0) - reps: \(log.reps ?? "nil") - time: \(log.time ?? "nil")")
-            }
-        }
     }
 
     // MARK: - Body
@@ -72,23 +60,17 @@ struct LogWorkoutView: View {
                         HStack {
                             Text("Block")
                             Spacer()
-                            Menu {
-                                Button("No Block") { blockId = nil }
+
+                            Picker("Block", selection: $blockId) {
+                                Text("None")
+                                    .tag(String?.none)
                                 ForEach(blocks) { block in
-                                    Button(block.name) {
-                                        blockId = block.id
-                                    }
-                                }
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Text(blocks.first { $0.id == blockId }?.name ?? "None")
-                                        .foregroundColor(.secondary)
-                                    Image(systemName: "chevron.up.chevron.down")
-                                        .foregroundColor(.secondary)
-                                        .font(.caption2)
+                                    Text(block.name)
+                                        .tag(Optional(block.id))
                                 }
                             }
-                            .buttonStyle(PlainButtonStyle())
+                            .pickerStyle(.menu)
+                            .foregroundColor(.secondary)
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
@@ -198,100 +180,52 @@ struct LogWorkoutView: View {
                 .buttonStyle(PlainButtonStyle())
             }
             
-            // Form Fields - Rounds first
-            VStack(alignment: .leading, spacing: 16) {
-                // Rounds
+            // Single row layout: Rounds | Reps/Time | Weight
+            HStack(spacing: 12) {
+                // Rounds (now called Sets for consistency)
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Rounds")
+                    Text("Sets")
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
                     
-                    TextField("0", value: log.rounds, format: .number)
+                    TextField("5", value: log.sets, format: .number)
                         .keyboardType(.numberPad)
                         .padding()
                         .background(Color(.systemGray6))
                         .cornerRadius(8)
                 }
                 
-                // Reps OR Time Toggle and Input
+                // Reps (simplified)
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Measurement")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(.secondary)
-                        
-                        Spacer()
-                        
-                        // Toggle between Reps and Time
-                        Picker("Measurement Type", selection: Binding(
-                            get: {
-                                // Check if reps has actual content (not nil and not empty)
-                                if let reps = log.reps.wrappedValue, !reps.isEmpty {
-                                    return "reps"
-                                }
-                                // Check if time has actual content (not nil and not empty)
-                                else if let time = log.time.wrappedValue, !time.isEmpty {
-                                    return "time"
-                                }
-                                // Default to reps if both are empty/nil
-                                else {
-                                    return "reps"
-                                }
-                            },
-                            set: { newValue in
-                                if newValue == "reps" {
-                                    log.reps.wrappedValue = log.reps.wrappedValue ?? ""
-                                    log.time.wrappedValue = nil
-                                } else {
-                                    log.time.wrappedValue = log.time.wrappedValue ?? ""
-                                    log.reps.wrappedValue = nil
-                                }
-                            }
-                        )) {
-                            Text("Reps").tag("reps")
-                            Text("Time").tag("time")
-                        }
-                        .pickerStyle(SegmentedPickerStyle())
-                        .frame(width: 120)
-                    }
+                    Text("Reps or Time")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
                     
-                    // Show reps input if reps is selected or has existing data
-                    if log.reps.wrappedValue != nil {
-                        TextField("e.g. 8 or 2/1/3", text: Binding(
-                            get: { log.reps.wrappedValue ?? "" },
-                            set: { log.reps.wrappedValue = $0 }
-                        ))
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
-                    }
-                    
-                    // Show time input if time is selected or has existing data
-                    if log.time.wrappedValue != nil {
-                        TextField("e.g. 1:30", text: Binding(
-                            get: { log.time.wrappedValue ?? "" },
-                            set: { log.time.wrappedValue = $0 }
-                        ))
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
-                    }
+                    TextField("8 or :30", text: Binding(
+                        get: { log.reps.wrappedValue ?? "" },
+                        set: { log.reps.wrappedValue = $0.isEmpty ? nil : $0 }
+                    ))
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
                 }
                 
-                // Weight
+                // Weight (String)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Weight (kg)")
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
                     
-                    TextField("0", value: log.weight, format: .number)
-                        .keyboardType(.decimalPad)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
+                    TextField("12", text: Binding(
+                        get: { log.weight.wrappedValue ?? "" },
+                        set: { log.weight.wrappedValue = $0.isEmpty ? nil : $0 }
+                    ))
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
                 }
             }
             
@@ -327,9 +261,8 @@ struct LogWorkoutView: View {
                 id: UUID().uuidString,
                 exerciseId: "",
                 exerciseName: "",
-                rounds: nil,
+                sets: nil,
                 reps: "", // Initialize as empty string, not nil
-                time: nil,
                 weight: nil,
                 note: nil
             )

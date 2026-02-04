@@ -47,6 +47,35 @@ final class FirestoreService {
         let ref = try userRef()
         try await ref.collection("exercises").document(id).delete()
     }
+    
+    // MARK: - Update Exercise Names in Workouts
+    
+    func updateExerciseNameInWorkouts(exerciseId: String, newName: String) async throws {
+        let workouts = try await fetchWorkouts()
+        
+        for workout in workouts {
+            var needsUpdate = false
+            var updatedLogs = workout.logs
+            
+            // Update any logs that match this exercise ID
+            for i in 0..<updatedLogs.count {
+                if updatedLogs[i].exerciseId == exerciseId {
+                    updatedLogs[i].exerciseName = newName
+                    needsUpdate = true
+                }
+            }
+            
+            // Save the workout if any logs were updated
+            if needsUpdate {
+                try await saveWorkout(
+                    id: workout.id,
+                    date: workout.date,
+                    blockId: workout.blockId,
+                    logs: updatedLogs
+                )
+            }
+        }
+    }
 
     // MARK: - Blocks
 
@@ -129,10 +158,9 @@ final class FirestoreService {
                     id: id,
                     exerciseId: exerciseId,
                     exerciseName: exerciseName,
-                    rounds: log["rounds"] as? Int,
+                    sets: log["sets"] as? Int,
                     reps: log["reps"] as? String,
-                    time: log["time"] as? String,
-                    weight: log["weight"] as? Double,
+                    weight: log["weight"] as? String,  // Now String instead of Double
                     note: log["note"] as? String
                 )
             }
@@ -163,10 +191,9 @@ final class FirestoreService {
                 "id": $0.id,
                 "exerciseId": $0.exerciseId,
                 "exerciseName": $0.exerciseName,
-                "rounds": $0.rounds as Any,
+                "sets": $0.sets as Any,
                 "reps": $0.reps as Any,
-                "time": $0.time as Any,
-                "weight": $0.weight as Any,
+                "weight": $0.weight as Any,  // Now handles String weight
                 "note": $0.note as Any
             ]
         }

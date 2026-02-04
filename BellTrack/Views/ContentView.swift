@@ -20,7 +20,7 @@ struct ContentView: View {
                     BlocksView()
                 }
                 .tabItem {
-                    Image(systemName: "square.split.1x2")
+                    Image(systemName: "cube")
                     Text("Blocks")
                 }
 

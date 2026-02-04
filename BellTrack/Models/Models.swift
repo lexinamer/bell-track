@@ -30,10 +30,9 @@ struct WorkoutLog: Identifiable, Codable, Equatable {
     var exerciseId: String
     var exerciseName: String
 
-    var rounds: Int?
+    var sets: Int?
     var reps: String?
-    var time: String?
-    var weight: Double?
+    var weight: String?
     var note: String?
 }
 
