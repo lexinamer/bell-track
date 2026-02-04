@@ -90,12 +90,12 @@ struct WorkoutsView: View {
                 // Date box (like the reference image)
                 VStack(spacing: 2) {
                     Text(workout.date.formatted(.dateTime.day(.defaultDigits)))
-                        .font(.title2)
+                        .font(Theme.Font.navigationTitle)
                         .fontWeight(.semibold)
                         .foregroundColor(.white)
                     
                     Text(workout.date.formatted(.dateTime.month(.abbreviated)))
-                        .font(.caption)
+                        .font(Theme.Font.cardCaption)
                         .fontWeight(.medium)
                         .foregroundColor(.white)
                 }
@@ -106,25 +106,25 @@ struct WorkoutsView: View {
                 // Workout details
                 VStack(alignment: .leading, spacing: 4) {
                     Text(workout.logs.map { $0.exerciseName }.joined(separator: ", "))
-                        .font(.headline)
+                        .font(Theme.Font.cardTitle)
                         .foregroundColor(.primary)
                         .lineLimit(2)
                     
                     HStack {
                         Image(systemName: "dumbbell")
-                            .font(.caption)
+                            .font(Theme.Font.cardCaption)
                             .foregroundColor(.secondary)
                         
                         Text("\(workout.logs.count) exercises")
-                            .font(.subheadline)
+                            .font(Theme.Font.cardSecondary)
                             .foregroundColor(.secondary)
                         
                         Image(systemName: "clock")
-                            .font(.caption)
+                            .font(Theme.Font.cardCaption)
                             .foregroundColor(.secondary)
                         
                         Text("\(totalSets(for: workout)) sets")
-                            .font(.subheadline)
+                            .font(Theme.Font.cardSecondary)
                             .foregroundColor(.secondary)
                     }
                 }
@@ -177,7 +177,7 @@ struct WorkoutsView: View {
     private func exerciseRow(_ log: WorkoutLog) -> some View {
         HStack {
             Text(formatExerciseDetails(log))
-                .font(.subheadline)
+                .font(Theme.Font.cardSecondary)
                 .foregroundColor(.primary)
             Spacer()
         }
@@ -246,14 +246,14 @@ struct WorkoutsView: View {
     private var emptyState: some View {
         VStack(spacing: 20) {
             Image(systemName: "doc.plaintext")
-                .font(.system(size: 40))
+                .font(.system(size: Theme.IconSize.xl))
                 .foregroundColor(.secondary)
 
             Text("No workouts yet")
-                .font(.headline)
+                .font(Theme.Font.cardTitle)
 
             Text("Log your first workout.")
-                .font(.subheadline)
+                .font(Theme.Font.cardSecondary)
                 .foregroundColor(.secondary)
         }
     }

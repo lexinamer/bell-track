@@ -8,7 +8,7 @@ struct PageHeader: View {
     var body: some View {
         HStack {
             Text(title)
-                .font(.largeTitle)
+                .font(Theme.Font.pageTitle)
                 .fontWeight(.bold)
             
             Spacer()
@@ -21,7 +21,7 @@ struct PageHeader: View {
                     Text(buttonText)
                 }
                 .foregroundColor(Color.brand.primary)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: Theme.IconSize.sm))
             }
         }
         .padding(.horizontal)

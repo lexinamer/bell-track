@@ -88,9 +88,9 @@ struct WorkoutFormView: View {
                         Button(action: addLog) {
                             HStack(spacing: 8) {
                                 Image(systemName: "plus")
-                                    .font(.system(size: 16, weight: .medium))
+                                    .font(.system(size: Theme.IconSize.sm))
                                 Text("Add Exercise")
-                                    .font(.system(size: 16, weight: .medium))
+                                    .font(.system(size: Theme.IconSize.sm))
                             }
                             .foregroundColor(Color.brand.primary)
                         }
@@ -137,7 +137,7 @@ struct WorkoutFormView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Exercise")
-                        .font(.subheadline)
+                        .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
                     
@@ -148,7 +148,7 @@ struct WorkoutFormView: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.gray)
-                            .font(.title3)
+                            .font(Theme.Font.cardTitle)
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
@@ -171,7 +171,7 @@ struct WorkoutFormView: View {
                         Spacer()
                         Image(systemName: "chevron.down")
                             .foregroundColor(.secondary)
-                            .font(.caption)
+                            .font(Theme.Font.cardCaption)
                     }
                     .padding()
                     .background(Color(.systemGray6))
@@ -185,7 +185,7 @@ struct WorkoutFormView: View {
                 // Rounds (now called Sets for consistency)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Sets")
-                        .font(.subheadline)
+                        .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
                     
@@ -199,7 +199,7 @@ struct WorkoutFormView: View {
                 // Reps (simplified)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Reps or Time")
-                        .font(.subheadline)
+                        .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
                     
@@ -215,7 +215,7 @@ struct WorkoutFormView: View {
                 // Weight (String)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Weight (kg)")
-                        .font(.subheadline)
+                        .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
                     
@@ -232,7 +232,7 @@ struct WorkoutFormView: View {
             // Notes Field
             VStack(alignment: .leading, spacing: 8) {
                 Text("Notes")
-                    .font(.subheadline)
+                    .font(Theme.Font.cardSecondary)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
                 

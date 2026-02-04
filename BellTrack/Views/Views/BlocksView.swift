@@ -8,6 +8,8 @@ struct BlocksView: View {
     @State private var editingBlock: Block?
     @State private var showingDetail = false
     @State private var selectedBlock: Block?
+    @State private var showingCompletionAlert = false
+    @State private var blockToComplete: Block?
 
     var body: some View {
         ZStack {
@@ -29,26 +31,53 @@ struct BlocksView: View {
                     Spacer()
                 } else {
                     List {
-                        ForEach(vm.blocks) { block in
-                            blockCard(block)
-                                .listRowInsets(EdgeInsets())
-                                .listRowSeparator(.hidden)
-                                .listRowBackground(Color.clear)
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button("Delete", role: .destructive) {
-                                        Task {
-                                            await vm.deleteBlock(id: block.id)
+                        // Active blocks section
+                        let activeBlocks = vm.blocks.filter { $0.completedDate == nil }
+                        if !activeBlocks.isEmpty {
+                            ForEach(activeBlocks) { block in
+                                blockCard(block)
+                                    .listRowInsets(EdgeInsets())
+                                    .listRowSeparator(.hidden)
+                                    .listRowBackground(Color.clear)
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                        Button("Delete", role: .destructive) {
+                                            Task {
+                                                await vm.deleteBlock(id: block.id)
+                                            }
                                         }
+                                        .tint(.red)
+                                        
+                                        Button("Edit") {
+                                            startEdit(block)
+                                        }
+                                        .tint(.orange)
                                     }
-                                    .tint(.red)
-                                    
-                                    Button("Edit") {
-                                        startEdit(block)
-                                    }
-                                    .tint(.orange)
+                                    .padding(.horizontal)
+                                    .padding(.vertical, 6)
+                            }
+                        }
+                        
+                        // Completed blocks section
+                        let completedBlocks = vm.blocks.filter { $0.completedDate != nil }
+                        if !completedBlocks.isEmpty {
+                            Section("Completed") {
+                                ForEach(completedBlocks) { block in
+                                    completedBlockCard(block)
+                                        .listRowInsets(EdgeInsets())
+                                        .listRowSeparator(.hidden)
+                                        .listRowBackground(Color.clear)
+                                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                            Button("Delete", role: .destructive) {
+                                                Task {
+                                                    await vm.deleteBlock(id: block.id)
+                                                }
+                                            }
+                                            .tint(.red)
+                                        }
+                                        .padding(.horizontal)
+                                        .padding(.vertical, 6)
                                 }
-                                .padding(.horizontal)
-                                .padding(.vertical, 6)
+                            }
                         }
                     }
                     .listStyle(.plain)
@@ -85,6 +114,23 @@ struct BlocksView: View {
         .task {
             await vm.load()
         }
+        .alert("Complete Block?", isPresented: $showingCompletionAlert) {
+            Button("Cancel", role: .cancel) {
+                blockToComplete = nil
+            }
+            Button("Complete") {
+                if let block = blockToComplete {
+                    Task {
+                        await vm.completeBlock(id: block.id)
+                        blockToComplete = nil
+                    }
+                }
+            }
+        } message: {
+            if let block = blockToComplete {
+                Text("Mark \"\(block.name)\" as completed?")
+            }
+        }
     }
 
     // MARK: - Block Card
@@ -96,28 +142,78 @@ struct BlocksView: View {
         }) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(block.name)
-                    .font(.headline)
+                    .font(Theme.Font.cardTitle)
                     .foregroundColor(.primary)
                     .lineLimit(2)
                 
                 HStack {
                     Image(systemName: "calendar")
-                        .font(.caption)
+                        .font(Theme.Font.cardCaption)
                         .foregroundColor(.secondary)
                     
                     Text(progressText(block))
-                        .font(.subheadline)
+                        .font(Theme.Font.cardSecondary)
                         .foregroundColor(.secondary)
                     
                     Image(systemName: "dumbbell")
-                        .font(.caption)
+                        .font(Theme.Font.cardCaption)
                         .foregroundColor(.secondary)
                     
                     let count = vm.workoutCounts[block.id] ?? 0
                     Text("\(count) workouts")
-                        .font(.subheadline)
+                        .font(Theme.Font.cardSecondary)
                         .foregroundColor(.secondary)
                 }
+            }
+        }
+        .onLongPressGesture {
+            blockToComplete = block
+            showingCompletionAlert = true
+        }
+    }
+    
+    // MARK: - Completed Block Card
+    
+    private func completedBlockCard(_ block: Block) -> some View {
+        SimpleCard(onTap: {
+            selectedBlock = block
+            showingDetail = true
+        }) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(block.name)
+                        .font(Theme.Font.cardTitle)
+                        .foregroundColor(.secondary)  // Grayed out text
+                        .lineLimit(2)
+                    
+                    HStack {
+                        Image(systemName: "calendar")
+                            .font(Theme.Font.cardCaption)
+                            .foregroundColor(.secondary)
+                        
+                        if let completedDate = block.completedDate {
+                            Text("Completed \(completedDate.formatted(.dateTime.month(.abbreviated).day()))")
+                                .font(Theme.Font.cardSecondary)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Image(systemName: "dumbbell")
+                            .font(Theme.Font.cardCaption)
+                            .foregroundColor(.secondary)
+                        
+                        let count = vm.workoutCounts[block.id] ?? 0
+                        Text("\(count) workouts")
+                            .font(Theme.Font.cardSecondary)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                Spacer()
+                
+                // Checkmark indicator
+                Image(systemName: "checkmark.circle.fill")
+                    .font(Theme.Font.navigationTitle)
+                    .foregroundColor(.green)
             }
         }
     }
@@ -128,7 +224,7 @@ struct BlocksView: View {
         switch block.type {
         case .ongoing:
             let weeksSinceStart = Calendar.current.dateComponents([.weekOfYear], from: block.startDate, to: Date()).weekOfYear ?? 0
-            return "Week \(max(1, weeksSinceStart + 1)) - Ongoing"
+            return "Week \(max(1, weeksSinceStart + 1)) (ongoing)"
         case .duration:
             if let weeks = block.durationWeeks {
                 let weeksSinceStart = Calendar.current.dateComponents([.weekOfYear], from: block.startDate, to: Date()).weekOfYear ?? 0
@@ -161,15 +257,15 @@ struct BlocksView: View {
 
     private var emptyState: some View {
         VStack(spacing: 20) {
-            Image(systemName: "cube")
-                .font(.system(size: 40))
+            Image(systemName: "cube.fill")
+                .font(.system(size: Theme.IconSize.xl))
                 .foregroundColor(.secondary)
 
             Text("No blocks yet")
-                .font(.headline)
+                .font(Theme.Font.cardTitle)
 
             Text("Create a block to organize workouts.")
-                .font(.subheadline)
+                .font(Theme.Font.cardSecondary)
                 .foregroundColor(.secondary)
         }
     }

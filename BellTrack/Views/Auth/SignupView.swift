@@ -22,7 +22,7 @@ struct SignupView: View {
 
                 // Title
                 Text("Create Account")
-                    .font(Theme.Font.title)
+                    .font(Theme.Font.pageTitle)
                     .foregroundColor(Color.brand.textPrimary)
 
                 Spacer()

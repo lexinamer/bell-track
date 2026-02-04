@@ -13,32 +13,37 @@ final class BlocksViewModel: ObservableObject {
 
     func load() async {
         do {
-            let blocks = try await firestore.fetchBlocks()
-            self.blocks = blocks
+            blocks = try await firestore.fetchBlocks()
             await loadWorkoutCounts()
         } catch {
             print("❌ Failed to load blocks:", error)
         }
     }
-
-    // MARK: - Counts
-
+    
+    // MARK: - Load Workout Counts
+    
     private func loadWorkoutCounts() async {
         do {
             let workouts = try await firestore.fetchWorkouts()
-            workoutCounts = Dictionary(
-                grouping: workouts.compactMap { $0.blockId },
-                by: { $0 }
-            ).mapValues { $0.count }
+            
+            // Count workouts per block
+            var counts: [String: Int] = [:]
+            for workout in workouts {
+                if let blockId = workout.blockId {
+                    counts[blockId, default: 0] += 1
+                }
+            }
+            
+            workoutCounts = counts
         } catch {
             print("❌ Failed to load workout counts:", error)
         }
     }
 
-    // MARK: - Create / Update
+    // MARK: - Save
 
     func saveBlock(
-        id: String? = nil,
+        id: String?,
         name: String,
         startDate: Date,
         type: BlockType,
@@ -66,6 +71,21 @@ final class BlocksViewModel: ObservableObject {
             await load()
         } catch {
             print("❌ Failed to delete block:", error)
+        }
+    }
+    
+    // MARK: - Complete Block
+    
+    func completeBlock(id: String) async {
+        // Find the block to complete
+        guard let block = blocks.first(where: { $0.id == id }) else { return }
+        
+        do {
+            // Update the block as completed (you'll need to add this to FirestoreService)
+            try await firestore.completeBlock(id: block.id)
+            await load()
+        } catch {
+            print("❌ Failed to complete block:", error)
         }
     }
 }

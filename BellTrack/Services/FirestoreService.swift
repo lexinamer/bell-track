@@ -95,12 +95,15 @@ final class FirestoreService {
                 let type = BlockType(rawValue: typeRaw)
             else { return nil }
 
+            let completedDate = (doc["completedDate"] as? Timestamp)?.dateValue()
+
             return Block(
                 id: doc.documentID,
                 name: name,
                 startDate: startDate,
                 type: type,
-                durationWeeks: doc["durationWeeks"] as? Int
+                durationWeeks: doc["durationWeeks"] as? Int,
+                completedDate: completedDate
             )
         }
     }
@@ -110,7 +113,8 @@ final class FirestoreService {
         name: String,
         startDate: Date,
         type: BlockType,
-        durationWeeks: Int?
+        durationWeeks: Int?,
+        completedDate: Date? = nil
     ) async throws {
 
         let ref = try userRef()
@@ -118,17 +122,30 @@ final class FirestoreService {
             ? ref.collection("blocks").document()
             : ref.collection("blocks").document(id!)
 
-        try await doc.setData([
+        var data: [String: Any] = [
             "name": name,
             "startDate": startDate,
             "type": type.rawValue,
             "durationWeeks": durationWeeks as Any
-        ])
+        ]
+        
+        if let completedDate = completedDate {
+            data["completedDate"] = completedDate
+        }
+
+        try await doc.setData(data)
     }
 
     func deleteBlock(id: String) async throws {
         let ref = try userRef()
         try await ref.collection("blocks").document(id).delete()
+    }
+    
+    func completeBlock(id: String) async throws {
+        let ref = try userRef()
+        try await ref.collection("blocks").document(id).updateData([
+            "completedDate": Date()
+        ])
     }
 
     // MARK: - Workouts

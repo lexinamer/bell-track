@@ -66,7 +66,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: Theme.Space.xs) {
                         Text(appVersionText)
                     }
-                    .font(Theme.Font.meta)
+                    .font(Theme.Font.cardCaption)
                     .foregroundColor(Color.brand.textSecondary)
                     .padding(.vertical, Theme.Space.sm)
                 }
@@ -122,7 +122,7 @@ struct SettingsView: View {
     ) -> some View {
         HStack {
             Text(title)
-                .font(Theme.Font.body)
+                .font(Theme.Font.cardSecondary)
                 .foregroundColor(isDestructive ? .red : Color.brand.textPrimary)
 
             Spacer()

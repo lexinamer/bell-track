@@ -35,11 +35,11 @@ struct DetailView: View {
                 if workoutsByExercise.isEmpty {
                     VStack(spacing: 16) {
                         Text("No workouts found")
-                            .font(.headline)
+                            .font(Theme.Font.cardTitle)
                             .foregroundColor(.secondary)
                         
                         Text(emptyStateMessage)
-                            .font(.subheadline)
+                            .font(Theme.Font.cardSecondary)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                     }
@@ -87,7 +87,7 @@ struct DetailView: View {
     private func exerciseSection(exerciseName: String, workouts: [(date: Date, details: String, note: String?)]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(exerciseName)
-                .font(.headline)
+                .font(Theme.Font.cardTitle)
                 .fontWeight(.bold)
                 .foregroundColor(.primary)
                 .padding(.horizontal, 20)
@@ -98,14 +98,14 @@ struct DetailView: View {
                         HStack(alignment: .top, spacing: 16) {
                             // Date
                             Text(workout.date.formatted(.dateTime.month(.abbreviated).day()))
-                                .font(.subheadline)
+                                .font(Theme.Font.cardSecondary)
                                 .fontWeight(.medium)
                                 .foregroundColor(.secondary)
                                 .frame(width: 50, alignment: .leading)
                             
                             // Details
                             Text(workout.details.isEmpty ? "No details" : workout.details)
-                                .font(.subheadline)
+                                .font(Theme.Font.cardSecondary)
                                 .foregroundColor(.primary)
                             
                             Spacer()

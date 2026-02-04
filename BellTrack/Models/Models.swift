@@ -20,6 +20,7 @@ struct Block: Identifiable, Codable, Equatable {
     var startDate: Date
     var type: BlockType
     var durationWeeks: Int?
+    var completedDate: Date? 
 }
 
 // MARK: - WorkoutLog

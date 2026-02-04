@@ -19,11 +19,11 @@ struct PasswordResetView: View {
 
                 // Title
                 Text("Reset Password")
-                    .font(Theme.Font.title)
+                    .font(Theme.Font.cardTitle)
                     .foregroundColor(Color.brand.textPrimary)
 
                 Text("Enter your email to receive a password reset link.")
-                    .font(Theme.Font.body)
+                    .font(Theme.Font.cardSecondary)
                     .foregroundColor(Color.brand.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Space.md)

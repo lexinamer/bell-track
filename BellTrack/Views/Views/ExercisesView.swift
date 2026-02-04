@@ -88,25 +88,25 @@ struct ExercisesView: View {
         }) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(exercise.name)
-                    .font(.headline)
+                    .font(Theme.Font.cardTitle)
                     .foregroundColor(.primary)
                     .lineLimit(2)
                 
                 HStack {
                     Image(systemName: "dumbbell")
-                        .font(.caption)
+                        .font(Theme.Font.cardCaption)
                         .foregroundColor(.secondary)
                     
                     Text("\(vm.workoutCounts[exercise.id] ?? 0) workouts")
-                        .font(.subheadline)
+                        .font(Theme.Font.cardSecondary)
                         .foregroundColor(.secondary)
                     
                     Image(systemName: "clock")
-                        .font(.caption)
+                        .font(Theme.Font.cardCaption)
                         .foregroundColor(.secondary)
                     
                     Text("\(vm.setCounts[exercise.id] ?? 0) sets")
-                        .font(.subheadline)
+                        .font(Theme.Font.cardSecondary)
                         .foregroundColor(.secondary)
                 }
             }
@@ -123,14 +123,14 @@ struct ExercisesView: View {
     private var emptyState: some View {
         VStack(spacing: 20) {
             Image(systemName: "dumbbell")
-                .font(.system(size: 40))
+                .font(.system(size: Theme.IconSize.xl))
                 .foregroundColor(.secondary)
 
             Text("No exercises yet")
-                .font(.headline)
+                .font(Theme.Font.cardTitle)
 
             Text("Add your first exercise.")
-                .font(.subheadline)
+                .font(Theme.Font.cardSecondary)
                 .foregroundColor(.secondary)
         }
     }
