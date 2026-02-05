@@ -58,6 +58,24 @@ struct DetailView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     LazyVStack(alignment: .leading, spacing: 24) {
+                        // Add block notes section here - FIRST thing in the LazyVStack
+                        if case .block(let block) = filterType, let notes = block.notes, !notes.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Block Notes")
+                                    .font(Theme.Font.cardTitle)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.primary)
+                                    .padding(.horizontal, 20)
+                                
+                                Text(notes)
+                                    .font(Theme.Font.cardSecondary)
+                                    .foregroundColor(.primary)
+                                    .padding(.horizontal, 20)
+                                    .padding(.bottom, 8)
+                            }
+                        }
+                        
+                        // Then the existing workout sections
                         ForEach(Array(workoutsByExercise.keys.sorted()), id: \.self) { exerciseName in
                             exerciseSection(exerciseName: exerciseName, workouts: workoutsByExercise[exerciseName] ?? [])
                         }

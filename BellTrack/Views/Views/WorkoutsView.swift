@@ -108,7 +108,7 @@ struct WorkoutsView: View {
                     Text(workout.logs.map { $0.exerciseName }.joined(separator: ", "))
                         .font(Theme.Font.cardTitle)
                         .foregroundColor(.primary)
-                        .lineLimit(2)
+                        .lineLimit(1)
                     
                     HStack {
                         Image(systemName: "dumbbell")

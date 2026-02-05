@@ -147,8 +147,8 @@ struct WorkoutFormView: View {
                     Button {
                         showingNotes[log.wrappedValue.id] = !(showingNotes[log.wrappedValue.id] ?? false)
                     } label: {
-                        Image(systemName: log.wrappedValue.note?.isEmpty == false ? "note.text" : "note")
-                            .foregroundColor(log.wrappedValue.note?.isEmpty == false ? .blue : .gray)
+                        Image(systemName: "square.and.pencil")
+                            .foregroundColor(.gray)
                             .font(Theme.Font.cardSecondary)
                     }
                     .buttonStyle(PlainButtonStyle())

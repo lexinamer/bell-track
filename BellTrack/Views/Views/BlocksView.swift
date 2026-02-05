@@ -85,17 +85,18 @@ struct BlocksView: View {
             }
         }
         .navigationBarHidden(true)
-        .sheet(isPresented: $showingForm) {
+        .sheet(item: $editingBlock) { block in
             BlockFormView(
-                block: editingBlock,
-                onSave: { name, startDate, type, durationWeeks in
+                block: block,  // Now guaranteed to not be nil
+                onSave: { name, startDate, type, durationWeeks, notes in
                     Task {
                         await vm.saveBlock(
-                            id: editingBlock?.id,
+                            id: block.id,  // Use the guaranteed non-nil block
                             name: name,
                             startDate: startDate,
                             type: type,
-                            durationWeeks: durationWeeks
+                            durationWeeks: durationWeeks,
+                            notes: notes
                         )
                         resetForm()
                     }

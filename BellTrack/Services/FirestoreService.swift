@@ -95,6 +95,7 @@ final class FirestoreService {
             else { return nil }
 
             let completedDate = (doc["completedDate"] as? Timestamp)?.dateValue()
+            let notes = doc["notes"] as? String
 
             return Block(
                 id: doc.documentID,
@@ -102,7 +103,8 @@ final class FirestoreService {
                 startDate: startDate,
                 type: type,
                 durationWeeks: doc["durationWeeks"] as? Int,
-                completedDate: completedDate
+                completedDate: completedDate,
+                notes: notes
             )
         }
     }
@@ -113,7 +115,8 @@ final class FirestoreService {
         startDate: Date,
         type: BlockType,
         durationWeeks: Int?,
-        completedDate: Date? = nil
+        completedDate: Date? = nil,
+        notes: String? = nil
     ) async throws {
 
         let ref = try userRef()
@@ -130,6 +133,10 @@ final class FirestoreService {
         
         if let completedDate = completedDate {
             data["completedDate"] = completedDate
+        }
+        
+        if let notes = notes {
+            data["notes"] = notes
         }
 
         try await doc.setData(data)

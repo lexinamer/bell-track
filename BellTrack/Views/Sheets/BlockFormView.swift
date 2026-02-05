@@ -2,17 +2,18 @@ import SwiftUI
 
 struct BlockFormView: View {
     let block: Block?
-    let onSave: (String, Date, BlockType, Int?) -> Void
+    let onSave: (String, Date, BlockType, Int?, String?) -> Void
     let onCancel: () -> Void
     
     @State private var name: String
     @State private var startDate: Date
     @State private var isDuration: Bool
     @State private var durationWeeks: Int?
+    @State private var notes: String
     
     init(
         block: Block? = nil,
-        onSave: @escaping (String, Date, BlockType, Int?) -> Void,
+        onSave: @escaping (String, Date, BlockType, Int?, String?) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.block = block
@@ -23,6 +24,7 @@ struct BlockFormView: View {
         self._startDate = State(initialValue: block?.startDate ?? Date())
         self._isDuration = State(initialValue: block?.type == .duration)
         self._durationWeeks = State(initialValue: block?.durationWeeks)
+        self._notes = State(initialValue: block?.notes ?? "")
     }
     
     var body: some View {
@@ -34,7 +36,7 @@ struct BlockFormView: View {
                     
                     DatePicker("Start date", selection: $startDate, displayedComponents: .date)
                     
-                    Toggle("Duration (optional)", isOn: $isDuration)
+                    Toggle("Duration block", isOn: $isDuration)
                     
                     if isDuration {
                         HStack {
@@ -45,6 +47,17 @@ struct BlockFormView: View {
                                 .multilineTextAlignment(.trailing)
                                 .frame(width: 80)
                         }
+                    }
+                }
+                
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Notes")
+                            .font(Theme.Font.cardSecondary)
+                            .fontWeight(.medium)
+                        
+                        TextEditor(text: $notes)
+                            .frame(minHeight: 80)
                     }
                 }
             }
@@ -60,7 +73,8 @@ struct BlockFormView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         let blockType: BlockType = isDuration ? .duration : .ongoing
-                        onSave(name, startDate, blockType, durationWeeks)
+                        let finalNotes = notes.trimmingCharacters(in: .whitespaces)
+                        onSave(name, startDate, blockType, durationWeeks, finalNotes.isEmpty ? nil : finalNotes)
                     }
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty ||
                              (isDuration && (durationWeeks == nil || durationWeeks! <= 0)))

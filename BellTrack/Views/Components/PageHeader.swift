@@ -25,7 +25,7 @@ struct PageHeader: View {
             }
         }
         .padding(.horizontal)
-        .padding(.top, 60)
+        .padding(.top, 20)
         .padding(.bottom, 16)
     }
 }
