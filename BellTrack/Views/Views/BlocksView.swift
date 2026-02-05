@@ -194,7 +194,7 @@ struct BlocksView: View {
 
                 Circle()
                     .fill(ColorTheme.blockColor(for: block.colorIndex))
-                    .frame(width: 10, height: 10)
+                    .frame(width: 15, height: 15)
             }
         }
         .onLongPressGesture {
