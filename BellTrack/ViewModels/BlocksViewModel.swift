@@ -77,11 +77,9 @@ final class BlocksViewModel: ObservableObject {
     // MARK: - Complete Block
     
     func completeBlock(id: String) async {
-        // Find the block to complete
         guard let block = blocks.first(where: { $0.id == id }) else { return }
         
         do {
-            // Update the block as completed (you'll need to add this to FirestoreService)
             try await firestore.completeBlock(id: block.id)
             await load()
         } catch {

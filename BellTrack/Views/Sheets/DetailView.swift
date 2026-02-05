@@ -8,6 +8,7 @@ struct DetailView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var workoutsByExercise: [String: [(date: Date, details: String, note: String?)]] = [:]
+    @State private var isLoading = true
     private let firestore = FirestoreService()
     
     enum DetailFilterType {
@@ -32,7 +33,17 @@ struct DetailView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                if workoutsByExercise.isEmpty {
+                if isLoading {
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        Text("Loading workouts...")
+                            .font(Theme.Font.cardSecondary)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if workoutsByExercise.isEmpty {
                     VStack(spacing: 16) {
                         Text("No workouts found")
                             .font(Theme.Font.cardTitle)
@@ -165,9 +176,13 @@ struct DetailView: View {
             
             await MainActor.run {
                 self.workoutsByExercise = grouped
+                self.isLoading = false
             }
         } catch {
             print("❌ Failed to load workout data:", error)
+            await MainActor.run {
+                self.isLoading = false
+            }
         }
     }
     
@@ -175,9 +190,6 @@ struct DetailView: View {
     
     private func formatWorkoutDetails(_ log: WorkoutLog) -> String {
         var components: [String] = []
-        
-        // Exercise name
-        components.append(log.exerciseName)
         
         // Sets and Reps
         if let sets = log.sets, sets > 0 {
