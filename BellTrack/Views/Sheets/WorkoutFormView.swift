@@ -11,9 +11,9 @@ struct WorkoutFormView: View {
     @State private var date: Date
     @State private var blockId: String?
     @State private var logs: [WorkoutLog]
-
     @State private var exercises: [Exercise] = []
     @State private var blocks: [Block] = []
+    @State private var showingNotes: [String: Bool] = [:]
 
     private let firestore = FirestoreService()
 
@@ -143,6 +143,16 @@ struct WorkoutFormView: View {
                     
                     Spacer()
                     
+                    // Note icon
+                    Button {
+                        showingNotes[log.wrappedValue.id] = !(showingNotes[log.wrappedValue.id] ?? false)
+                    } label: {
+                        Image(systemName: log.wrappedValue.note?.isEmpty == false ? "note.text" : "note")
+                            .foregroundColor(log.wrappedValue.note?.isEmpty == false ? .blue : .gray)
+                            .font(Theme.Font.cardSecondary)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
                     Button {
                         removeLog(log.wrappedValue.id)
                     } label: {
@@ -229,22 +239,24 @@ struct WorkoutFormView: View {
                 }
             }
             
-            // Notes Field
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Notes")
-                    .font(Theme.Font.cardSecondary)
-                    .fontWeight(.medium)
-                    .foregroundColor(.secondary)
-                
-                TextField("Optional notes", text: Binding(
-                    get: { log.note.wrappedValue ?? "" },
-                    set: { log.note.wrappedValue = $0.isEmpty ? nil : $0 }
-                ))
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
+            // Conditional Notes Field (only show when note icon is tapped)
+            if showingNotes[log.wrappedValue.id] == true {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Notes")
+                        .font(Theme.Font.cardSecondary)
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                    
+                    TextField("Assistance, progression notes", text: Binding(
+                        get: { log.note.wrappedValue ?? "" },
+                        set: { log.note.wrappedValue = $0.isEmpty ? nil : $0 }
+                    ))
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
+                }
+                .padding(.top, 8)
             }
-            
         }
         .padding(20)
         .background(Color(.systemBackground))

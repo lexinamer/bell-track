@@ -2,7 +2,6 @@ import Foundation
 import FirebaseFirestore
 import FirebaseAuth
 
-@MainActor
 final class FirestoreService {
 
     private let db = Firestore.firestore()

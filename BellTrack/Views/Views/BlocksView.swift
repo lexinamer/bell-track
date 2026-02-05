@@ -6,7 +6,6 @@ struct BlocksView: View {
 
     @State private var showingForm = false
     @State private var editingBlock: Block?
-    @State private var showingDetail = false
     @State private var selectedBlock: Block?
     @State private var showingCompletionAlert = false
     @State private var blockToComplete: Block?
@@ -106,10 +105,8 @@ struct BlocksView: View {
                 }
             )
         }
-        .sheet(isPresented: $showingDetail) {
-            if let block = selectedBlock {
-                DetailView(block: block)
-            }
+        .sheet(item: $selectedBlock) { block in
+            DetailView(block: block)
         }
         .task {
             await vm.load()
@@ -138,7 +135,6 @@ struct BlocksView: View {
     private func blockCard(_ block: Block) -> some View {
         SimpleCard(onTap: {
             selectedBlock = block
-            showingDetail = true
         }) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(block.name)
@@ -177,7 +173,6 @@ struct BlocksView: View {
     private func completedBlockCard(_ block: Block) -> some View {
         SimpleCard(onTap: {
             selectedBlock = block
-            showingDetail = true
         }) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {

@@ -112,7 +112,7 @@ struct DetailView: View {
                                 .font(Theme.Font.cardSecondary)
                                 .fontWeight(.medium)
                                 .foregroundColor(.secondary)
-                                .frame(width: 50, alignment: .leading)
+                                .frame(width: 70, alignment: .leading)
                             
                             // Details
                             Text(workout.details.isEmpty ? "No details" : workout.details)
@@ -174,15 +174,12 @@ struct DetailView: View {
                 grouped[exerciseName]?.sort { $0.date < $1.date }
             }
             
-            await MainActor.run {
-                self.workoutsByExercise = grouped
-                self.isLoading = false
-            }
+            self.workoutsByExercise = grouped
+            self.isLoading = false
+            
         } catch {
             print("❌ Failed to load workout data:", error)
-            await MainActor.run {
-                self.isLoading = false
-            }
+            self.isLoading = false
         }
     }
     

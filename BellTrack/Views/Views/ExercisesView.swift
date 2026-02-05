@@ -6,7 +6,6 @@ struct ExercisesView: View {
 
     @State private var showingForm = false
     @State private var editingExercise: Exercise?
-    @State private var showingDetail = false
     @State private var selectedExercise: Exercise?
 
     var body: some View {
@@ -69,10 +68,8 @@ struct ExercisesView: View {
                 }
             )
         }
-        .sheet(isPresented: $showingDetail) {
-            if let exercise = selectedExercise {
-                DetailView(exercise: exercise)
-            }
+        .sheet(item: $selectedExercise) { exercise in
+            DetailView(exercise: exercise)
         }
         .task {
             await vm.load()
@@ -84,7 +81,6 @@ struct ExercisesView: View {
     private func exerciseCard(_ exercise: Exercise) -> some View {
         SimpleCard(onTap: {
             selectedExercise = exercise
-            showingDetail = true
         }) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(exercise.name)
