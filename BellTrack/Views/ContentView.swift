@@ -33,6 +33,14 @@ struct ContentView: View {
                 }
 
                 NavigationStack {
+                    InsightsView()
+                }
+                .tabItem {
+                    Image(systemName: "chart.bar")
+                    Text("Insights")
+                }
+
+                NavigationStack {
                     SettingsView()
                 }
                 .tabItem {

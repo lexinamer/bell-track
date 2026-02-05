@@ -56,11 +56,13 @@ struct ExercisesView: View {
         .sheet(item: $editingExercise) { exercise in
             ExerciseFormView(
                 exercise: exercise,
-                onSave: { name in
+                onSave: { name, primary, secondary in
                     Task {
                         await vm.saveExercise(
                             id: exercise.id,
-                            name: name
+                            name: name,
+                            primaryMuscles: primary,
+                            secondaryMuscles: secondary
                         )
                         editingExercise = nil
                     }
@@ -72,11 +74,13 @@ struct ExercisesView: View {
         }
         .sheet(isPresented: $showingNewForm) {
             ExerciseFormView(
-                onSave: { name in
+                onSave: { name, primary, secondary in
                     Task {
                         await vm.saveExercise(
                             id: nil,
-                            name: name
+                            name: name,
+                            primaryMuscles: primary,
+                            secondaryMuscles: secondary
                         )
                         showingNewForm = false
                     }
@@ -105,23 +109,37 @@ struct ExercisesView: View {
                     .font(Theme.Font.cardTitle)
                     .foregroundColor(.primary)
                     .lineLimit(2)
-                
+
                 HStack {
                     Image(systemName: "dumbbell")
                         .font(Theme.Font.cardCaption)
                         .foregroundColor(.secondary)
-                    
+
                     Text("\(vm.workoutCounts[exercise.id] ?? 0) workouts")
                         .font(Theme.Font.cardSecondary)
                         .foregroundColor(.secondary)
-                    
+
                     Image(systemName: "clock")
                         .font(Theme.Font.cardCaption)
                         .foregroundColor(.secondary)
-                    
+
                     Text("\(vm.setCounts[exercise.id] ?? 0) sets")
                         .font(Theme.Font.cardSecondary)
                         .foregroundColor(.secondary)
+                }
+
+                if !exercise.primaryMuscles.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(exercise.primaryMuscles, id: \.self) { muscle in
+                            Text(muscle.displayName)
+                                .font(Theme.Font.cardCaption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(Color.brand.primary.opacity(0.1))
+                                .foregroundColor(Color.brand.primary)
+                                .cornerRadius(10)
+                        }
+                    }
                 }
             }
         }

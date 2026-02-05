@@ -23,22 +23,34 @@ final class FirestoreService {
             .order(by: "name")
             .getDocuments()
 
-        return snap.documents.map {
-            Exercise(
-                id: $0.documentID,
-                name: $0["name"] as? String ?? ""
+        return snap.documents.map { doc in
+            let primaryRaw = doc["primaryMuscles"] as? [String] ?? []
+            let secondaryRaw = doc["secondaryMuscles"] as? [String] ?? []
+
+            return Exercise(
+                id: doc.documentID,
+                name: doc["name"] as? String ?? "",
+                primaryMuscles: primaryRaw.compactMap { MuscleGroup(rawValue: $0) },
+                secondaryMuscles: secondaryRaw.compactMap { MuscleGroup(rawValue: $0) }
             )
         }
     }
 
-    func saveExercise(id: String?, name: String) async throws {
+    func saveExercise(
+        id: String?,
+        name: String,
+        primaryMuscles: [MuscleGroup],
+        secondaryMuscles: [MuscleGroup]
+    ) async throws {
         let ref = try userRef()
         let doc = id == nil
             ? ref.collection("exercises").document()
             : ref.collection("exercises").document(id!)
 
         try await doc.setData([
-            "name": name
+            "name": name,
+            "primaryMuscles": primaryMuscles.map { $0.rawValue },
+            "secondaryMuscles": secondaryMuscles.map { $0.rawValue }
         ])
     }
 

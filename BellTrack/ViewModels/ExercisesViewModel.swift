@@ -50,11 +50,21 @@ final class ExercisesViewModel: ObservableObject {
 
     // MARK: - Create / Update
 
-    func saveExercise(id: String? = nil, name: String) async {
+    func saveExercise(
+        id: String? = nil,
+        name: String,
+        primaryMuscles: [MuscleGroup],
+        secondaryMuscles: [MuscleGroup]
+    ) async {
         guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
 
         do {
-            try await firestore.saveExercise(id: id, name: name)
+            try await firestore.saveExercise(
+                id: id,
+                name: name,
+                primaryMuscles: primaryMuscles,
+                secondaryMuscles: secondaryMuscles
+            )
             
             // If this is an edit (has ID), update all workout logs with new name
             if let exerciseId = id {
