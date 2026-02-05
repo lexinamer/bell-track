@@ -8,6 +8,7 @@ struct WorkoutFormView: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    @State private var name: String
     @State private var date: Date
     @State private var blockId: String?
     @State private var logs: [WorkoutLog]
@@ -28,6 +29,7 @@ struct WorkoutFormView: View {
         self.onSave = onSave
         self.onCancel = onCancel
         
+        _name = State(initialValue: workout?.name ?? "")
         _date = State(initialValue: workout?.date ?? Date())
         _blockId = State(initialValue: workout?.blockId)
         _logs = State(initialValue: workout?.logs ?? [])
@@ -42,6 +44,21 @@ struct WorkoutFormView: View {
                     
                     // MARK: - Meta Section
                     VStack(spacing: 0) {
+                        // Name
+                        HStack {
+                            Text("Name")
+                            Spacer()
+                            TextField("e.g. Workout A, Upper Body", text: $name)
+                                .multilineTextAlignment(.trailing)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(Color(.systemBackground))
+
+                        Divider()
+                            .padding(.leading, 16)
+
                         // Date Picker
                         HStack {
                             Text("Date")
@@ -290,6 +307,7 @@ struct WorkoutFormView: View {
     private func save() async {
         try? await firestore.saveWorkout(
             id: workout?.id,
+            name: name.isEmpty ? nil : name,
             date: date,
             blockId: blockId,
             logs: logs

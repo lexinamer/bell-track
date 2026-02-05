@@ -68,6 +68,7 @@ final class FirestoreService {
             if needsUpdate {
                 try await saveWorkout(
                     id: workout.id,
+                    name: workout.name,
                     date: workout.date,
                     blockId: workout.blockId,
                     logs: updatedLogs
@@ -104,7 +105,8 @@ final class FirestoreService {
                 type: type,
                 durationWeeks: doc["durationWeeks"] as? Int,
                 completedDate: completedDate,
-                notes: notes
+                notes: notes,
+                colorIndex: doc["colorIndex"] as? Int
             )
         }
     }
@@ -116,7 +118,8 @@ final class FirestoreService {
         type: BlockType,
         durationWeeks: Int?,
         completedDate: Date? = nil,
-        notes: String? = nil
+        notes: String? = nil,
+        colorIndex: Int? = nil
     ) async throws {
 
         let ref = try userRef()
@@ -130,13 +133,17 @@ final class FirestoreService {
             "type": type.rawValue,
             "durationWeeks": durationWeeks as Any
         ]
-        
+
         if let completedDate = completedDate {
             data["completedDate"] = completedDate
         }
-        
+
         if let notes = notes {
             data["notes"] = notes
+        }
+
+        if let colorIndex = colorIndex {
+            data["colorIndex"] = colorIndex
         }
 
         try await doc.setData(data)
@@ -190,6 +197,7 @@ final class FirestoreService {
 
             return Workout(
                 id: doc.documentID,
+                name: doc["name"] as? String,
                 date: date,
                 blockId: doc["blockId"] as? String,
                 logs: logs
@@ -199,6 +207,7 @@ final class FirestoreService {
 
     func saveWorkout(
         id: String?,
+        name: String?,
         date: Date,
         blockId: String?,
         logs: [WorkoutLog]
@@ -216,13 +225,14 @@ final class FirestoreService {
                 "exerciseName": $0.exerciseName,
                 "sets": $0.sets as Any,
                 "reps": $0.reps as Any,
-                "weight": $0.weight as Any,  // Now handles String weight
+                "weight": $0.weight as Any,
                 "note": $0.note as Any
             ]
         }
 
         try await doc.setData([
             "date": date,
+            "name": name as Any,
             "blockId": blockId as Any,
             "logs": logsPayload
         ])

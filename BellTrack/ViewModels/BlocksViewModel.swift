@@ -49,9 +49,10 @@ final class BlocksViewModel: ObservableObject {
         startDate: Date,
         type: BlockType,
         durationWeeks: Int?,
-        notes: String? = nil
+        notes: String? = nil,
+        colorIndex: Int? = nil
     ) async {
-        
+
         do {
             try await firestore.saveBlock(
                 id: id,
@@ -59,7 +60,8 @@ final class BlocksViewModel: ObservableObject {
                 startDate: startDate,
                 type: type,
                 durationWeeks: durationWeeks,
-                notes: notes
+                notes: notes,
+                colorIndex: colorIndex
             )
             await load()
         } catch {

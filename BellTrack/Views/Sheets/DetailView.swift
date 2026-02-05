@@ -8,7 +8,7 @@ struct DetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     // Block mode: workouts grouped by date (each workout's logs listed)
-    @State private var workoutsByDate: [(date: Date, logs: [(exerciseName: String, details: String, note: String?)])] = []
+    @State private var workoutsByDate: [(date: Date, name: String?, logs: [(exerciseName: String, details: String, note: String?)])] = []
     // Exercise mode: flat list of that exercise across all time
     @State private var exerciseEntries: [(date: Date, details: String, note: String?)] = []
     @State private var isLoading = true
@@ -91,7 +91,7 @@ struct DetailView: View {
                         case .block, .allTime:
                             // Show workouts grouped by date (newest first)
                             ForEach(Array(workoutsByDate.enumerated()), id: \.offset) { _, workout in
-                                workoutDateSection(date: workout.date, logs: workout.logs)
+                                workoutDateSection(date: workout.date, name: workout.name, logs: workout.logs)
                             }
                         case .exercise:
                             // Show that exercise across all time (newest first)
@@ -131,13 +131,21 @@ struct DetailView: View {
 
     // MARK: - Block Mode: Workout Date Section
 
-    private func workoutDateSection(date: Date, logs: [(exerciseName: String, details: String, note: String?)]) -> some View {
+    private func workoutDateSection(date: Date, name: String?, logs: [(exerciseName: String, details: String, note: String?)]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(date.formatted(.dateTime.month(.abbreviated).day().year()))
-                .font(Theme.Font.cardTitle)
-                .fontWeight(.bold)
-                .foregroundColor(.primary)
-                .padding(.horizontal, 20)
+            HStack(spacing: 8) {
+                Text(date.formatted(.dateTime.month(.abbreviated).day().year()))
+                    .font(Theme.Font.cardTitle)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+
+                if let name = name, !name.isEmpty {
+                    Text(name)
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.horizontal, 20)
 
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(Array(logs.enumerated()), id: \.offset) { _, log in
@@ -218,12 +226,14 @@ struct DetailView: View {
             case .block, .allTime:
                 // Group by workout date, newest first
                 let sorted = filteredWorkouts.sorted { $0.date > $1.date }
-                self.workoutsByDate = sorted.map { workout in
-                    let logs = workout.logs.map { log in
+                var result: [(date: Date, name: String?, logs: [(exerciseName: String, details: String, note: String?)])] = []
+                for w in sorted {
+                    let logs = w.logs.map { log in
                         (exerciseName: log.exerciseName, details: formatWorkoutDetails(log), note: log.note)
                     }
-                    return (date: workout.date, logs: logs)
+                    result.append((date: w.date, name: w.name, logs: logs))
                 }
+                self.workoutsByDate = result
 
             case .exercise(let exercise):
                 // Flat list of that exercise across all time, newest first

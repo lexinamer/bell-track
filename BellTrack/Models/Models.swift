@@ -22,6 +22,7 @@ struct Block: Identifiable, Codable, Equatable {
     var durationWeeks: Int?
     var completedDate: Date?
     var notes: String?
+    var colorIndex: Int?
 }
 
 // MARK: - WorkoutLog
@@ -42,6 +43,7 @@ struct WorkoutLog: Identifiable, Codable, Equatable {
 
 struct Workout: Identifiable, Codable, Equatable {
     let id: String
+    var name: String?
     var date: Date
     var blockId: String?
     var logs: [WorkoutLog]

@@ -92,7 +92,7 @@ struct BlocksView: View {
         .sheet(item: $editingBlock) { block in
             BlockFormView(
                 block: block,
-                onSave: { name, startDate, type, durationWeeks, notes in
+                onSave: { name, startDate, type, durationWeeks, notes, colorIndex in
                     Task {
                         await vm.saveBlock(
                             id: block.id,
@@ -100,7 +100,8 @@ struct BlocksView: View {
                             startDate: startDate,
                             type: type,
                             durationWeeks: durationWeeks,
-                            notes: notes
+                            notes: notes,
+                            colorIndex: colorIndex
                         )
                         editingBlock = nil
                     }
@@ -112,7 +113,7 @@ struct BlocksView: View {
         }
         .sheet(isPresented: $showingNewForm) {
             BlockFormView(
-                onSave: { name, startDate, type, durationWeeks, notes in
+                onSave: { name, startDate, type, durationWeeks, notes, colorIndex in
                     Task {
                         await vm.saveBlock(
                             id: nil,
@@ -120,7 +121,8 @@ struct BlocksView: View {
                             startDate: startDate,
                             type: type,
                             durationWeeks: durationWeeks,
-                            notes: notes
+                            notes: notes,
+                            colorIndex: colorIndex
                         )
                         showingNewForm = false
                     }
@@ -161,30 +163,38 @@ struct BlocksView: View {
         SimpleCard(onTap: {
             selectedBlock = block
         }) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(block.name)
-                    .font(Theme.Font.cardTitle)
-                    .foregroundColor(.primary)
-                    .lineLimit(2)
-                
-                HStack {
-                    Image(systemName: "calendar")
-                        .font(Theme.Font.cardCaption)
-                        .foregroundColor(.secondary)
-                    
-                    Text(progressText(block))
-                        .font(Theme.Font.cardSecondary)
-                        .foregroundColor(.secondary)
-                    
-                    Image(systemName: "dumbbell")
-                        .font(Theme.Font.cardCaption)
-                        .foregroundColor(.secondary)
-                    
-                    let count = vm.workoutCounts[block.id] ?? 0
-                    Text("\(count) workouts")
-                        .font(Theme.Font.cardSecondary)
-                        .foregroundColor(.secondary)
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(block.name)
+                        .font(Theme.Font.cardTitle)
+                        .foregroundColor(.primary)
+                        .lineLimit(2)
+
+                    HStack {
+                        Image(systemName: "calendar")
+                            .font(Theme.Font.cardCaption)
+                            .foregroundColor(.secondary)
+
+                        Text(progressText(block))
+                            .font(Theme.Font.cardSecondary)
+                            .foregroundColor(.secondary)
+
+                        Image(systemName: "dumbbell")
+                            .font(Theme.Font.cardCaption)
+                            .foregroundColor(.secondary)
+
+                        let count = vm.workoutCounts[block.id] ?? 0
+                        Text("\(count) workouts")
+                            .font(Theme.Font.cardSecondary)
+                            .foregroundColor(.secondary)
+                    }
                 }
+
+                Spacer()
+
+                Circle()
+                    .fill(ColorTheme.blockColor(for: block.colorIndex))
+                    .frame(width: 10, height: 10)
             }
         }
         .onLongPressGesture {
@@ -203,34 +213,38 @@ struct BlocksView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(block.name)
                         .font(Theme.Font.cardTitle)
-                        .foregroundColor(.secondary)  // Grayed out text
+                        .foregroundColor(.secondary)
                         .lineLimit(2)
-                    
+
                     HStack {
                         Image(systemName: "calendar")
                             .font(Theme.Font.cardCaption)
                             .foregroundColor(.secondary)
-                        
+
                         if let completedDate = block.completedDate {
                             Text("Completed \(completedDate.formatted(.dateTime.month(.abbreviated).day()))")
                                 .font(Theme.Font.cardSecondary)
                                 .foregroundColor(.secondary)
                         }
-                        
+
                         Image(systemName: "dumbbell")
                             .font(Theme.Font.cardCaption)
                             .foregroundColor(.secondary)
-                        
+
                         let count = vm.workoutCounts[block.id] ?? 0
                         Text("\(count) workouts")
                             .font(Theme.Font.cardSecondary)
                             .foregroundColor(.secondary)
                     }
                 }
-                
+
                 Spacer()
-                
-                // Checkmark indicator
+
+                Circle()
+                    .fill(ColorTheme.blockColor(for: block.colorIndex))
+                    .frame(width: 10, height: 10)
+                    .opacity(0.5)
+
                 Image(systemName: "checkmark.circle.fill")
                     .font(Theme.Font.navigationTitle)
                     .foregroundColor(.green)

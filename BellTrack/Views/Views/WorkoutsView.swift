@@ -114,12 +114,12 @@ struct WorkoutsView: View {
                         .foregroundColor(.white)
                 }
                 .frame(width: 50, height: 50)
-                .background(Color.brand.primary)
+                .background(dateBadgeColor(for: workout))
                 .cornerRadius(8)
                 
                 // Workout details
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(workout.logs.map { $0.exerciseName }.joined(separator: ", "))
+                    Text(workoutTitle(workout))
                         .font(Theme.Font.cardTitle)
                         .foregroundColor(.primary)
                         .lineLimit(1)
@@ -199,6 +199,24 @@ struct WorkoutsView: View {
 
     // MARK: - Helpers
 
+    private func workoutTitle(_ workout: Workout) -> String {
+        if let name = workout.name, !name.isEmpty {
+            return name
+        }
+        return workout.logs.map { $0.exerciseName }.joined(separator: ", ")
+    }
+
+    private func dateBadgeColor(for workout: Workout) -> Color {
+        if let blockId = workout.blockId, let colorIndex = vm.blockColors[blockId] {
+            return ColorTheme.blockColor(for: colorIndex)
+        } else if workout.blockId != nil {
+            // Has a block but no colorIndex set yet — use default palette color
+            return ColorTheme.blockColor(for: nil)
+        } else {
+            return ColorTheme.unassignedWorkoutColor
+        }
+    }
+
     private func totalSets(for workout: Workout) -> Int {
         workout.logs.compactMap { $0.sets }.reduce(0, +)
     }
@@ -207,8 +225,9 @@ struct WorkoutsView: View {
         // Create a new workout template with the same exercises but today's date
         // User can modify and save manually
         let workoutTemplate = Workout(
-            id: UUID().uuidString, // New ID
-            date: Date(), // Today's date
+            id: UUID().uuidString,
+            name: workout.name,
+            date: Date(),
             blockId: workout.blockId,
             logs: workout.logs.map { log in
                 WorkoutLog(
