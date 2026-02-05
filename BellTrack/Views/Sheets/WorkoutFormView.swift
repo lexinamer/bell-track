@@ -227,12 +227,12 @@ struct WorkoutFormView: View {
                 
                 // Reps (simplified)
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Reps or Time")
+                    Text("Reps/Time")
                         .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
                     
-                    TextField("8 or :30", text: Binding(
+                    TextField("8 or 2:30", text: Binding(
                         get: { log.reps.wrappedValue ?? "" },
                         set: { log.reps.wrappedValue = $0.isEmpty ? nil : $0 }
                     ))

@@ -45,15 +45,3 @@ struct ExerciseFormView: View {
         }
     }
 }
-
-#Preview {
-    ExerciseFormView(
-        exercise: nil,
-        onSave: { name in
-            print("Save exercise: \(name)")
-        },
-        onCancel: {
-            print("Cancel")
-        }
-    )
-}
