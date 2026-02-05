@@ -4,8 +4,8 @@ struct ExercisesView: View {
 
     @StateObject private var vm = ExercisesViewModel()
 
-    @State private var showingForm = false
     @State private var editingExercise: Exercise?
+    @State private var showingNewForm = false
     @State private var selectedExercise: Exercise?
 
     var body: some View {
@@ -18,12 +18,15 @@ struct ExercisesView: View {
                     title: "Exercises",
                     buttonText: "Add Exercise"
                 ) {
-                    editingExercise = nil
-                    showingForm = true
+                    showingNewForm = true
                 }
                 
                 // Content
-                if vm.exercises.isEmpty {
+                if vm.isLoading && vm.exercises.isEmpty {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                } else if vm.exercises.isEmpty {
                     Spacer()
                     emptyState
                     Spacer()
@@ -37,7 +40,6 @@ struct ExercisesView: View {
                                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                     Button("Edit") {
                                         editingExercise = exercise
-                                        showingForm = true
                                     }
                                     .tint(.orange)
                                 }
@@ -51,20 +53,36 @@ struct ExercisesView: View {
             }
         }
         .navigationBarHidden(true)
-        .sheet(isPresented: $showingForm) {
+        .sheet(item: $editingExercise) { exercise in
             ExerciseFormView(
-                exercise: editingExercise,
+                exercise: exercise,
                 onSave: { name in
                     Task {
                         await vm.saveExercise(
-                            id: editingExercise?.id,
+                            id: exercise.id,
                             name: name
                         )
-                        dismissForm()
+                        editingExercise = nil
                     }
                 },
                 onCancel: {
-                    dismissForm()
+                    editingExercise = nil
+                }
+            )
+        }
+        .sheet(isPresented: $showingNewForm) {
+            ExerciseFormView(
+                onSave: { name in
+                    Task {
+                        await vm.saveExercise(
+                            id: nil,
+                            name: name
+                        )
+                        showingNewForm = false
+                    }
+                },
+                onCancel: {
+                    showingNewForm = false
                 }
             )
         }
@@ -107,11 +125,6 @@ struct ExercisesView: View {
                 }
             }
         }
-    }
-
-    private func dismissForm() {
-        showingForm = false
-        editingExercise = nil
     }
 
     // MARK: - Empty State

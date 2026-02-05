@@ -5,12 +5,15 @@ import Combine
 final class WorkoutsViewModel: ObservableObject {
 
     @Published var workouts: [Workout] = []
+    @Published var isLoading = false
 
     private let firestore = FirestoreService()
 
     // MARK: - Load
 
     func load() async {
+        isLoading = true
+        defer { isLoading = false }
         do {
             workouts = try await firestore.fetchWorkouts()
         } catch {

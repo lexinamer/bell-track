@@ -4,8 +4,8 @@ struct WorkoutsView: View {
 
     @StateObject private var vm = WorkoutsViewModel()
 
-    @State private var showingLog = false
     @State private var editingWorkout: Workout?
+    @State private var showingNewWorkout = false
     @State private var expandedWorkoutIds: Set<String> = []
 
     var body: some View {
@@ -18,12 +18,15 @@ struct WorkoutsView: View {
                     title: "Workouts",
                     buttonText: "Add Workout"
                 ) {
-                    editingWorkout = nil
-                    showingLog = true
+                    showingNewWorkout = true
                 }
                 
                 // Content
-                if vm.workouts.isEmpty {
+                if vm.isLoading && vm.workouts.isEmpty {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                } else if vm.workouts.isEmpty {
                     Spacer()
                     emptyState
                     Spacer()
@@ -49,7 +52,6 @@ struct WorkoutsView: View {
                                     
                                     Button("Edit") {
                                         editingWorkout = workout
-                                        showingLog = true
                                     }
                                     .tint(.orange)
                                 }
@@ -63,15 +65,27 @@ struct WorkoutsView: View {
             }
         }
         .navigationBarHidden(true)
-        .fullScreenCover(isPresented: $showingLog) {
+        .fullScreenCover(item: $editingWorkout) { workout in
             WorkoutFormView(
-                workout: editingWorkout,
+                workout: workout,
                 onSave: {
-                    showingLog = false
+                    editingWorkout = nil
                     Task { await vm.load() }
                 },
                 onCancel: {
-                    showingLog = false
+                    editingWorkout = nil
+                }
+            )
+        }
+        .fullScreenCover(isPresented: $showingNewWorkout) {
+            WorkoutFormView(
+                workout: nil,
+                onSave: {
+                    showingNewWorkout = false
+                    Task { await vm.load() }
+                },
+                onCancel: {
+                    showingNewWorkout = false
                 }
             )
         }
@@ -210,7 +224,6 @@ struct WorkoutsView: View {
         )
         
         editingWorkout = workoutTemplate
-        showingLog = true
     }
 
     private func formatExerciseDetails(_ log: WorkoutLog) -> String {

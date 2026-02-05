@@ -7,15 +7,20 @@ final class BlocksViewModel: ObservableObject {
     @Published var blocks: [Block] = []
     @Published var workouts: [Workout] = []
     @Published var workoutCounts: [String: Int] = [:]
+    @Published var isLoading = false
 
     private let firestore = FirestoreService()
 
     // MARK: - Load
 
     func load() async {
+        isLoading = true
+        defer { isLoading = false }
         do {
-            blocks = try await firestore.fetchBlocks()
-            workouts = try await firestore.fetchWorkouts()
+            async let fetchedBlocks = firestore.fetchBlocks()
+            async let fetchedWorkouts = firestore.fetchWorkouts()
+            blocks = try await fetchedBlocks
+            workouts = try await fetchedWorkouts
             await loadWorkoutCounts()
         } catch {
             print("❌ Failed to load blocks:", error)

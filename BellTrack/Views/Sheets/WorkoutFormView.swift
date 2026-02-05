@@ -57,24 +57,26 @@ struct WorkoutFormView: View {
                             .padding(.leading, 16)
                         
                         // Block Selector
-                        HStack {
-                            Text("Block")
-                            Spacer()
+                        if !blocks.isEmpty {
+                            HStack {
+                                Text("Block")
+                                Spacer()
 
-                            Picker("Block", selection: $blockId) {
-                                Text("None")
-                                    .tag(String?.none)
-                                ForEach(blocks) { block in
-                                    Text(block.name)
-                                        .tag(Optional(block.id))
+                                Picker("Block", selection: $blockId) {
+                                    Text("None")
+                                        .tag(String?.none)
+                                    ForEach(blocks) { block in
+                                        Text(block.name)
+                                            .tag(Optional(block.id))
+                                    }
                                 }
+                                .pickerStyle(.menu)
+                                .foregroundColor(.secondary)
                             }
-                            .pickerStyle(.menu)
-                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(Color(.systemBackground))
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(Color(.systemBackground))
                     }
                     .cornerRadius(12)
                     .padding(.horizontal)

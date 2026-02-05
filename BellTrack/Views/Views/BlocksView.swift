@@ -4,8 +4,8 @@ struct BlocksView: View {
 
     @StateObject private var vm = BlocksViewModel()
 
-    @State private var showingForm = false
     @State private var editingBlock: Block?
+    @State private var showingNewForm = false
     @State private var selectedBlock: Block?
     @State private var showingCompletionAlert = false
     @State private var blockToComplete: Block?
@@ -24,7 +24,11 @@ struct BlocksView: View {
                 }
                 
                 // Content
-                if vm.blocks.isEmpty {
+                if vm.isLoading && vm.blocks.isEmpty {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                } else if vm.blocks.isEmpty {
                     Spacer()
                     emptyState
                     Spacer()
@@ -87,22 +91,42 @@ struct BlocksView: View {
         .navigationBarHidden(true)
         .sheet(item: $editingBlock) { block in
             BlockFormView(
-                block: block,  // Now guaranteed to not be nil
+                block: block,
                 onSave: { name, startDate, type, durationWeeks, notes in
                     Task {
                         await vm.saveBlock(
-                            id: block.id,  // Use the guaranteed non-nil block
+                            id: block.id,
                             name: name,
                             startDate: startDate,
                             type: type,
                             durationWeeks: durationWeeks,
                             notes: notes
                         )
-                        resetForm()
+                        editingBlock = nil
                     }
                 },
                 onCancel: {
-                    resetForm()
+                    editingBlock = nil
+                }
+            )
+        }
+        .sheet(isPresented: $showingNewForm) {
+            BlockFormView(
+                onSave: { name, startDate, type, durationWeeks, notes in
+                    Task {
+                        await vm.saveBlock(
+                            id: nil,
+                            name: name,
+                            startDate: startDate,
+                            type: type,
+                            durationWeeks: durationWeeks,
+                            notes: notes
+                        )
+                        showingNewForm = false
+                    }
+                },
+                onCancel: {
+                    showingNewForm = false
                 }
             )
         }
@@ -235,18 +259,11 @@ struct BlocksView: View {
     // MARK: - Helpers
 
     private func startCreate() {
-        editingBlock = nil
-        showingForm = true
+        showingNewForm = true
     }
 
     private func startEdit(_ block: Block) {
         editingBlock = block
-        showingForm = true
-    }
-
-    private func resetForm() {
-        showingForm = false
-        editingBlock = nil
     }
 
     // MARK: - Empty State

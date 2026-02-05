@@ -19,8 +19,11 @@ final class ExercisesViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            exercises = try await firestore.fetchExercises()
-            await loadExerciseStats()
+            async let fetchedExercises = firestore.fetchExercises()
+            async let fetchedWorkouts = firestore.fetchWorkouts()
+            exercises = try await fetchedExercises
+            let workouts = try await fetchedWorkouts
+            loadExerciseStats(from: workouts)
         } catch {
             errorMessage = error.localizedDescription
             print("❌ Failed to load exercises:", error)
@@ -29,37 +32,20 @@ final class ExercisesViewModel: ObservableObject {
 
     // MARK: - Exercise Statistics
 
-    private func loadExerciseStats() async {
-        do {
-            let workouts = try await firestore.fetchWorkouts()
-            
-            // Calculate stats for each exercise
-            var workoutCountsDict: [String: Set<String>] = [:] // exercise ID → set of workout IDs
-            var setCountsDict: [String: Int] = [:] // exercise ID → total sets
-            
-            for workout in workouts {
-                for log in workout.logs {
-                    let exerciseId = log.exerciseId
-                    
-                    // Count unique workouts per exercise
-                    if workoutCountsDict[exerciseId] == nil {
-                        workoutCountsDict[exerciseId] = Set<String>()
-                    }
-                    workoutCountsDict[exerciseId]?.insert(workout.id)
-                    
-                    // Sum total sets per exercise
-                    let sets = log.sets ?? 0
-                    setCountsDict[exerciseId, default: 0] += sets
-                }
+    private func loadExerciseStats(from workouts: [Workout]) {
+        var workoutCountsDict: [String: Set<String>] = [:]
+        var setCountsDict: [String: Int] = [:]
+
+        for workout in workouts {
+            for log in workout.logs {
+                let exerciseId = log.exerciseId
+                workoutCountsDict[exerciseId, default: Set()].insert(workout.id)
+                setCountsDict[exerciseId, default: 0] += (log.sets ?? 0)
             }
-            
-            // Convert to final format
-            workoutCounts = workoutCountsDict.mapValues { $0.count }
-            setCounts = setCountsDict
-            
-        } catch {
-            print("❌ Failed to load exercise stats:", error)
         }
+
+        workoutCounts = workoutCountsDict.mapValues { $0.count }
+        setCounts = setCountsDict
     }
 
     // MARK: - Create / Update
