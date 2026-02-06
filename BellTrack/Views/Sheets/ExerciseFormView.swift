@@ -92,7 +92,7 @@ struct ExerciseFormView: View {
             Text(muscle.displayName)
                 .font(Theme.Font.cardCaption)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.vertical, Theme.Space.xs)
                 .background(isSelected ? Color.brand.primary : Color(.systemGray5))
                 .foregroundColor(isSelected ? .white : .primary)
                 .cornerRadius(16)
@@ -123,8 +123,8 @@ struct WrappingHStack<Item: Hashable, Content: View>: View {
         return ZStack(alignment: .topLeading) {
             ForEach(items, id: \.self) { item in
                 content(item)
-                    .padding(.trailing, 6)
-                    .padding(.bottom, 6)
+                    .padding(.trailing, Theme.Space.xs)
+                    .padding(.bottom, Theme.Space.xs)
                     .alignmentGuide(.leading) { d in
                         if abs(width - d.width) > geometry.size.width {
                             width = 0

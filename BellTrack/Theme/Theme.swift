@@ -38,6 +38,7 @@ enum Theme {
         // Page and navigation
         static let pageTitle = SwiftUI.Font.system(size: TypeSize.xxxl, weight: .bold)
         static let navigationTitle = SwiftUI.Font.system(size: TypeSize.lg, weight: .semibold)
+        static let sectionTitle = SwiftUI.Font.system(size: TypeSize.md, weight: .bold)
         
         // Cards
         static let cardTitle = SwiftUI.Font.system(size: TypeSize.md, weight: .medium)

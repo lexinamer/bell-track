@@ -31,14 +31,20 @@ struct TrainingView: View {
 
     var body: some View {
         ZStack {
-            Color.brand.background.ignoresSafeArea()
+            Color.brand.background
+                .ignoresSafeArea()
 
             // Content
-            if (blocksVM.isLoading && workoutsVM.isLoading) && blocksVM.blocks.isEmpty && workoutsVM.workouts.isEmpty {
+            if (blocksVM.isLoading && workoutsVM.isLoading)
+                && blocksVM.blocks.isEmpty
+                && workoutsVM.workouts.isEmpty {
+
                 ProgressView()
+
             } else {
                 ScrollView {
                     LazyVStack(spacing: Theme.Space.md) {
+
                         // Blocks section
                         blocksSection
                             .padding(.horizontal)
@@ -59,34 +65,22 @@ struct TrainingView: View {
                             }
                         }
                     }
-                    .padding(.vertical, 6)
-                    .padding(.bottom, 80) // Space for FAB
-                }
-            }
-
-            // Floating Action Button
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Button {
-                        showingNewWorkout = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 24, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(width: 56, height: 56)
-                            .background(Color.brand.primary)
-                            .clipShape(Circle())
-                            .shadow(color: Color.brand.primary.opacity(0.4), radius: 8, x: 0, y: 4)
-                    }
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 20)
+                    .padding(.vertical, Theme.Space.xs)
                 }
             }
         }
         .navigationTitle("Training")
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingNewWorkout = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
+
         
         // Workout sheets
         .fullScreenCover(item: $editingWorkout) { workout in
@@ -209,26 +203,29 @@ struct TrainingView: View {
 
     private var blocksSection: some View {
         VStack(alignment: .leading, spacing: Theme.Space.md) {
-            // Header with more breathing room
             HStack {
                 Text("Blocks")
-                    .font(Theme.Font.cardTitle)
-                
+                    .font(Theme.Font.sectionTitle)
+
                 Spacer()
-                
-                Button {
-//                    add historyviewhere...
+
+                Menu {
+                    Button {
+                        // add history view here
+                    } label: {
+                        Label("History", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
+                    }
+
+                    Button {
+                        showingNewBlock = true
+                    } label: {
+                        Label("New Block", systemImage: "plus")
+                    }
                 } label: {
-                    Image(systemName: "clock.arrow.trianglehead.counterclockwise.rotate.90")
-                        .foregroundColor(Color.textSecondary)
+                    Image(systemName: "ellipsis")
+                        .foregroundColor(Color.textSecondary.opacity(0.6))
                 }
-                
-                Button {
-                    showingNewBlock = true
-                } label: {
-                    Image(systemName: "plus")
-                        .foregroundColor(Color.textSecondary)
-                }
+                .padding(.trailing, Theme.Space.sm)
             }
 
             let activeBlocks = blocksVM.blocks.filter { $0.completedDate == nil }
@@ -249,59 +246,22 @@ struct TrainingView: View {
                     }
                 }
             }
+            Divider()
+                .padding(.vertical, Theme.Space.md)
         }
+        .padding(.top, Theme.Space.md)
     }
 
     // MARK: - Block Card
 
     private func blockCard(_ block: Block) -> some View {
-        let isExpanded = expandedBlockId == block.id
-        let blockColor = ColorTheme.blockColor(for: block.colorIndex)
-        let count = blocksVM.workoutCounts[block.id] ?? 0
-        let shadowColor: Color = isExpanded ? blockColor.opacity(0.6) : Color.black.opacity(0.1)
-        let shadowRadius: CGFloat = isExpanded ? 10 : 2
-        let shadowY: CGFloat = isExpanded ? 5 : 1
+        BlockCard(
+            block: block,
+            workoutCount: blocksVM.workoutCounts[block.id] ?? 0,
+            isExpanded: expandedBlockId == block.id,
+            backgroundColor: ColorTheme.blockColor(for: block.colorIndex),
 
-        return VStack(alignment: .leading, spacing: 6) {
-            // Name
-            Text(block.name)
-                .font(Theme.Font.cardTitle)
-                .fontWeight(.semibold)
-                .foregroundColor(.white)
-                .lineLimit(1)
-
-            // Progress text
-            Text(progressText(block))
-                .font(Theme.Font.cardCaption)
-                .foregroundColor(.white)
-
-            // Workout count
-            Text("\(count) workouts")
-                .font(Theme.Font.cardCaption)
-                .foregroundColor(.white)
-
-            // Expanded: show notes at bottom
-            if isExpanded, let notes = block.notes, !notes.isEmpty {
-                Text("Notes: \(notes)")
-                    .font(Theme.Font.cardCaption)
-                    .foregroundColor(.white)
-                    .padding(.top, Theme.Space.xs)
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(
-            ZStack {
-                blockColor
-                if isExpanded {
-                    Color.black.opacity(0.15)
-                }
-            }
-        )
-        .cornerRadius(12)
-        .shadow(color: shadowColor, radius: shadowRadius, x: 0, y: shadowY)
-        .onTapGesture {
-            withAnimation {
+            onToggle: {
                 if expandedBlockId == block.id {
                     expandedBlockId = nil
                     filterBlockId = nil
@@ -309,27 +269,20 @@ struct TrainingView: View {
                     expandedBlockId = block.id
                     filterBlockId = block.id
                 }
-            }
-        }
-        .contextMenu {
-            Button {
+            },
+
+            onEdit: {
                 editingBlock = block
-            } label: {
-                Label("Edit", systemImage: "pencil")
-            }
-            if block.completedDate == nil {
-                Button {
-                    blockToComplete = block
-                } label: {
-                    Label("Complete", systemImage: "checkmark")
-                }
-            }
-            Button(role: .destructive) {
+            },
+
+            onComplete: {
+                blockToComplete = block
+            },
+
+            onDelete: {
                 blockToDelete = block
-            } label: {
-                Label("Delete", systemImage: "trash")
             }
-        }
+        )
     }
 
     // MARK: - Workouts Section Header
@@ -337,7 +290,7 @@ struct TrainingView: View {
     private var workoutsSectionHeader: some View {
         HStack {
             Text("Workouts")
-                .font(Theme.Font.cardTitle)
+                .font(Theme.Font.sectionTitle)
 
             // Show which block is filtering (if any)
             if let blockId = filterBlockId,
@@ -349,84 +302,16 @@ struct TrainingView: View {
 
             Spacer()
         }
-        .padding(.top, Theme.Space.sm)
-    }
-
-    // MARK: - Block Progress Text
-
-    private func progressText(_ block: Block) -> String {
-        switch block.type {
-        case .ongoing:
-            let weeksSinceStart = Calendar.current.dateComponents([.weekOfYear], from: block.startDate, to: Date()).weekOfYear ?? 0
-            return "Week \(max(1, weeksSinceStart + 1)) (ongoing)"
-        case .duration:
-            if let weeks = block.durationWeeks {
-                let weeksSinceStart = Calendar.current.dateComponents([.weekOfYear], from: block.startDate, to: Date()).weekOfYear ?? 0
-                let currentWeek = min(max(1, weeksSinceStart + 1), weeks)
-                return "Week \(currentWeek) of \(weeks)"
-            } else {
-                return ""
-            }
-        }
     }
 
     // MARK: - Workout Card
 
     private func workoutCard(_ workout: Workout) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Main card content
-            HStack(alignment: .top, spacing: Theme.Space.md) {
-                // Date box
-                VStack(spacing: 2) {
-                    Text(workout.date.formatted(.dateTime.day(.defaultDigits)))
-                        .font(Theme.Font.navigationTitle)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.white)
+        WorkoutCard(
+            workout: workout,
+            isExpanded: expandedWorkoutIds.contains(workout.id),
 
-                    Text(workout.date.formatted(.dateTime.month(.abbreviated)))
-                        .font(Theme.Font.cardCaption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                }
-                .frame(width: 50, height: 50)
-                .background(dateBadgeColor(for: workout))
-                .cornerRadius(8)
-
-                // Workout details
-                VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                    Text(workoutTitle(workout))
-                        .font(Theme.Font.cardTitle)
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
-
-                    HStack {
-                        Image(systemName: "dumbbell")
-                            .font(Theme.Font.cardCaption)
-                            .foregroundColor(.secondary)
-
-                        Text("\(workout.logs.count) exercises")
-                            .font(Theme.Font.cardSecondary)
-                            .foregroundColor(.secondary)
-
-                        Image(systemName: "clock")
-                            .font(Theme.Font.cardCaption)
-                            .foregroundColor(.secondary)
-
-                        Text("\(totalSets(for: workout)) sets")
-                            .font(Theme.Font.cardSecondary)
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.down")
-                    .foregroundColor(.secondary)
-                    .rotationEffect(.degrees(expandedWorkoutIds.contains(workout.id) ? 180 : 0))
-            }
-            .padding()
-            .contentShape(Rectangle())
-            .onTapGesture {
+            onToggle: {
                 withAnimation {
                     if expandedWorkoutIds.contains(workout.id) {
                         expandedWorkoutIds.remove(workout.id)
@@ -434,54 +319,28 @@ struct TrainingView: View {
                         expandedWorkoutIds.insert(workout.id)
                     }
                 }
-            }
+            },
 
-            // Expanded exercise details
-            if expandedWorkoutIds.contains(workout.id) {
-                Divider()
-                    .padding(.horizontal)
-
-                VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                    ForEach(workout.logs, id: \.id) { log in
-                        exerciseRow(log)
-                    }
-                }
-                .padding()
-                .background(Color(.systemGray6).opacity(0.3))
-            }
-        }
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-        .contextMenu {
-            Button {
+            onEdit: {
                 editingWorkout = workout
-            } label: {
-                Label("Edit", systemImage: "pencil")
-            }
-            Button {
+            },
+
+            onDuplicate: {
                 duplicateWorkout(workout)
-            } label: {
-                Label("Duplicate", systemImage: "doc.on.doc")
-            }
-            Button(role: .destructive) {
+            },
+
+            onDelete: {
                 workoutToDelete = workout
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-        }
+            },
+
+            dateBadgeColor: dateBadgeColor(for: workout),
+            title: workoutTitle(workout),
+            exerciseCountText:
+                "\(workout.logs.count) exercise\(workout.logs.count == 1 ? "" : "s") • \(totalSets(for: workout)) sets",
+            logs: workout.logs
+        )
     }
 
-    // MARK: - Exercise Row
-
-    private func exerciseRow(_ log: WorkoutLog) -> some View {
-        HStack {
-            Text(formatExerciseDetails(log))
-                .font(Theme.Font.cardSecondary)
-                .foregroundColor(.primary)
-            Spacer()
-        }
-    }
 
     // MARK: - Workout Helpers
 

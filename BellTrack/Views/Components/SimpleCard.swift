@@ -1,5 +1,7 @@
 import SwiftUI
 
+// MARK: - Simple Card Style
+
 struct SimpleCard<Content: View>: View {
     let content: Content
     let onTap: (() -> Void)?

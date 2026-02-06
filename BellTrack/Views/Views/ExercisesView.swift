@@ -48,7 +48,7 @@ struct ExercisesView: View {
                                 .tint(.orange)
                             }
                             .padding(.horizontal)
-                            .padding(.vertical, 6)
+                            .padding(.vertical, Theme.Space.xs)
                     }
                 }
                 .listStyle(.plain)
