@@ -18,6 +18,7 @@ struct TrainingView: View {
     @State private var editingBlock: Block? = nil
     @State private var blockToDelete: Block? = nil
     @State private var blockToComplete: Block? = nil
+    @State private var showingBlockHistory = false
 
     // Filtered workouts
     private var filteredWorkouts: [Workout] {
@@ -151,6 +152,9 @@ struct TrainingView: View {
                 }
             )
         }
+        .sheet(isPresented: $showingBlockHistory) {
+            CompletedBlocksView(blocksVM: blocksVM)
+        }
         .alert("Delete Block?", isPresented: .init(
             get: { blockToDelete != nil },
             set: { if !$0 { blockToDelete = nil } }
@@ -211,7 +215,7 @@ struct TrainingView: View {
 
                 Menu {
                     Button {
-                        // add history view here
+                        showingBlockHistory = true
                     } label: {
                         Label("History", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
                     }
