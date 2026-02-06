@@ -115,38 +115,13 @@ struct ExercisesView: View {
                     .foregroundColor(.primary)
                     .lineLimit(2)
 
-                let allMuscles: [(muscle: MuscleGroup, isPrimary: Bool)] =
-                    exercise.primaryMuscles.map { ($0, true) } +
-                    exercise.secondaryMuscles.map { ($0, false) }
-
-                if !allMuscles.isEmpty {
-                    FlowLayout(spacing: Theme.Space.xs) {
-                        ForEach(Array(allMuscles.enumerated()), id: \.offset) { _, item in
-                            muscleTag(item.muscle.displayName, isPrimary: item.isPrimary)
-                        }
-                    }
-                    .padding(.top, Theme.Space.xs)
-                }
+                MuscleTagsView(
+                    primaryMuscles: exercise.primaryMuscles,
+                    secondaryMuscles: exercise.secondaryMuscles
+                )
+                .padding(.top, Theme.Space.xs)
             }
         }
-    }
-
-    // MARK: - Muscle Tag
-
-    private func muscleTag(_ name: String, isPrimary: Bool) -> some View {
-        Text(name)
-            .font(Theme.Font.cardCaption)
-            .lineLimit(1)
-            .fixedSize()
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(
-                isPrimary
-                    ? Color.brand.primary
-                    : Color.brand.primary.opacity(0.55)
-            )
-            .foregroundColor(.white)
-            .cornerRadius(10)
     }
 
     // MARK: - Empty State

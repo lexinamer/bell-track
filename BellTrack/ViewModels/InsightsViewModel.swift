@@ -12,6 +12,8 @@ final class InsightsViewModel: ObservableObject {
 
     @Published var primaryStats: [MusclePercentStat] = []
     @Published var secondaryStats: [MusclePercentStat] = []
+    @Published var primarySetCounts: [MuscleGroup: Int] = [:]
+    @Published var secondarySetCounts: [MuscleGroup: Int] = [:]
     @Published var blocks: [Block] = []
     @Published var selectedBlockId: String? = nil
     @Published var isLoading = false
@@ -80,6 +82,9 @@ final class InsightsViewModel: ObservableObject {
                 }
             }
         }
+
+        primarySetCounts = primarySets
+        secondarySetCounts = secondarySets
 
         let totalPrimary = primarySets.values.reduce(0, +)
         let totalSecondary = secondarySets.values.reduce(0, +)

@@ -389,29 +389,6 @@ struct TrainingView: View {
         editingWorkout = workoutTemplate
     }
 
-    private func formatExerciseDetails(_ log: WorkoutLog) -> String {
-        var components: [String] = []
-        components.append(log.exerciseName)
-
-        if let sets = log.sets, sets > 0 {
-            if let reps = log.reps, !reps.isEmpty {
-                components.append("\(sets)x\(reps)")
-            } else {
-                components.append("\(sets) sets")
-            }
-        }
-
-        if let weight = log.weight, !weight.isEmpty {
-            components.append("\(weight)kg")
-        }
-
-        if let note = log.note, !note.isEmpty {
-            components.append(note)
-        }
-
-        return components.joined(separator: " • ")
-    }
-
     // MARK: - Empty Workouts State
 
     private var emptyWorkoutsState: some View {

@@ -12,7 +12,7 @@ struct InsightsView: View {
                 ProgressView()
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: Theme.Space.lg) {
+                    VStack(alignment: .leading, spacing: Theme.Space.xl) {
 
                         // Block filter chips
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -80,9 +80,6 @@ struct InsightsView: View {
         }
         .navigationTitle("Insights")
         .navigationBarTitleDisplayMode(.large)
-        .task {
-            await vm.load()
-        }
         .onAppear {
             Task { await vm.load() }
         }
@@ -97,7 +94,8 @@ struct InsightsView: View {
         let muscles = Set(primary.map(\.muscle))
             .union(secondary.map(\.muscle))
 
-        let combined = muscles.map { muscle -> CombinedMuscleStat in
+        // Build absolute weighted percentages
+        let raw = muscles.map { muscle -> (muscle: MuscleGroup, total: Double, primary: Double, secondary: Double) in
             let p = primary.first(where: { $0.muscle == muscle })?.percent ?? 0
             let s = secondary.first(where: { $0.muscle == muscle })?.percent ?? 0
 
@@ -105,35 +103,33 @@ struct InsightsView: View {
             let secondaryValue = s * 0.3
             let total = primaryValue + secondaryValue
 
-            return CombinedMuscleStat(
-                muscle: muscle,
-                percent: total,
-                primaryPercent: primaryValue,
-                secondaryPercent: secondaryValue
-            )
+            return (muscle, total, primaryValue, secondaryValue)
         }
+        .filter { $0.total > 0 }
 
-        let maxValue = combined.map(\.percent).max() ?? 0
-        guard maxValue > 0 else { return [] }
+        // Scale bars so the top muscle fills ~75% width (visual impact)
+        // but labels stay as true absolute percentages
+        let maxTotal = raw.map(\.total).max() ?? 0
+        guard maxTotal > 0 else { return [] }
+        let barScale = 0.75 / maxTotal
 
-        return combined
+        return raw
             .map {
                 CombinedMuscleStat(
                     muscle: $0.muscle,
-                    percent: $0.percent / maxValue,
-                    primaryPercent: $0.primaryPercent / maxValue,
-                    secondaryPercent: $0.secondaryPercent / maxValue
+                    displayPercent: $0.total,
+                    primaryBarWidth: $0.primary * barScale,
+                    secondaryBarWidth: $0.secondary * barScale
                 )
             }
-            .sorted { $0.percent > $1.percent }
+            .sorted { $0.displayPercent > $1.displayPercent }
     }
 
     // MARK: - Muscle Row
 
     private func muscleRow(stat: CombinedMuscleStat) -> some View {
-        let safePercent = stat.percent.isFinite ? stat.percent : 0
-        let safePrimary = stat.primaryPercent.isFinite ? stat.primaryPercent : 0
-        let safeSecondary = stat.secondaryPercent.isFinite ? stat.secondaryPercent : 0
+        let primaryBar = stat.primaryBarWidth.isFinite ? stat.primaryBarWidth : 0
+        let secondaryBar = stat.secondaryBarWidth.isFinite ? stat.secondaryBarWidth : 0
 
         return VStack(alignment: .leading, spacing: Theme.Space.xs) {
             HStack {
@@ -142,7 +138,7 @@ struct InsightsView: View {
 
                 Spacer()
 
-                Text("\(Int(safePercent * 100))%")
+                Text("\(Int(round(stat.displayPercent * 100)))%")
                     .font(Theme.Font.cardSecondary)
                     .foregroundColor(.secondary)
             }
@@ -156,11 +152,11 @@ struct InsightsView: View {
                     HStack(spacing: 0) {
                         Rectangle()
                             .fill(Color.brand.primary)
-                            .frame(width: geo.size.width * safePrimary)
+                            .frame(width: geo.size.width * primaryBar)
 
                         Rectangle()
                             .fill(Color.brand.primary.opacity(0.55))
-                            .frame(width: geo.size.width * safeSecondary)
+                            .frame(width: geo.size.width * secondaryBar)
                     }
                     .frame(height: 8)
                     .clipShape(Capsule())
@@ -210,7 +206,7 @@ struct InsightsView: View {
 struct CombinedMuscleStat: Identifiable {
     let id = UUID()
     let muscle: MuscleGroup
-    let percent: Double
-    let primaryPercent: Double
-    let secondaryPercent: Double
+    let displayPercent: Double      // absolute weighted percentage (0–1) for the label
+    let primaryBarWidth: Double     // scaled primary portion of bar (for visual fill)
+    let secondaryBarWidth: Double   // scaled secondary portion of bar (for visual fill)
 }
