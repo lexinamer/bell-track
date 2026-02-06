@@ -1,10 +1,17 @@
 import SwiftUI
 import Combine
 
+struct MusclePercentStat: Identifiable {
+    let id = UUID()
+    let muscle: MuscleGroup
+    let percent: Double
+}
+
 @MainActor
 final class InsightsViewModel: ObservableObject {
 
-    @Published var muscleStats: [MuscleStat] = []
+    @Published var primaryStats: [MusclePercentStat] = []
+    @Published var secondaryStats: [MusclePercentStat] = []
     @Published var blocks: [Block] = []
     @Published var selectedBlockId: String? = nil
     @Published var isLoading = false
@@ -34,7 +41,7 @@ final class InsightsViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Recompute on Block Change
+    // MARK: - Block Selection
 
     func selectBlock(_ blockId: String?) {
         selectedBlockId = blockId
@@ -44,56 +51,59 @@ final class InsightsViewModel: ObservableObject {
     // MARK: - Compute Stats
 
     private func computeStats() {
-        // Build exercise lookup
         var exerciseMap: [String: Exercise] = [:]
         for exercise in exercises {
             exerciseMap[exercise.id] = exercise
         }
 
-        // Filter workouts by selected block
-        let filtered: [Workout]
+        let filteredWorkouts: [Workout]
         if let blockId = selectedBlockId {
-            filtered = workouts.filter { $0.blockId == blockId }
+            filteredWorkouts = workouts.filter { $0.blockId == blockId }
         } else {
-            filtered = workouts
+            filteredWorkouts = workouts
         }
 
-        // Accumulate sets per muscle
         var primarySets: [MuscleGroup: Int] = [:]
         var secondarySets: [MuscleGroup: Int] = [:]
-        var exerciseIds: [MuscleGroup: Set<String>] = [:]
 
-        for workout in filtered {
+        for workout in filteredWorkouts {
             for log in workout.logs {
                 guard let exercise = exerciseMap[log.exerciseId] else { continue }
                 let sets = log.sets ?? 0
 
                 for muscle in exercise.primaryMuscles {
                     primarySets[muscle, default: 0] += sets
-                    exerciseIds[muscle, default: Set()].insert(exercise.id)
                 }
 
                 for muscle in exercise.secondaryMuscles {
                     secondarySets[muscle, default: 0] += sets
-                    exerciseIds[muscle, default: Set()].insert(exercise.id)
                 }
             }
         }
 
-        // Build stats array
-        let allMuscles = Set(primarySets.keys).union(secondarySets.keys)
-        var stats: [MuscleStat] = []
+        let totalPrimary = primarySets.values.reduce(0, +)
+        let totalSecondary = secondarySets.values.reduce(0, +)
 
-        for muscle in allMuscles {
-            stats.append(MuscleStat(
-                muscle: muscle,
-                primarySets: primarySets[muscle] ?? 0,
-                secondarySets: secondarySets[muscle] ?? 0,
-                exerciseCount: exerciseIds[muscle]?.count ?? 0
-            ))
-        }
+        primaryStats = MuscleGroup.allCases
+            .map { muscle in
+                MusclePercentStat(
+                    muscle: muscle,
+                    percent: totalPrimary > 0
+                        ? Double(primarySets[muscle] ?? 0) / Double(totalPrimary)
+                        : 0
+                )
+            }
+            .sorted { $0.percent > $1.percent }
 
-        stats.sort { $0.totalSets > $1.totalSets }
-        muscleStats = stats
+        secondaryStats = MuscleGroup.allCases
+            .map { muscle in
+                MusclePercentStat(
+                    muscle: muscle,
+                    percent: totalSecondary > 0
+                        ? Double(secondarySets[muscle] ?? 0) / Double(totalSecondary)
+                        : 0
+                )
+            }
+            .sorted { $0.percent > $1.percent }
     }
 }

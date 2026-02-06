@@ -12,15 +12,15 @@ struct ContentView: View {
                     TrainingView()
                 }
                 .tabItem {
-                    Image(systemName: "figure.strengthtraining.traditional")
-                    Text("Train")
+                    Image(systemName: "list.bullet.clipboard")
+                    Text("Training")
                 }
 
                 NavigationStack {
                     InsightsView()
                 }
                 .tabItem {
-                    Image(systemName: "chart.bar")
+                    Image(systemName: "chart.line.uptrend.xyaxis")
                     Text("Insights")
                 }
 

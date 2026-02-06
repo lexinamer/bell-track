@@ -8,44 +8,74 @@ struct InsightsView: View {
         ZStack {
             Color.brand.background.ignoresSafeArea()
 
-            // Content
             if vm.isLoading {
                 ProgressView()
-            } else if vm.muscleStats.isEmpty {
-                emptyState
             } else {
-                let maxSets = vm.muscleStats.first?.totalSets ?? 1
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Theme.Space.lg) {
 
-                List {
-                    // Block picker
-                    if !vm.blocks.isEmpty {
-                        Picker("Filter", selection: Binding(
-                            get: { vm.selectedBlockId ?? "__all__" },
-                            set: { vm.selectBlock($0 == "__all__" ? nil : $0) }
-                        )) {
-                            Text("All Time").tag("__all__")
-                            ForEach(vm.blocks) { block in
-                                Text(block.name).tag(block.id)
+                        // Block filter chips
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: Theme.Space.sm) {
+                                filterChip(
+                                    title: "All",
+                                    isSelected: vm.selectedBlockId == nil
+                                ) {
+                                    vm.selectBlock(nil)
+                                }
+
+                                ForEach(vm.blocks) { block in
+                                    filterChip(
+                                        title: block.name,
+                                        isSelected: vm.selectedBlockId == block.id
+                                    ) {
+                                        vm.selectBlock(block.id)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+
+                        // Combined muscle load
+                        VStack(alignment: .leading, spacing: Theme.Space.md) {
+                            HStack {
+                                Text("Muscle Load")
+                                    .font(Theme.Font.sectionTitle)
+
+                                Spacer()
+
+                                HStack(spacing: Theme.Space.md) {
+                                    Label {
+                                        Text("Primary")
+                                            .font(Theme.Font.cardCaption)
+                                            .foregroundColor(.secondary)
+                                    } icon: {
+                                        Circle()
+                                            .fill(Color.brand.primary)
+                                            .frame(width: 8, height: 8)
+                                    }
+
+                                    Label {
+                                        Text("Secondary")
+                                            .font(Theme.Font.cardCaption)
+                                            .foregroundColor(.secondary)
+                                    } icon: {
+                                        Circle()
+                                            .fill(Color.brand.primary.opacity(0.35))
+                                            .frame(width: 8, height: 8)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal)
+
+                            ForEach(combinedStats) { stat in
+                                muscleRow(stat: stat)
+                                    .padding(.horizontal)
                             }
                         }
-                        .pickerStyle(.menu)
-                        .listRowInsets(EdgeInsets())
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .padding(.horizontal)
                     }
-
-                    ForEach(vm.muscleStats) { stat in
-                        muscleRow(stat: stat, maxSets: maxSets)
-                            .listRowInsets(EdgeInsets())
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
-                            .padding(.horizontal)
-                            .padding(.vertical, 4)
-                    }
+                    .padding(.vertical)
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
             }
         }
         .navigationTitle("Insights")
@@ -55,116 +85,129 @@ struct InsightsView: View {
         }
     }
 
+    // MARK: - Combined Stats (Primary + Secondary)
+
+    private var combinedStats: [CombinedMuscleStat] {
+        let primary = vm.primaryStats
+        let secondary = vm.secondaryStats
+
+        let muscles = Set(primary.map(\.muscle))
+            .union(secondary.map(\.muscle))
+
+        let combined = muscles.map { muscle -> CombinedMuscleStat in
+            let p = primary.first(where: { $0.muscle == muscle })?.percent ?? 0
+            let s = secondary.first(where: { $0.muscle == muscle })?.percent ?? 0
+
+            let primaryValue = p * 0.7
+            let secondaryValue = s * 0.3
+            let total = primaryValue + secondaryValue
+
+            return CombinedMuscleStat(
+                muscle: muscle,
+                percent: total,
+                primaryPercent: primaryValue,
+                secondaryPercent: secondaryValue
+            )
+        }
+
+        let maxValue = combined.map(\.percent).max() ?? 0
+        guard maxValue > 0 else { return [] }
+
+        return combined
+            .map {
+                CombinedMuscleStat(
+                    muscle: $0.muscle,
+                    percent: $0.percent / maxValue,
+                    primaryPercent: $0.primaryPercent / maxValue,
+                    secondaryPercent: $0.secondaryPercent / maxValue
+                )
+            }
+            .sorted { $0.percent > $1.percent }
+    }
+
     // MARK: - Muscle Row
 
-    private func muscleRow(stat: MuscleStat, maxSets: Int) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Space.sm) {
+    private func muscleRow(stat: CombinedMuscleStat) -> some View {
+        let safePercent = stat.percent.isFinite ? stat.percent : 0
+        let safePrimary = stat.primaryPercent.isFinite ? stat.primaryPercent : 0
+        let safeSecondary = stat.secondaryPercent.isFinite ? stat.secondaryPercent : 0
+
+        return VStack(alignment: .leading, spacing: Theme.Space.xs) {
             HStack {
                 Text(stat.muscle.displayName)
                     .font(Theme.Font.cardTitle)
-                    .foregroundColor(.primary)
 
                 Spacer()
 
-                Text("\(stat.totalSets) sets")
+                Text("\(Int(safePercent * 100))%")
                     .font(Theme.Font.cardSecondary)
-                    .foregroundColor(.secondary)
-
-                Text("\(stat.exerciseCount) exercises")
-                    .font(Theme.Font.cardCaption)
                     .foregroundColor(.secondary)
             }
 
-            // Bar
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
+                    Capsule()
                         .fill(Color(.systemGray5))
                         .frame(height: 8)
 
                     HStack(spacing: 0) {
-                        // Primary portion
-                        RoundedRectangle(cornerRadius: 4)
+                        Rectangle()
                             .fill(Color.brand.primary)
-                            .frame(
-                                width: max(0, geo.size.width * barFraction(stat.primarySets, max: maxSets)),
-                                height: 8
-                            )
+                            .frame(width: geo.size.width * safePrimary)
 
-                        // Secondary portion
-                        if stat.secondarySets > 0 {
-                            RoundedRectangle(cornerRadius: 0)
-                                .fill(Color.brand.primary.opacity(0.4))
-                                .frame(
-                                    width: max(0, geo.size.width * barFraction(stat.secondarySets, max: maxSets)),
-                                    height: 8
-                                )
-                                .clipShape(
-                                    UnevenRoundedRectangle(
-                                        topLeadingRadius: 0,
-                                        bottomLeadingRadius: 0,
-                                        bottomTrailingRadius: 4,
-                                        topTrailingRadius: 4
-                                    )
-                                )
-                        }
+                        Rectangle()
+                            .fill(Color.brand.primary.opacity(0.35))
+                            .frame(width: geo.size.width * safeSecondary)
                     }
+                    .frame(height: 8)
+                    .clipShape(Capsule())
                 }
             }
             .frame(height: 8)
-
-            // Legend
-            HStack(spacing: Theme.Space.md) {
-                HStack(spacing: Theme.Space.xs) {
-                    Circle()
-                        .fill(Color.brand.primary)
-                        .frame(width: 6, height: 6)
-                    Text("Primary \(stat.primarySets)")
-                        .font(Theme.Font.cardCaption)
-                        .foregroundColor(.secondary)
-                }
-
-                if stat.secondarySets > 0 {
-                    HStack(spacing: Theme.Space.xs) {
-                        Circle()
-                            .fill(Color.brand.primary.opacity(0.4))
-                            .frame(width: 6, height: 6)
-                        Text("Secondary \(stat.secondarySets)")
-                            .font(Theme.Font.cardCaption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
         }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+        .padding(.vertical, Theme.Space.xs)
     }
 
-    // MARK: - Helpers
+    // MARK: - Filter Chip
 
-    private func barFraction(_ value: Int, max: Int) -> CGFloat {
-        guard max > 0 else { return 0 }
-        return CGFloat(value) / CGFloat(max)
-    }
-
-    // MARK: - Empty State
-
-    private var emptyState: some View {
-        VStack(spacing: Theme.Space.mdp) {
-            Image(systemName: "chart.bar")
-                .font(.system(size: Theme.IconSize.xl))
-                .foregroundColor(.secondary)
-
-            Text("No muscle data yet")
-                .font(Theme.Font.cardTitle)
-
-            Text("Add muscle groups to your exercises to see insights.")
+    private func filterChip(
+        title: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        return Button(action: action) {
+            Text(title)
                 .font(Theme.Font.cardSecondary)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
+                .padding(.horizontal, Theme.Space.md)
+                .padding(.vertical, Theme.Space.xs)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(
+                            isSelected
+                                ? Color.brand.primary.opacity(0.15)
+                                : Color.clear
+                        )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(
+                            isSelected ? Color.clear : Color(.systemGray4),
+                            lineWidth: 1
+                        )
+                )
+                .foregroundColor(
+                    isSelected ? Color.brand.primary : .primary
+                )
         }
-        .padding(.horizontal, 40)
     }
+}
+
+// MARK: - Combined Model
+
+struct CombinedMuscleStat: Identifiable {
+    let id = UUID()
+    let muscle: MuscleGroup
+    let percent: Double
+    let primaryPercent: Double
+    let secondaryPercent: Double
 }

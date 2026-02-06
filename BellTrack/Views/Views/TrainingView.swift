@@ -223,9 +223,8 @@ struct TrainingView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .foregroundColor(Color.textSecondary.opacity(0.6))
                 }
-                .padding(.trailing, Theme.Space.sm)
+                .padding(.trailing, Theme.Space.smp)
             }
 
             let activeBlocks = blocksVM.blocks.filter { $0.completedDate == nil }

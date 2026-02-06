@@ -5,7 +5,7 @@ import Foundation
 enum MuscleGroup: String, Codable, CaseIterable {
     case chest, back, shoulders, biceps, triceps
     case quads, hamstrings, glutes, calves
-    case core, forearms, fullBody
+    case core, forearms
 
     var displayName: String {
         switch self {
@@ -20,7 +20,6 @@ enum MuscleGroup: String, Codable, CaseIterable {
         case .calves: return "Calves"
         case .core: return "Core"
         case .forearms: return "Forearms"
-        case .fullBody: return "Full Body"
         }
     }
 }
