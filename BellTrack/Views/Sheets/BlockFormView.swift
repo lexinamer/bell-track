@@ -52,6 +52,11 @@ struct BlockFormView: View {
                     }
                 }
 
+                Section("Goal") {
+                    TextEditor(text: $notes)
+                        .frame(minHeight: 80)
+                }
+
                 Section("Color") {
                     HStack(spacing: Theme.Space.md) {
                         ForEach(0..<ColorTheme.blockPalette.count, id: \.self) { idx in
@@ -67,17 +72,6 @@ struct BlockFormView: View {
                                 }
                         }
                         Spacer()
-                    }
-                }
-
-                Section {
-                    VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                        Text("Notes")
-                            .font(Theme.Font.cardSecondary)
-                            .fontWeight(.medium)
-
-                        TextEditor(text: $notes)
-                            .frame(minHeight: 80)
                     }
                 }
             }

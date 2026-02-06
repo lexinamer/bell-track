@@ -34,7 +34,7 @@ struct BlockCard: View {
 
             // Expanded notes
             if isExpanded, let notes = block.notes, !notes.isEmpty {
-                Text("Notes: \(notes)")
+                Text("Goal: \(notes)")
                     .font(Theme.Font.cardCaption)
                     .foregroundColor(.white)
                     .padding(.top, Theme.Space.xs)

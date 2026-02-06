@@ -36,7 +36,7 @@ struct TrainingView: View {
                 .ignoresSafeArea()
 
             // Content
-            if (blocksVM.isLoading && workoutsVM.isLoading)
+            if (blocksVM.isLoading || workoutsVM.isLoading)
                 && blocksVM.blocks.isEmpty
                 && workoutsVM.workouts.isEmpty {
 

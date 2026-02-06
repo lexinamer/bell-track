@@ -38,17 +38,18 @@ struct ExercisesView: View {
 
                     ForEach(vm.exercises) { exercise in
                         exerciseCard(exercise)
+                            .contextMenu {
+                                Button {
+                                    editingExercise = exercise
+                                } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+                            }
                             .listRowInsets(EdgeInsets())
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                Button("Edit") {
-                                    editingExercise = exercise
-                                }
-                                .tint(.orange)
-                            }
                             .padding(.horizontal)
-                            .padding(.vertical, Theme.Space.xs)
+                            .padding(.vertical, Theme.Space.sm)
                     }
                 }
                 .listStyle(.plain)
@@ -114,39 +115,38 @@ struct ExercisesView: View {
                     .foregroundColor(.primary)
                     .lineLimit(2)
 
-                HStack {
-                    Image(systemName: "dumbbell")
-                        .font(Theme.Font.cardCaption)
-                        .foregroundColor(.secondary)
+                let allMuscles: [(muscle: MuscleGroup, isPrimary: Bool)] =
+                    exercise.primaryMuscles.map { ($0, true) } +
+                    exercise.secondaryMuscles.map { ($0, false) }
 
-                    Text("\(vm.workoutCounts[exercise.id] ?? 0) workouts")
-                        .font(Theme.Font.cardSecondary)
-                        .foregroundColor(.secondary)
-
-                    Image(systemName: "clock")
-                        .font(Theme.Font.cardCaption)
-                        .foregroundColor(.secondary)
-
-                    Text("\(vm.setCounts[exercise.id] ?? 0) sets")
-                        .font(Theme.Font.cardSecondary)
-                        .foregroundColor(.secondary)
-                }
-
-                if !exercise.primaryMuscles.isEmpty {
-                    HStack(spacing: Theme.Space.xs) {
-                        ForEach(exercise.primaryMuscles, id: \.self) { muscle in
-                            Text(muscle.displayName)
-                                .font(Theme.Font.cardCaption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                                .background(Color.brand.primary.opacity(0.1))
-                                .foregroundColor(Color.brand.primary)
-                                .cornerRadius(10)
+                if !allMuscles.isEmpty {
+                    FlowLayout(spacing: Theme.Space.xs) {
+                        ForEach(Array(allMuscles.enumerated()), id: \.offset) { _, item in
+                            muscleTag(item.muscle.displayName, isPrimary: item.isPrimary)
                         }
                     }
+                    .padding(.top, Theme.Space.xs)
                 }
             }
         }
+    }
+
+    // MARK: - Muscle Tag
+
+    private func muscleTag(_ name: String, isPrimary: Bool) -> some View {
+        Text(name)
+            .font(Theme.Font.cardCaption)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(
+                isPrimary
+                    ? Color.brand.primary
+                    : Color.brand.primary.opacity(0.55)
+            )
+            .foregroundColor(.white)
+            .cornerRadius(10)
     }
 
     // MARK: - Empty State

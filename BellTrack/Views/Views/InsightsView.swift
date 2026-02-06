@@ -61,7 +61,7 @@ struct InsightsView: View {
                                             .foregroundColor(.secondary)
                                     } icon: {
                                         Circle()
-                                            .fill(Color.brand.primary.opacity(0.35))
+                                            .fill(Color.brand.primary.opacity(0.55))
                                             .frame(width: 8, height: 8)
                                     }
                                 }
@@ -82,6 +82,9 @@ struct InsightsView: View {
         .navigationBarTitleDisplayMode(.large)
         .task {
             await vm.load()
+        }
+        .onAppear {
+            Task { await vm.load() }
         }
     }
 
@@ -156,7 +159,7 @@ struct InsightsView: View {
                             .frame(width: geo.size.width * safePrimary)
 
                         Rectangle()
-                            .fill(Color.brand.primary.opacity(0.35))
+                            .fill(Color.brand.primary.opacity(0.55))
                             .frame(width: geo.size.width * safeSecondary)
                     }
                     .frame(height: 8)

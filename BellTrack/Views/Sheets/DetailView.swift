@@ -48,19 +48,6 @@ struct DetailView: View {
                         if let stats = exerciseStats {
                             exerciseStatsHeader(stats)
                         }
-
-                        // History section
-                        VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                            Text("History")
-                                .font(Theme.Font.cardTitle)
-                                .fontWeight(.bold)
-                                .padding(.horizontal, 20)
-
-                            Divider()
-                                .padding(.horizontal, 20)
-                        }
-
-                        exerciseHistorySection(entries: exerciseEntries)
                     }
                     .padding(.vertical, 20)
                 }
@@ -86,23 +73,24 @@ struct DetailView: View {
         VStack(alignment: .leading, spacing: Theme.Space.md) {
             // Muscle tags
             if !stats.primaryMuscles.isEmpty || !stats.secondaryMuscles.isEmpty {
-                HStack(spacing: 6) {
-                    ForEach(stats.primaryMuscles, id: \.self) { muscle in
-                        Text(muscle.displayName)
+                let allMuscles: [(muscle: MuscleGroup, isPrimary: Bool)] =
+                    stats.primaryMuscles.map { ($0, true) } +
+                    stats.secondaryMuscles.map { ($0, false) }
+
+                FlowLayout(spacing: 6) {
+                    ForEach(Array(allMuscles.enumerated()), id: \.offset) { _, item in
+                        Text(item.muscle.displayName)
                             .font(Theme.Font.cardCaption)
+                            .lineLimit(1)
+                            .fixedSize()
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
-                            .background(Color.brand.primary.opacity(0.1))
-                            .foregroundColor(Color.brand.primary)
-                            .cornerRadius(12)
-                    }
-                    ForEach(stats.secondaryMuscles, id: \.self) { muscle in
-                        Text(muscle.displayName)
-                            .font(Theme.Font.cardCaption)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(Color(.systemGray5))
-                            .foregroundColor(.secondary)
+                            .background(
+                                item.isPrimary
+                                    ? Color.brand.primary
+                                    : Color.brand.primary.opacity(0.55)
+                            )
+                            .foregroundColor(.white)
                             .cornerRadius(12)
                     }
                 }
@@ -174,29 +162,6 @@ struct DetailView: View {
         .cornerRadius(8)
     }
 
-    // MARK: - Exercise History Section
-
-    private func exerciseHistorySection(entries: [(date: Date, details: String, note: String?)]) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
-                HStack(alignment: .top, spacing: Theme.Space.md) {
-                    Text(entry.date.formatted(.dateTime.month(.abbreviated).day()))
-                        .font(Theme.Font.cardSecondary)
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-                        .frame(width: 70, alignment: .leading)
-
-                    Text(entry.details.isEmpty ? "No details" : entry.details)
-                        .font(Theme.Font.cardSecondary)
-                        .foregroundColor(.primary)
-
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 4)
-            }
-        }
-    }
 
     // MARK: - Load Data
 
