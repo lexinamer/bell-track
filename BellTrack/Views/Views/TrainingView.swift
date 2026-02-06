@@ -227,8 +227,9 @@ struct TrainingView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
-                .padding(.trailing, Theme.Space.smp)
             }
 
             let activeBlocks = blocksVM.blocks.filter { $0.completedDate == nil }
