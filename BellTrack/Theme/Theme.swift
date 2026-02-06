@@ -12,6 +12,7 @@ enum Theme {
         static let xs: CGFloat = 4
         static let sm: CGFloat = 8
         static let md: CGFloat = 16
+        static let mdp: CGFloat = 20
         static let lg: CGFloat = 24
         static let xl: CGFloat = 32
     }
@@ -25,7 +26,7 @@ enum Theme {
     
     enum TypeSize {
         static let xs: CGFloat = 10
-        static let sm: CGFloat = 12
+        static let sm: CGFloat = 13
         static let md: CGFloat = 16
         static let lg: CGFloat = 18
         static let xl: CGFloat = 20

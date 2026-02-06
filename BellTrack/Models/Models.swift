@@ -75,3 +75,39 @@ struct Workout: Identifiable, Codable, Equatable {
     var blockId: String?
     var logs: [WorkoutLog]
 }
+
+// MARK: - Stats (used in Insights + Detail views)
+
+struct MuscleStat: Identifiable {
+    var id: MuscleGroup { muscle }
+    let muscle: MuscleGroup
+    var primarySets: Int
+    var secondarySets: Int
+    var totalSets: Int { primarySets + secondarySets }
+    var exerciseCount: Int
+}
+
+struct ExerciseUsage: Identifiable {
+    let id = UUID()
+    let name: String
+    let setCount: Int
+}
+
+struct BlockDetailStats {
+    let totalWorkouts: Int
+    let totalSets: Int
+    let totalExercisesUsed: Int
+    let durationWeeksSoFar: Int
+    let muscleBreakdown: [MuscleStat]
+    let exerciseUsage: [ExerciseUsage]
+}
+
+struct ExerciseDetailStats {
+    let totalWorkouts: Int
+    let totalSets: Int
+    let heaviestWeight: String?
+    let mostSets: Int?
+    let mostReps: String?
+    let primaryMuscles: [MuscleGroup]
+    let secondaryMuscles: [MuscleGroup]
+}

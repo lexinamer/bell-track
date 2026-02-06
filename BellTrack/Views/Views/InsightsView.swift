@@ -8,63 +8,48 @@ struct InsightsView: View {
         ZStack {
             Color.brand.background.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                // Header (no button, just title)
-                HStack {
-                    Text("Insights")
-                        .font(Theme.Font.pageTitle)
-                        .fontWeight(.bold)
-                    Spacer()
-                }
-                .padding(.horizontal)
-                .padding(.top, 20)
-                .padding(.bottom, 16)
+            // Content
+            if vm.isLoading {
+                ProgressView()
+            } else if vm.muscleStats.isEmpty {
+                emptyState
+            } else {
+                let maxSets = vm.muscleStats.first?.totalSets ?? 1
 
-                // Block picker
-                if !vm.blocks.isEmpty {
-                    Picker("Filter", selection: Binding(
-                        get: { vm.selectedBlockId ?? "__all__" },
-                        set: { vm.selectBlock($0 == "__all__" ? nil : $0) }
-                    )) {
-                        Text("All Time").tag("__all__")
-                        ForEach(vm.blocks) { block in
-                            Text(block.name).tag(block.id)
+                List {
+                    // Block picker
+                    if !vm.blocks.isEmpty {
+                        Picker("Filter", selection: Binding(
+                            get: { vm.selectedBlockId ?? "__all__" },
+                            set: { vm.selectBlock($0 == "__all__" ? nil : $0) }
+                        )) {
+                            Text("All Time").tag("__all__")
+                            ForEach(vm.blocks) { block in
+                                Text(block.name).tag(block.id)
+                            }
                         }
+                        .pickerStyle(.menu)
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .padding(.horizontal)
                     }
-                    .pickerStyle(.menu)
-                    .padding(.horizontal)
-                    .padding(.bottom, 8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
 
-                // Content
-                if vm.isLoading {
-                    Spacer()
-                    ProgressView()
-                    Spacer()
-                } else if vm.muscleStats.isEmpty {
-                    Spacer()
-                    emptyState
-                    Spacer()
-                } else {
-                    let maxSets = vm.muscleStats.first?.totalSets ?? 1
-
-                    List {
-                        ForEach(vm.muscleStats) { stat in
-                            muscleRow(stat: stat, maxSets: maxSets)
-                                .listRowInsets(EdgeInsets())
-                                .listRowSeparator(.hidden)
-                                .listRowBackground(Color.clear)
-                                .padding(.horizontal)
-                                .padding(.vertical, 4)
-                        }
+                    ForEach(vm.muscleStats) { stat in
+                        muscleRow(stat: stat, maxSets: maxSets)
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            .padding(.horizontal)
+                            .padding(.vertical, 4)
                     }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
-        .navigationBarHidden(true)
+        .navigationTitle("Insights")
+        .navigationBarTitleDisplayMode(.large)
         .task {
             await vm.load()
         }
@@ -73,7 +58,7 @@ struct InsightsView: View {
     // MARK: - Muscle Row
 
     private func muscleRow(stat: MuscleStat, maxSets: Int) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Space.sm) {
             HStack {
                 Text(stat.muscle.displayName)
                     .font(Theme.Font.cardTitle)
@@ -129,8 +114,8 @@ struct InsightsView: View {
             .frame(height: 8)
 
             // Legend
-            HStack(spacing: 12) {
-                HStack(spacing: 4) {
+            HStack(spacing: Theme.Space.md) {
+                HStack(spacing: Theme.Space.xs) {
                     Circle()
                         .fill(Color.brand.primary)
                         .frame(width: 6, height: 6)
@@ -140,7 +125,7 @@ struct InsightsView: View {
                 }
 
                 if stat.secondarySets > 0 {
-                    HStack(spacing: 4) {
+                    HStack(spacing: Theme.Space.xs) {
                         Circle()
                             .fill(Color.brand.primary.opacity(0.4))
                             .frame(width: 6, height: 6)
@@ -167,7 +152,7 @@ struct InsightsView: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: Theme.Space.mdp) {
             Image(systemName: "chart.bar")
                 .font(.system(size: Theme.IconSize.xl))
                 .foregroundColor(.secondary)

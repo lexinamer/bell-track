@@ -53,7 +53,7 @@ struct BlockFormView: View {
                 }
 
                 Section("Color") {
-                    HStack(spacing: 12) {
+                    HStack(spacing: Theme.Space.md) {
                         ForEach(0..<ColorTheme.blockPalette.count, id: \.self) { idx in
                             Circle()
                                 .fill(ColorTheme.blockPalette[idx])
@@ -71,7 +71,7 @@ struct BlockFormView: View {
                 }
 
                 Section {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: Theme.Space.sm) {
                         Text("Notes")
                             .font(Theme.Font.cardSecondary)
                             .fontWeight(.medium)

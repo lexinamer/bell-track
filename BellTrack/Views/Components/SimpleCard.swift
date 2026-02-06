@@ -10,7 +10,7 @@ struct SimpleCard<Content: View>: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
             content
         }
         .padding()

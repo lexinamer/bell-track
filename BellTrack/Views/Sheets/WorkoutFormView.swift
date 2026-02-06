@@ -99,13 +99,13 @@ struct WorkoutFormView: View {
                     .padding(.horizontal)
 
                     // MARK: - Exercises Section
-                    VStack(spacing: 20) {
+                    VStack(spacing: Theme.Space.mdp) {
                         ForEach($logs) { $log in
                             exerciseCard(log: $log)
                         }
 
                         Button(action: addLog) {
-                            HStack(spacing: 8) {
+                            HStack(spacing: Theme.Space.sm) {
                                 Image(systemName: "plus")
                                     .font(.system(size: Theme.IconSize.sm))
                                 Text("Add Exercise")
@@ -150,10 +150,10 @@ struct WorkoutFormView: View {
     // MARK: - Exercise Card
 
     private func exerciseCard(log: Binding<WorkoutLog>) -> some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Theme.Space.md) {
             
             // Exercise Selection with Delete Button
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Theme.Space.sm) {
                 HStack {
                     Text("Exercise")
                         .font(Theme.Font.cardSecondary)
@@ -210,9 +210,9 @@ struct WorkoutFormView: View {
             }
             
             // Single row layout: Rounds | Reps/Time | Weight
-            HStack(spacing: 12) {
+            HStack(spacing: Theme.Space.md) {
                 // Rounds (now called Sets for consistency)
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Theme.Space.sm) {
                     Text("Sets")
                         .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
@@ -226,7 +226,7 @@ struct WorkoutFormView: View {
                 }
                 
                 // Reps (simplified)
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Theme.Space.sm) {
                     Text("Reps/Time")
                         .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
@@ -242,7 +242,7 @@ struct WorkoutFormView: View {
                 }
                 
                 // Weight (String)
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Theme.Space.sm) {
                     Text("Weight (kg)")
                         .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
@@ -260,7 +260,7 @@ struct WorkoutFormView: View {
             
             // Conditional Notes Field (only show when note icon is tapped)
             if showingNotes[log.wrappedValue.id] == true {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Theme.Space.sm) {
                     Text("Notes")
                         .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)

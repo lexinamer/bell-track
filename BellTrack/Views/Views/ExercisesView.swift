@@ -12,47 +12,51 @@ struct ExercisesView: View {
         ZStack {
             Color.brand.background.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                // Shared header component
-                PageHeader(
-                    title: "Exercises",
-                    buttonText: "Add Exercise"
-                ) {
-                    showingNewForm = true
-                }
-                
-                // Content
-                if vm.isLoading && vm.exercises.isEmpty {
-                    Spacer()
-                    ProgressView()
-                    Spacer()
-                } else if vm.exercises.isEmpty {
-                    Spacer()
-                    emptyState
-                    Spacer()
-                } else {
-                    List {
-                        ForEach(vm.exercises) { exercise in
-                            exerciseCard(exercise)
-                                .listRowInsets(EdgeInsets())
-                                .listRowSeparator(.hidden)
-                                .listRowBackground(Color.clear)
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button("Edit") {
-                                        editingExercise = exercise
-                                    }
-                                    .tint(.orange)
-                                }
-                                .padding(.horizontal)
-                                .padding(.vertical, 6)
+            // Content
+            if vm.isLoading && vm.exercises.isEmpty {
+                ProgressView()
+            } else if vm.exercises.isEmpty {
+                emptyState
+            } else {
+                List {
+                    // Add exercise link at top
+                    Button {
+                        showingNewForm = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "plus")
+                            Text("Add Exercise")
                         }
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(Color.brand.primary)
                     }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+
+                    ForEach(vm.exercises) { exercise in
+                        exerciseCard(exercise)
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button("Edit") {
+                                    editingExercise = exercise
+                                }
+                                .tint(.orange)
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 6)
+                    }
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
-        .navigationBarHidden(true)
+        .navigationTitle("Exercises")
+        .navigationBarTitleDisplayMode(.large)
         .sheet(item: $editingExercise) { exercise in
             ExerciseFormView(
                 exercise: exercise,
@@ -104,7 +108,7 @@ struct ExercisesView: View {
         SimpleCard(onTap: {
             selectedExercise = exercise
         }) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
                 Text(exercise.name)
                     .font(Theme.Font.cardTitle)
                     .foregroundColor(.primary)
@@ -129,7 +133,7 @@ struct ExercisesView: View {
                 }
 
                 if !exercise.primaryMuscles.isEmpty {
-                    HStack(spacing: 4) {
+                    HStack(spacing: Theme.Space.xs) {
                         ForEach(exercise.primaryMuscles, id: \.self) { muscle in
                             Text(muscle.displayName)
                                 .font(Theme.Font.cardCaption)
@@ -148,7 +152,7 @@ struct ExercisesView: View {
     // MARK: - Empty State
 
     private var emptyState: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: Theme.Space.mdp) {
             Image(systemName: "dumbbell")
                 .font(.system(size: Theme.IconSize.xl))
                 .foregroundColor(.secondary)

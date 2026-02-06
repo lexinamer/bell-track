@@ -9,27 +9,11 @@ struct ContentView: View {
             TabView {
 
                 NavigationStack {
-                    WorkoutsView()
+                    TrainingView()
                 }
                 .tabItem {
-                    Image(systemName: "doc.plaintext")
-                    Text("Workouts")
-                }
-
-                NavigationStack {
-                    BlocksView()
-                }
-                .tabItem {
-                    Image(systemName: "cube")
-                    Text("Blocks")
-                }
-
-                NavigationStack {
-                    ExercisesView()
-                }
-                .tabItem {
-                    Image(systemName: "dumbbell")
-                    Text("Exercises")
+                    Image(systemName: "figure.strengthtraining.traditional")
+                    Text("Train")
                 }
 
                 NavigationStack {
@@ -38,6 +22,14 @@ struct ContentView: View {
                 .tabItem {
                     Image(systemName: "chart.bar")
                     Text("Insights")
+                }
+
+                NavigationStack {
+                    ExercisesView()
+                }
+                .tabItem {
+                    Image(systemName: "dumbbell")
+                    Text("Exercises")
                 }
 
                 NavigationStack {

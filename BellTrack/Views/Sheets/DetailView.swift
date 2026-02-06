@@ -1,107 +1,71 @@
 import SwiftUI
 
+// Exercise Detail View - shows exercise history across all workouts
 struct DetailView: View {
-    let title: String
-    let filterType: DetailFilterType
-    let filterId: String?
+    let exercise: Exercise
 
     @Environment(\.dismiss) private var dismiss
 
-    // Block mode: workouts grouped by date (each workout's logs listed)
-    @State private var workoutsByDate: [(date: Date, name: String?, logs: [(exerciseName: String, details: String, note: String?)])] = []
-    // Exercise mode: flat list of that exercise across all time
     @State private var exerciseEntries: [(date: Date, details: String, note: String?)] = []
+    @State private var exerciseStats: ExerciseDetailStats?
     @State private var isLoading = true
+
     private let firestore = FirestoreService()
 
-    enum DetailFilterType {
-        case block(Block)
-        case exercise(Exercise)
-        case allTime
-    }
-
-    // Convenience initializers
-    init(block: Block) {
-        self.title = block.name
-        self.filterType = .block(block)
-        self.filterId = block.id
-    }
-
     init(exercise: Exercise) {
-        self.title = exercise.name
-        self.filterType = .exercise(exercise)
-        self.filterId = exercise.id
-    }
-
-    private var isEmpty: Bool {
-        switch filterType {
-        case .block, .allTime:
-            return workoutsByDate.isEmpty
-        case .exercise:
-            return exerciseEntries.isEmpty
-        }
+        self.exercise = exercise
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 if isLoading {
-                    VStack(spacing: 16) {
+                    VStack(spacing: Theme.Space.md) {
                         ProgressView()
                             .scaleEffect(1.2)
-                        Text("Loading workouts...")
+                        Text("Loading...")
                             .font(Theme.Font.cardSecondary)
                             .foregroundColor(.secondary)
                     }
                     .padding()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if isEmpty {
-                    VStack(spacing: 16) {
+                    .frame(maxWidth: .infinity, minHeight: 200)
+                } else if exerciseEntries.isEmpty {
+                    VStack(spacing: Theme.Space.md) {
                         Text("No workouts found")
                             .font(Theme.Font.cardTitle)
                             .foregroundColor(.secondary)
 
-                        Text(emptyStateMessage)
+                        Text("No workouts found with this exercise.")
                             .font(Theme.Font.cardSecondary)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                     }
                     .padding()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, minHeight: 200)
                 } else {
-                    LazyVStack(alignment: .leading, spacing: 24) {
-                        // Block notes section
-                        if case .block(let block) = filterType, let notes = block.notes, !notes.isEmpty {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Block Notes")
-                                    .font(Theme.Font.cardTitle)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.primary)
-                                    .padding(.horizontal, 20)
-
-                                Text(notes)
-                                    .font(Theme.Font.cardSecondary)
-                                    .foregroundColor(.primary)
-                                    .padding(.horizontal, 20)
-                                    .padding(.bottom, 8)
-                            }
+                    LazyVStack(alignment: .leading, spacing: Theme.Space.mdp) {
+                        // Stats header
+                        if let stats = exerciseStats {
+                            exerciseStatsHeader(stats)
                         }
 
-                        switch filterType {
-                        case .block, .allTime:
-                            // Show workouts grouped by date (newest first)
-                            ForEach(Array(workoutsByDate.enumerated()), id: \.offset) { _, workout in
-                                workoutDateSection(date: workout.date, name: workout.name, logs: workout.logs)
-                            }
-                        case .exercise:
-                            // Show that exercise across all time (newest first)
-                            exerciseHistorySection(entries: exerciseEntries)
+                        // History section
+                        VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                            Text("History")
+                                .font(Theme.Font.cardTitle)
+                                .fontWeight(.bold)
+                                .padding(.horizontal, 20)
+
+                            Divider()
+                                .padding(.horizontal, 20)
                         }
+
+                        exerciseHistorySection(entries: exerciseEntries)
                     }
                     .padding(.vertical, 20)
                 }
             }
-            .navigationTitle(title)
+            .navigationTitle(exercise.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -112,147 +76,194 @@ struct DetailView: View {
             }
         }
         .task {
-            await loadWorkoutData()
+            await loadData()
         }
     }
 
-    // MARK: - Empty State Message
+    // MARK: - Exercise Stats Header
 
-    private var emptyStateMessage: String {
-        switch filterType {
-        case .block:
-            return "Workouts need to have this block assigned to show up here."
-        case .exercise:
-            return "No workouts found with this exercise."
-        case .allTime:
-            return "No workouts found."
-        }
-    }
-
-    // MARK: - Block Mode: Workout Date Section
-
-    private func workoutDateSection(date: Date, name: String?, logs: [(exerciseName: String, details: String, note: String?)]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Text(date.formatted(.dateTime.month(.abbreviated).day().year()))
-                    .font(Theme.Font.cardTitle)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-
-                if let name = name, !name.isEmpty {
-                    Text(name)
-                        .font(Theme.Font.cardSecondary)
-                        .foregroundColor(.secondary)
+    private func exerciseStatsHeader(_ stats: ExerciseDetailStats) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
+            // Muscle tags
+            if !stats.primaryMuscles.isEmpty || !stats.secondaryMuscles.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(stats.primaryMuscles, id: \.self) { muscle in
+                        Text(muscle.displayName)
+                            .font(Theme.Font.cardCaption)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.brand.primary.opacity(0.1))
+                            .foregroundColor(Color.brand.primary)
+                            .cornerRadius(12)
+                    }
+                    ForEach(stats.secondaryMuscles, id: \.self) { muscle in
+                        Text(muscle.displayName)
+                            .font(Theme.Font.cardCaption)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color(.systemGray5))
+                            .foregroundColor(.secondary)
+                            .cornerRadius(12)
+                    }
                 }
             }
-            .padding(.horizontal, 20)
 
-            VStack(alignment: .leading, spacing: 2) {
-                ForEach(Array(logs.enumerated()), id: \.offset) { _, log in
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(alignment: .top, spacing: 16) {
-                            // Exercise name
-                            Text(log.exerciseName)
-                                .font(Theme.Font.cardSecondary)
-                                .fontWeight(.medium)
-                                .foregroundColor(.secondary)
-                                .frame(width: 120, alignment: .leading)
+            // Stat boxes row
+            HStack(spacing: Theme.Space.sm) {
+                statBox(value: "\(stats.totalWorkouts)", label: "Workouts")
+                statBox(value: "\(stats.totalSets)", label: "Total Sets")
+            }
 
-                            // Details
-                            Text(log.details.isEmpty ? "No details" : log.details)
-                                .font(Theme.Font.cardSecondary)
-                                .foregroundColor(.primary)
+            // Personal Records
+            let hasRecords = stats.heaviestWeight != nil || stats.mostSets != nil || stats.mostReps != nil
+            if hasRecords {
+                VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                    Text("Personal Records")
+                        .font(Theme.Font.cardTitle)
+                        .fontWeight(.bold)
 
-                            Spacer()
+                    HStack(spacing: Theme.Space.sm) {
+                        if let hw = stats.heaviestWeight {
+                            recordBox(value: "\(hw)kg", label: "Heaviest")
+                        }
+                        if let ms = stats.mostSets {
+                            recordBox(value: "\(ms)", label: "Most Sets")
+                        }
+                        if let mr = stats.mostReps {
+                            recordBox(value: mr, label: "Most Reps")
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 1)
                 }
             }
         }
+        .padding(.horizontal, 20)
     }
 
-    // MARK: - Exercise Mode: History Section
+    // MARK: - Stat Box
+
+    private func statBox(value: String, label: String) -> some View {
+        VStack(spacing: Theme.Space.xs) {
+            Text(value)
+                .font(Theme.Font.navigationTitle)
+                .fontWeight(.bold)
+            Text(label)
+                .font(Theme.Font.cardCaption)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(Color(.systemGray6))
+        .cornerRadius(8)
+    }
+
+    // MARK: - Record Box
+
+    private func recordBox(value: String, label: String) -> some View {
+        VStack(spacing: Theme.Space.xs) {
+            Text(value)
+                .font(Theme.Font.cardTitle)
+                .fontWeight(.semibold)
+                .foregroundColor(Color.brand.primary)
+            Text(label)
+                .font(Theme.Font.cardCaption)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(Color.brand.primary.opacity(0.05))
+        .cornerRadius(8)
+    }
+
+    // MARK: - Exercise History Section
 
     private func exerciseHistorySection(entries: [(date: Date, details: String, note: String?)]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(alignment: .top, spacing: 16) {
-                            // Date
-                            Text(entry.date.formatted(.dateTime.month(.abbreviated).day()))
-                                .font(Theme.Font.cardSecondary)
-                                .fontWeight(.medium)
-                                .foregroundColor(.secondary)
-                                .frame(width: 70, alignment: .leading)
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
+                HStack(alignment: .top, spacing: Theme.Space.md) {
+                    Text(entry.date.formatted(.dateTime.month(.abbreviated).day()))
+                        .font(Theme.Font.cardSecondary)
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                        .frame(width: 70, alignment: .leading)
 
-                            // Details
-                            Text(entry.details.isEmpty ? "No details" : entry.details)
-                                .font(Theme.Font.cardSecondary)
-                                .foregroundColor(.primary)
+                    Text(entry.details.isEmpty ? "No details" : entry.details)
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(.primary)
 
-                            Spacer()
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 1)
+                    Spacer()
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 4)
             }
         }
     }
 
     // MARK: - Load Data
 
-    private func loadWorkoutData() async {
+    private func loadData() async {
         do {
             let workouts = try await firestore.fetchWorkouts()
 
-            // Filter workouts based on type
-            let filteredWorkouts: [Workout]
-            switch filterType {
-            case .block(let block):
-                filteredWorkouts = workouts.filter { $0.blockId == block.id }
-            case .exercise(let exercise):
-                filteredWorkouts = workouts.filter { workout in
-                    workout.logs.contains { $0.exerciseId == exercise.id }
-                }
-            case .allTime:
-                filteredWorkouts = workouts
+            // Filter workouts containing this exercise
+            let filteredWorkouts = workouts.filter { workout in
+                workout.logs.contains { $0.exerciseId == exercise.id }
             }
 
-            switch filterType {
-            case .block, .allTime:
-                // Group by workout date, newest first
-                let sorted = filteredWorkouts.sorted { $0.date > $1.date }
-                var result: [(date: Date, name: String?, logs: [(exerciseName: String, details: String, note: String?)])] = []
-                for w in sorted {
-                    let logs = w.logs.map { log in
-                        (exerciseName: log.exerciseName, details: formatWorkoutDetails(log), note: log.note)
-                    }
-                    result.append((date: w.date, name: w.name, logs: logs))
-                }
-                self.workoutsByDate = result
+            // Build exercise entries
+            var entries: [(date: Date, details: String, note: String?)] = []
+            var allLogs: [WorkoutLog] = []
 
-            case .exercise(let exercise):
-                // Flat list of that exercise across all time, newest first
-                var entries: [(date: Date, details: String, note: String?)] = []
-                for workout in filteredWorkouts {
-                    for log in workout.logs where log.exerciseId == exercise.id {
-                        entries.append((date: workout.date, details: formatWorkoutDetails(log), note: log.note))
-                    }
+            for workout in filteredWorkouts {
+                for log in workout.logs where log.exerciseId == exercise.id {
+                    entries.append((date: workout.date, details: formatWorkoutDetails(log), note: log.note))
+                    allLogs.append(log)
                 }
-                entries.sort { $0.date > $1.date }
-                self.exerciseEntries = entries
             }
+
+            entries.sort { $0.date > $1.date }
+            self.exerciseEntries = entries
+
+            // Compute exercise stats
+            self.exerciseStats = computeExerciseStats(
+                workouts: filteredWorkouts,
+                logs: allLogs
+            )
 
             self.isLoading = false
 
         } catch {
-            print("❌ Failed to load workout data:", error)
+            print("Failed to load exercise data:", error)
             self.isLoading = false
         }
+    }
+
+    // MARK: - Compute Exercise Stats
+
+    private func computeExerciseStats(
+        workouts: [Workout],
+        logs: [WorkoutLog]
+    ) -> ExerciseDetailStats {
+        let totalWorkouts = workouts.count
+        let totalSets = logs.compactMap { $0.sets }.reduce(0, +)
+
+        // Personal records
+        let weights = logs.compactMap { $0.weight }.compactMap { Double($0) }
+        let heaviestWeight = weights.max().map { String(format: "%g", $0) }
+
+        let mostSets = logs.compactMap { $0.sets }.max()
+
+        let repsAsInts = logs.compactMap { $0.reps }.compactMap { Int($0) }
+        let mostReps = repsAsInts.max().map { String($0) }
+
+        return ExerciseDetailStats(
+            totalWorkouts: totalWorkouts,
+            totalSets: totalSets,
+            heaviestWeight: heaviestWeight,
+            mostSets: mostSets,
+            mostReps: mostReps,
+            primaryMuscles: exercise.primaryMuscles,
+            secondaryMuscles: exercise.secondaryMuscles
+        )
     }
 
     // MARK: - Format Details
@@ -260,7 +271,6 @@ struct DetailView: View {
     private func formatWorkoutDetails(_ log: WorkoutLog) -> String {
         var components: [String] = []
 
-        // Sets and Reps
         if let sets = log.sets, sets > 0 {
             if let reps = log.reps, !reps.isEmpty {
                 components.append("\(sets)x\(reps)")
@@ -269,12 +279,10 @@ struct DetailView: View {
             }
         }
 
-        // Weight
         if let weight = log.weight, !weight.isEmpty {
             components.append("\(weight)kg")
         }
 
-        // Notes
         if let note = log.note, !note.isEmpty {
             components.append(note)
         }

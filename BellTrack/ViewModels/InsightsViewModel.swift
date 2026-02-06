@@ -1,15 +1,6 @@
 import SwiftUI
 import Combine
 
-struct MuscleStat: Identifiable {
-    var id: MuscleGroup { muscle }
-    let muscle: MuscleGroup
-    var primarySets: Int
-    var secondarySets: Int
-    var totalSets: Int { primarySets + secondarySets }
-    var exerciseCount: Int
-}
-
 @MainActor
 final class InsightsViewModel: ObservableObject {
 
