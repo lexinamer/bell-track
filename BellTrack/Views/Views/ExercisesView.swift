@@ -50,6 +50,19 @@ struct ExercisesView: View {
         }
         .navigationTitle("Exercises")
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    if selectedTab == .exercises {
+                        showingNewForm = true
+                    } else {
+                        showingNewComplexForm = true
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
         // Exercise sheets
         .sheet(item: $editingExercise) { exercise in
             ExerciseFormView(
@@ -128,6 +141,20 @@ struct ExercisesView: View {
         .sheet(item: $selectedComplex) { resolved in
             complexDetailView(for: resolved)
         }
+        .alert("Delete Exercise?", isPresented: .init(
+            get: { exerciseToDelete != nil },
+            set: { if !$0 { exerciseToDelete = nil } }
+        )) {
+            Button("Cancel", role: .cancel) { exerciseToDelete = nil }
+            Button("Delete", role: .destructive) {
+                if let exercise = exerciseToDelete {
+                    Task { await vm.deleteExercise(id: exercise.id) }
+                }
+                exerciseToDelete = nil
+            }
+        } message: {
+            Text("This will delete \"\(exerciseToDelete?.name ?? "")\". Existing workout history will not be affected.")
+        }
         .alert("Delete Complex?", isPresented: .init(
             get: { complexToDelete != nil },
             set: { if !$0 { complexToDelete = nil } }
@@ -155,22 +182,6 @@ struct ExercisesView: View {
                 exercisesEmptyState
             } else {
                 List {
-                    Button {
-                        showingNewForm = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "plus")
-                            Text("Add Exercise")
-                        }
-                        .font(Theme.Font.cardSecondary)
-                        .foregroundColor(Color.brand.primary)
-                    }
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
-
                     ForEach(vm.exercises) { exercise in
                         exerciseCard(exercise)
                             .contextMenu {
@@ -185,6 +196,7 @@ struct ExercisesView: View {
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
+                                .tint(.red)
                             }
                             .listRowInsets(EdgeInsets())
                             .listRowSeparator(.hidden)
@@ -207,22 +219,6 @@ struct ExercisesView: View {
                 complexesEmptyState
             } else {
                 List {
-                    Button {
-                        showingNewComplexForm = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "plus")
-                            Text("Add Complex")
-                        }
-                        .font(Theme.Font.cardSecondary)
-                        .foregroundColor(Color.brand.primary)
-                    }
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
-
                     ForEach(vm.resolvedComplexes) { resolved in
                         complexCard(resolved)
                             .contextMenu {
@@ -236,8 +232,8 @@ struct ExercisesView: View {
                                     complexToDelete = vm.complexes.first { $0.id == resolved.id }
                                 } label: {
                                     Label("Delete", systemImage: "trash")
-                                        .foregroundColor(.red)
                                 }
+                                .tint(.red)
                             }
                             .listRowInsets(EdgeInsets())
                             .listRowSeparator(.hidden)

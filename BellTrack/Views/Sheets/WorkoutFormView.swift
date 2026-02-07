@@ -1,10 +1,5 @@
 import SwiftUI
 
-enum ExercisePickerTab: String, CaseIterable {
-    case exercises = "Exercises"
-    case complexes = "Complexes"
-}
-
 struct WorkoutFormView: View {
 
     let workout: Workout?
@@ -21,7 +16,6 @@ struct WorkoutFormView: View {
     @State private var complexes: [Complex] = []
     @State private var blocks: [Block] = []
     @State private var showingNotes: [String: Bool] = [:]
-    @State private var pickerTab: [String: ExercisePickerTab] = [:]
 
     private let firestore = FirestoreService()
 
@@ -158,79 +152,67 @@ struct WorkoutFormView: View {
 
     private func exerciseCard(log: Binding<WorkoutLog>) -> some View {
         let logId = log.wrappedValue.id
-        let currentPickerTab = pickerTab[logId] ?? (log.wrappedValue.isComplex ? .complexes : .exercises)
 
         return VStack(spacing: Theme.Space.md) {
 
-            // Header: label + action icons
-            VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                HStack {
-                    Text("Exercise")
+            // Header: selected name + action icons
+            HStack {
+                Text(log.exerciseName.wrappedValue.isEmpty ? "Select exercise" : log.exerciseName.wrappedValue)
+                    .font(Theme.Font.cardTitle)
+                    .fontWeight(.semibold)
+                    .foregroundColor(log.exerciseName.wrappedValue.isEmpty ? .gray : .primary)
+                    .lineLimit(1)
+
+                Spacer()
+
+                // Note toggle
+                Button {
+                    showingNotes[logId] = !(showingNotes[logId] ?? false)
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .foregroundColor(.gray)
                         .font(Theme.Font.cardSecondary)
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-
-                    Spacer()
-
-                    // Note icon
-                    Button {
-                        showingNotes[logId] = !(showingNotes[logId] ?? false)
-                    } label: {
-                        Image(systemName: "square.and.pencil")
-                            .foregroundColor(.gray)
-                            .font(Theme.Font.cardSecondary)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-
-                    Button {
-                        removeLog(logId)
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.gray)
-                            .font(Theme.Font.cardTitle)
-                    }
-                    .buttonStyle(PlainButtonStyle())
                 }
+                .buttonStyle(PlainButtonStyle())
 
-                // Exercises / Complexes tab toggle
-                if !complexes.isEmpty {
-                    Picker("Type", selection: Binding(
-                        get: { currentPickerTab },
-                        set: { pickerTab[logId] = $0 }
-                    )) {
-                        ForEach(ExercisePickerTab.allCases, id: \.self) { tab in
-                            Text(tab.rawValue).tag(tab)
+                // Delete log
+                Button {
+                    removeLog(logId)
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.gray)
+                        .font(Theme.Font.cardTitle)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+
+            // Exercise / Complex chips (single row)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Theme.Space.sm) {
+                    // Complex chips first (with icon)
+                    if !complexes.isEmpty {
+                        ForEach(complexes) { complex in
+                            exerciseChip(
+                                title: complex.name,
+                                isSelected: log.exerciseId.wrappedValue == complex.id && log.isComplex.wrappedValue,
+                                isComplex: true
+                            ) {
+                                log.exerciseId.wrappedValue = complex.id
+                                log.exerciseName.wrappedValue = complex.name
+                                log.isComplex.wrappedValue = true
+                            }
                         }
                     }
-                    .pickerStyle(.segmented)
-                    .padding(.bottom, Theme.Space.xs)
-                }
 
-                // Filter chips
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Theme.Space.sm) {
-                        if currentPickerTab == .exercises {
-                            ForEach(exercises) { exercise in
-                                exerciseChip(
-                                    title: exercise.name,
-                                    isSelected: log.exerciseId.wrappedValue == exercise.id && !log.isComplex.wrappedValue
-                                ) {
-                                    log.exerciseId.wrappedValue = exercise.id
-                                    log.exerciseName.wrappedValue = exercise.name
-                                    log.isComplex.wrappedValue = false
-                                }
-                            }
-                        } else {
-                            ForEach(complexes) { complex in
-                                exerciseChip(
-                                    title: complex.name,
-                                    isSelected: log.exerciseId.wrappedValue == complex.id && log.isComplex.wrappedValue
-                                ) {
-                                    log.exerciseId.wrappedValue = complex.id
-                                    log.exerciseName.wrappedValue = complex.name
-                                    log.isComplex.wrappedValue = true
-                                }
-                            }
+                    // Exercise chips
+                    ForEach(exercises) { exercise in
+                        exerciseChip(
+                            title: exercise.name,
+                            isSelected: log.exerciseId.wrappedValue == exercise.id && !log.isComplex.wrappedValue
+                        ) {
+                            log.exerciseId.wrappedValue = exercise.id
+                            log.exerciseName.wrappedValue = exercise.name
+                            log.isComplex.wrappedValue = false
                         }
                     }
                 }
@@ -313,32 +295,39 @@ struct WorkoutFormView: View {
     private func exerciseChip(
         title: String,
         isSelected: Bool,
+        isComplex: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Text(title)
-                .font(Theme.Font.cardCaption)
-                .lineLimit(1)
-                .padding(.horizontal, Theme.Space.smp)
-                .padding(.vertical, Theme.Space.xs)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(
-                            isSelected
-                                ? Color.brand.primary.opacity(0.15)
-                                : Color.clear
-                        )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(
-                            isSelected ? Color.clear : Color(.systemGray4),
-                            lineWidth: 1
-                        )
-                )
-                .foregroundColor(
-                    isSelected ? Color.brand.primary : .primary
-                )
+            HStack(spacing: 4) {
+                if isComplex {
+                    Image(systemName: "rectangle.stack")
+                        .font(.system(size: 12))
+                }
+                Text(title)
+            }
+            .font(Theme.Font.cardSecondary)
+            .lineLimit(1)
+            .padding(.horizontal, Theme.Space.md)
+            .padding(.vertical, Theme.Space.sm)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(
+                        isSelected
+                            ? Color.brand.primary.opacity(0.15)
+                            : Color.clear
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(
+                        isSelected ? Color.clear : Color(.systemGray4),
+                        lineWidth: 1
+                    )
+            )
+            .foregroundColor(
+                isSelected ? Color.brand.primary : .primary
+            )
         }
         .buttonStyle(PlainButtonStyle())
     }

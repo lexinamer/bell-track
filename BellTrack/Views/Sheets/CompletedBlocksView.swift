@@ -138,6 +138,7 @@ struct CompletedBlocksView: View {
             } label: {
                 Label("Delete", systemImage: "trash")
             }
+            .tint(.red)
         }
     }
 

@@ -206,27 +206,12 @@ struct TrainingView: View {
     // MARK: - Blocks Section (2-Column Grid)
 
     private var blocksSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.md) {
+        VStack(alignment: .leading, spacing: Theme.Space.sm) {
             HStack {
                 Text("Blocks")
                     .font(Theme.Font.sectionTitle)
 
                 Spacer()
-                
-//                Button {
-//                    showingBlockHistory = true
-//                } label: {
-//                    Image(systemName: "clock.arrow.trianglehead.counterclockwise.rotate.90")
-//                        .foregroundColor(Color.textSecondary)
-//                }
-//
-//                Button {
-//                    showingNewBlock = true
-//                } label: {
-//                    Image(systemName: "plus")
-//                        .foregroundColor(Color.textSecondary)
-//                }
-//                .padding(.vertical, Theme.Space.sm)
                 
                 Menu {
                     Button {
@@ -278,7 +263,6 @@ struct TrainingView: View {
             Divider()
                 .padding(.vertical, Theme.Space.md)
         }
-        .padding(.top, Theme.Space.md)
     }
 
     // MARK: - Block Card

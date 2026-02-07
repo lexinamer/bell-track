@@ -77,6 +77,7 @@ struct BlockCard: View {
             Button(role: .destructive, action: onDelete) {
                 Label("Delete", systemImage: "trash")
             }
+            .tint(.red)
         }
     }
 
