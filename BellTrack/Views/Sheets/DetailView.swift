@@ -1,8 +1,14 @@
 import SwiftUI
 
-// Exercise Detail View - shows exercise stats
 struct DetailView: View {
-    let exercise: Exercise
+
+    // The item being shown (exercise or complex)
+    private let itemId: String
+    private let itemName: String
+    private let primaryMuscles: [MuscleGroup]
+    private let secondaryMuscles: [MuscleGroup]
+    private let isComplex: Bool
+    private let componentNames: String?
 
     @Environment(\.dismiss) private var dismiss
 
@@ -10,6 +16,29 @@ struct DetailView: View {
     @State private var isLoading = true
 
     private let firestore = FirestoreService()
+
+    // Init for Exercise
+    init(exercise: Exercise) {
+        self.itemId = exercise.id
+        self.itemName = exercise.name
+        self.primaryMuscles = exercise.primaryMuscles
+        self.secondaryMuscles = exercise.secondaryMuscles
+        self.isComplex = false
+        self.componentNames = nil
+    }
+
+    // Init for ResolvedComplex
+    init(resolvedComplex: ResolvedComplex, exercises: [Exercise]) {
+        self.itemId = resolvedComplex.id
+        self.itemName = resolvedComplex.name
+        self.primaryMuscles = resolvedComplex.primaryMuscles
+        self.secondaryMuscles = resolvedComplex.secondaryMuscles
+        self.isComplex = true
+        self.componentNames = exercises
+            .filter { resolvedComplex.exerciseIds.contains($0.id) }
+            .map { $0.name }
+            .joined(separator: " + ")
+    }
 
     var body: some View {
         NavigationStack {
@@ -35,7 +64,7 @@ struct DetailView: View {
                             .font(Theme.Font.cardTitle)
                             .foregroundColor(.secondary)
 
-                        Text("No workouts found with this exercise.")
+                        Text("No workouts found with this \(isComplex ? "complex" : "exercise").")
                             .font(Theme.Font.cardSecondary)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
@@ -44,7 +73,7 @@ struct DetailView: View {
                     .frame(maxWidth: .infinity, minHeight: 200)
                 }
             }
-            .navigationTitle(exercise.name)
+            .navigationTitle(itemName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -63,6 +92,13 @@ struct DetailView: View {
 
     private func exerciseStatsHeader(_ stats: ExerciseDetailStats) -> some View {
         VStack(alignment: .leading, spacing: Theme.Space.md) {
+            // Component names for complexes
+            if let names = componentNames {
+                Text(names)
+                    .font(Theme.Font.cardCaption)
+                    .foregroundColor(.secondary)
+            }
+
             // Muscle tags
             MuscleTagsView(
                 primaryMuscles: stats.primaryMuscles,
@@ -145,31 +181,33 @@ struct DetailView: View {
             let workouts = try await firestore.fetchWorkouts()
 
             let filteredWorkouts = workouts.filter { workout in
-                workout.logs.contains { $0.exerciseId == exercise.id }
+                workout.logs.contains {
+                    $0.exerciseId == itemId && $0.isComplex == isComplex
+                }
             }
 
             var allLogs: [WorkoutLog] = []
             for workout in filteredWorkouts {
-                for log in workout.logs where log.exerciseId == exercise.id {
+                for log in workout.logs where log.exerciseId == itemId && log.isComplex == isComplex {
                     allLogs.append(log)
                 }
             }
 
-            self.exerciseStats = computeExerciseStats(
+            self.exerciseStats = computeStats(
                 workouts: filteredWorkouts,
                 logs: allLogs
             )
             self.isLoading = false
 
         } catch {
-            print("Failed to load exercise data:", error)
+            print("Failed to load detail data:", error)
             self.isLoading = false
         }
     }
 
-    // MARK: - Compute Exercise Stats
+    // MARK: - Compute Stats
 
-    private func computeExerciseStats(
+    private func computeStats(
         workouts: [Workout],
         logs: [WorkoutLog]
     ) -> ExerciseDetailStats {
@@ -190,8 +228,8 @@ struct DetailView: View {
             heaviestWeight: heaviestWeight,
             mostSets: mostSets,
             mostReps: mostReps,
-            primaryMuscles: exercise.primaryMuscles,
-            secondaryMuscles: exercise.secondaryMuscles
+            primaryMuscles: primaryMuscles,
+            secondaryMuscles: secondaryMuscles
         )
     }
 }

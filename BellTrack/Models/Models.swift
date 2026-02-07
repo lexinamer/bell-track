@@ -33,6 +33,41 @@ struct Exercise: Identifiable, Codable, Equatable {
     var secondaryMuscles: [MuscleGroup]
 }
 
+// MARK: - Complex
+
+struct Complex: Identifiable, Codable, Equatable {
+    let id: String
+    var name: String
+    var exerciseIds: [String]
+}
+
+/// A complex with muscles resolved from its component exercises (runtime only)
+struct ResolvedComplex: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let exerciseIds: [String]
+    let primaryMuscles: [MuscleGroup]
+    let secondaryMuscles: [MuscleGroup]
+}
+
+extension Complex {
+    func resolved(with exercises: [Exercise]) -> ResolvedComplex {
+        let components = exercises.filter { exerciseIds.contains($0.id) }
+        let allPrimary = Array(Set(components.flatMap { $0.primaryMuscles }))
+        let allSecondary = Array(Set(components.flatMap { $0.secondaryMuscles }))
+        // Remove any muscle that appears in primary from secondary
+        let filteredSecondary = allSecondary.filter { !allPrimary.contains($0) }
+
+        return ResolvedComplex(
+            id: id,
+            name: name,
+            exerciseIds: exerciseIds,
+            primaryMuscles: allPrimary,
+            secondaryMuscles: filteredSecondary
+        )
+    }
+}
+
 // MARK: - Block
 
 enum BlockType: String, Codable, CaseIterable {
@@ -58,11 +93,32 @@ struct WorkoutLog: Identifiable, Codable, Equatable {
 
     var exerciseId: String
     var exerciseName: String
+    var isComplex: Bool
 
     var sets: Int?
     var reps: String?
     var weight: String?
     var note: String?
+
+    init(
+        id: String,
+        exerciseId: String,
+        exerciseName: String,
+        isComplex: Bool = false,
+        sets: Int? = nil,
+        reps: String? = nil,
+        weight: String? = nil,
+        note: String? = nil
+    ) {
+        self.id = id
+        self.exerciseId = exerciseId
+        self.exerciseName = exerciseName
+        self.isComplex = isComplex
+        self.sets = sets
+        self.reps = reps
+        self.weight = weight
+        self.note = note
+    }
 }
 
 // MARK: - Workout

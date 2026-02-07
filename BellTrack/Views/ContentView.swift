@@ -42,6 +42,9 @@ struct ContentView: View {
             }
             .tint(Color.brand.primary)
             .background(Color.brand.background)
+            .task {
+                try? await FirestoreService().seedDefaultExercisesIfNeeded()
+            }
         } else {
             LoginView()
         }

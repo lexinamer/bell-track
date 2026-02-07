@@ -1,5 +1,10 @@
 import SwiftUI
 
+enum ExercisePickerTab: String, CaseIterable {
+    case exercises = "Exercises"
+    case complexes = "Complexes"
+}
+
 struct WorkoutFormView: View {
 
     let workout: Workout?
@@ -13,8 +18,10 @@ struct WorkoutFormView: View {
     @State private var blockId: String?
     @State private var logs: [WorkoutLog]
     @State private var exercises: [Exercise] = []
+    @State private var complexes: [Complex] = []
     @State private var blocks: [Block] = []
     @State private var showingNotes: [String: Bool] = [:]
+    @State private var pickerTab: [String: ExercisePickerTab] = [:]
 
     private let firestore = FirestoreService()
 
@@ -28,7 +35,7 @@ struct WorkoutFormView: View {
         self.workout = workout
         self.onSave = onSave
         self.onCancel = onCancel
-        
+
         _name = State(initialValue: workout?.name ?? "")
         _date = State(initialValue: workout?.date ?? Date())
         _blockId = State(initialValue: workout?.blockId)
@@ -41,7 +48,7 @@ struct WorkoutFormView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 32) {
-                    
+
                     // MARK: - Meta Section
                     VStack(spacing: 0) {
                         // Name
@@ -69,10 +76,10 @@ struct WorkoutFormView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                         .background(Color(.systemBackground))
-                        
+
                         Divider()
                             .padding(.leading, 16)
-                        
+
                         // Block Selector
                         if !blocks.isEmpty {
                             HStack {
@@ -150,30 +157,33 @@ struct WorkoutFormView: View {
     // MARK: - Exercise Card
 
     private func exerciseCard(log: Binding<WorkoutLog>) -> some View {
-        VStack(spacing: Theme.Space.md) {
-            
-            // Exercise Selection with Delete Button
+        let logId = log.wrappedValue.id
+        let currentPickerTab = pickerTab[logId] ?? (log.wrappedValue.isComplex ? .complexes : .exercises)
+
+        return VStack(spacing: Theme.Space.md) {
+
+            // Header: label + action icons
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
                 HStack {
                     Text("Exercise")
                         .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
-                    
+
                     Spacer()
-                    
+
                     // Note icon
                     Button {
-                        showingNotes[log.wrappedValue.id] = !(showingNotes[log.wrappedValue.id] ?? false)
+                        showingNotes[logId] = !(showingNotes[logId] ?? false)
                     } label: {
                         Image(systemName: "square.and.pencil")
                             .foregroundColor(.gray)
                             .font(Theme.Font.cardSecondary)
                     }
                     .buttonStyle(PlainButtonStyle())
-                    
+
                     Button {
-                        removeLog(log.wrappedValue.id)
+                        removeLog(logId)
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.gray)
@@ -181,57 +191,72 @@ struct WorkoutFormView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
-                
-                Menu {
-                    ForEach(exercises) { exercise in
-                        Button(exercise.name) {
-                            log.exerciseId.wrappedValue = exercise.id
-                            log.exerciseName.wrappedValue = exercise.name
+
+                // Exercises / Complexes tab toggle
+                if !complexes.isEmpty {
+                    Picker("Type", selection: Binding(
+                        get: { currentPickerTab },
+                        set: { pickerTab[logId] = $0 }
+                    )) {
+                        ForEach(ExercisePickerTab.allCases, id: \.self) { tab in
+                            Text(tab.rawValue).tag(tab)
                         }
                     }
-                } label: {
-                    HStack {
-                        Text(
-                            log.exerciseName.wrappedValue.isEmpty
-                            ? "Select exercise"
-                            : log.exerciseName.wrappedValue
-                        )
-                        .foregroundColor(log.exerciseName.wrappedValue.isEmpty ? .secondary : .primary)
-                        Spacer()
-                        Image(systemName: "chevron.down")
-                            .foregroundColor(.secondary)
-                            .font(Theme.Font.cardCaption)
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
+                    .pickerStyle(.segmented)
+                    .padding(.bottom, Theme.Space.xs)
                 }
-                .buttonStyle(PlainButtonStyle())
+
+                // Filter chips
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Theme.Space.sm) {
+                        if currentPickerTab == .exercises {
+                            ForEach(exercises) { exercise in
+                                exerciseChip(
+                                    title: exercise.name,
+                                    isSelected: log.exerciseId.wrappedValue == exercise.id && !log.isComplex.wrappedValue
+                                ) {
+                                    log.exerciseId.wrappedValue = exercise.id
+                                    log.exerciseName.wrappedValue = exercise.name
+                                    log.isComplex.wrappedValue = false
+                                }
+                            }
+                        } else {
+                            ForEach(complexes) { complex in
+                                exerciseChip(
+                                    title: complex.name,
+                                    isSelected: log.exerciseId.wrappedValue == complex.id && log.isComplex.wrappedValue
+                                ) {
+                                    log.exerciseId.wrappedValue = complex.id
+                                    log.exerciseName.wrappedValue = complex.name
+                                    log.isComplex.wrappedValue = true
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            
-            // Single row layout: Rounds | Reps/Time | Weight
+
+            // Single row layout: Sets | Reps/Time | Weight
             HStack(spacing: Theme.Space.md) {
-                // Rounds (now called Sets for consistency)
                 VStack(alignment: .leading, spacing: Theme.Space.sm) {
                     Text("Sets")
                         .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
-                    
+
                     TextField("5", value: log.sets, format: .number)
                         .keyboardType(.numberPad)
                         .padding()
                         .background(Color(.systemGray6))
                         .cornerRadius(8)
                 }
-                
-                // Reps (simplified)
+
                 VStack(alignment: .leading, spacing: Theme.Space.sm) {
                     Text("Reps/Time")
                         .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
-                    
+
                     TextField("8 or :30", text: Binding(
                         get: { log.reps.wrappedValue ?? "" },
                         set: { log.reps.wrappedValue = $0.isEmpty ? nil : $0 }
@@ -240,14 +265,13 @@ struct WorkoutFormView: View {
                     .background(Color(.systemGray6))
                     .cornerRadius(8)
                 }
-                
-                // Weight (String)
+
                 VStack(alignment: .leading, spacing: Theme.Space.sm) {
                     Text("Weight (kg)")
                         .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
-                    
+
                     TextField("12", text: Binding(
                         get: { log.weight.wrappedValue ?? "" },
                         set: { log.weight.wrappedValue = $0.isEmpty ? nil : $0 }
@@ -257,15 +281,15 @@ struct WorkoutFormView: View {
                     .cornerRadius(8)
                 }
             }
-            
-            // Conditional Notes Field (only show when note icon is tapped)
-            if showingNotes[log.wrappedValue.id] == true {
+
+            // Conditional Notes Field
+            if showingNotes[logId] == true {
                 VStack(alignment: .leading, spacing: Theme.Space.sm) {
                     Text("Notes")
                         .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
-                    
+
                     TextField("Assistance, progression notes", text: Binding(
                         get: { log.note.wrappedValue ?? "" },
                         set: { log.note.wrappedValue = $0.isEmpty ? nil : $0 }
@@ -284,6 +308,41 @@ struct WorkoutFormView: View {
         .padding(.horizontal)
     }
 
+    // MARK: - Exercise Chip
+
+    private func exerciseChip(
+        title: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(Theme.Font.cardCaption)
+                .lineLimit(1)
+                .padding(.horizontal, Theme.Space.smp)
+                .padding(.vertical, Theme.Space.xs)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(
+                            isSelected
+                                ? Color.brand.primary.opacity(0.15)
+                                : Color.clear
+                        )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(
+                            isSelected ? Color.clear : Color(.systemGray4),
+                            lineWidth: 1
+                        )
+                )
+                .foregroundColor(
+                    isSelected ? Color.brand.primary : .primary
+                )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
     // MARK: - Helpers
 
     private func addLog() {
@@ -292,8 +351,9 @@ struct WorkoutFormView: View {
                 id: UUID().uuidString,
                 exerciseId: "",
                 exerciseName: "",
+                isComplex: false,
                 sets: nil,
-                reps: "", // Initialize as empty string, not nil
+                reps: "",
                 weight: nil,
                 note: nil
             )
@@ -316,6 +376,7 @@ struct WorkoutFormView: View {
 
     private func loadReferenceData() async {
         exercises = (try? await firestore.fetchExercises()) ?? []
+        complexes = (try? await firestore.fetchComplexes()) ?? []
         blocks = (try? await firestore.fetchBlocks()) ?? []
     }
 }

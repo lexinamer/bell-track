@@ -68,9 +68,27 @@ struct InsightsView: View {
                             }
                             .padding(.horizontal)
 
-                            ForEach(combinedStats) { stat in
-                                muscleRow(stat: stat)
-                                    .padding(.horizontal)
+                            if combinedStats.isEmpty {
+                                VStack(spacing: Theme.Space.mdp) {
+                                    Image(systemName: "chart.bar.xaxis")
+                                        .font(.system(size: Theme.IconSize.xl))
+                                        .foregroundColor(.secondary)
+
+                                    Text("No data yet")
+                                        .font(Theme.Font.cardTitle)
+
+                                    Text("Log some workouts to see your muscle load insights.")
+                                        .font(Theme.Font.cardSecondary)
+                                        .foregroundColor(.secondary)
+                                        .multilineTextAlignment(.center)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 40)
+                            } else {
+                                ForEach(combinedStats) { stat in
+                                    muscleRow(stat: stat)
+                                        .padding(.horizontal)
+                                }
                             }
                         }
                     }

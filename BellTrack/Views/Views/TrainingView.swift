@@ -212,7 +212,22 @@ struct TrainingView: View {
                     .font(Theme.Font.sectionTitle)
 
                 Spacer()
-
+                
+//                Button {
+//                    showingBlockHistory = true
+//                } label: {
+//                    Image(systemName: "clock.arrow.trianglehead.counterclockwise.rotate.90")
+//                        .foregroundColor(Color.textSecondary)
+//                }
+//
+//                Button {
+//                    showingNewBlock = true
+//                } label: {
+//                    Image(systemName: "plus")
+//                        .foregroundColor(Color.textSecondary)
+//                }
+//                .padding(.vertical, Theme.Space.sm)
+                
                 Menu {
                     Button {
                         showingBlockHistory = true
@@ -235,10 +250,20 @@ struct TrainingView: View {
             let activeBlocks = blocksVM.blocks.filter { $0.completedDate == nil }
 
             if activeBlocks.isEmpty {
-                Text("No active blocks")
-                    .font(Theme.Font.cardSecondary)
-                    .foregroundColor(.secondary)
-                    .padding(.vertical, Theme.Space.sm)
+                VStack(spacing: Theme.Space.sm) {
+                    Text("No active blocks")
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(.secondary)
+
+                    Button {
+                        showingNewBlock = true
+                    } label: {
+                        Text("Add Block")
+                            .font(Theme.Font.cardCaption)
+                            .foregroundColor(Color.brand.primary)
+                    }
+                }
+                .padding(.vertical, Theme.Space.sm)
             } else {
                 // 2-column grid of block cards
                 LazyVGrid(columns: [
@@ -380,6 +405,7 @@ struct TrainingView: View {
                     id: UUID().uuidString,
                     exerciseId: log.exerciseId,
                     exerciseName: log.exerciseName,
+                    isComplex: log.isComplex,
                     sets: log.sets,
                     reps: log.reps,
                     weight: log.weight,
@@ -414,6 +440,19 @@ struct TrainingView: View {
                     .font(Theme.Font.cardSecondary)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
+
+                Button {
+                    showingNewWorkout = true
+                } label: {
+                    Text("Add Workout")
+                        .font(Theme.Font.buttonPrimary)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, Theme.Space.lg)
+                        .padding(.vertical, Theme.Space.smp)
+                        .background(Color.brand.primary)
+                        .cornerRadius(Theme.Radius.md)
+                }
+                .padding(.top, Theme.Space.sm)
             }
         }
         .frame(maxWidth: .infinity)

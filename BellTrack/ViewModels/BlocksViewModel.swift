@@ -22,8 +22,40 @@ final class BlocksViewModel: ObservableObject {
             blocks = try await fetchedBlocks
             workouts = try await fetchedWorkouts
             await loadWorkoutCounts()
+            await autoCompleteExpiredBlocks()
         } catch {
             print("❌ Failed to load blocks:", error)
+        }
+    }
+
+    // MARK: - Auto-Complete Expired Blocks
+
+    private func autoCompleteExpiredBlocks() async {
+        let now = Date()
+        let calendar = Calendar.current
+
+        for block in blocks {
+            // Only check active duration blocks
+            guard block.completedDate == nil,
+                  block.type == .duration,
+                  let weeks = block.durationWeeks, weeks > 0
+            else { continue }
+
+            // Calculate end date
+            guard let endDate = calendar.date(byAdding: .weekOfYear, value: weeks, to: block.startDate)
+            else { continue }
+
+            if now >= endDate {
+                do {
+                    try await firestore.completeBlock(id: block.id)
+                    // Update local state
+                    if let index = blocks.firstIndex(where: { $0.id == block.id }) {
+                        blocks[index].completedDate = now
+                    }
+                } catch {
+                    print("❌ Failed to auto-complete block:", error)
+                }
+            }
         }
     }
     

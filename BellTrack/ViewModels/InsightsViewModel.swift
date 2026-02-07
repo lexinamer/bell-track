@@ -19,6 +19,7 @@ final class InsightsViewModel: ObservableObject {
     @Published var isLoading = false
 
     private var exercises: [Exercise] = []
+    private var complexes: [Complex] = []
     private var workouts: [Workout] = []
     private let firestore = FirestoreService()
 
@@ -32,10 +33,12 @@ final class InsightsViewModel: ObservableObject {
             async let fetchedExercises = firestore.fetchExercises()
             async let fetchedWorkouts = firestore.fetchWorkouts()
             async let fetchedBlocks = firestore.fetchBlocks()
+            async let fetchedComplexes = firestore.fetchComplexes()
 
             exercises = try await fetchedExercises
             workouts = try await fetchedWorkouts
             blocks = try await fetchedBlocks
+            complexes = try await fetchedComplexes
 
             computeStats()
         } catch {
@@ -53,9 +56,17 @@ final class InsightsViewModel: ObservableObject {
     // MARK: - Compute Stats
 
     private func computeStats() {
+        // Build exercise lookup map
         var exerciseMap: [String: Exercise] = [:]
         for exercise in exercises {
             exerciseMap[exercise.id] = exercise
+        }
+
+        // Build resolved complex muscle lookup map
+        var complexMuscleMap: [String: (primary: [MuscleGroup], secondary: [MuscleGroup])] = [:]
+        for complex in complexes {
+            let resolved = complex.resolved(with: exercises)
+            complexMuscleMap[complex.id] = (resolved.primaryMuscles, resolved.secondaryMuscles)
         }
 
         let filteredWorkouts: [Workout]
@@ -70,14 +81,26 @@ final class InsightsViewModel: ObservableObject {
 
         for workout in filteredWorkouts {
             for log in workout.logs {
-                guard let exercise = exerciseMap[log.exerciseId] else { continue }
                 let sets = log.sets ?? 0
 
-                for muscle in exercise.primaryMuscles {
+                let primary: [MuscleGroup]
+                let secondary: [MuscleGroup]
+
+                if log.isComplex, let muscles = complexMuscleMap[log.exerciseId] {
+                    primary = muscles.primary
+                    secondary = muscles.secondary
+                } else if let exercise = exerciseMap[log.exerciseId] {
+                    primary = exercise.primaryMuscles
+                    secondary = exercise.secondaryMuscles
+                } else {
+                    continue
+                }
+
+                for muscle in primary {
                     primarySets[muscle, default: 0] += sets
                 }
 
-                for muscle in exercise.secondaryMuscles {
+                for muscle in secondary {
                     secondarySets[muscle, default: 0] += sets
                 }
             }

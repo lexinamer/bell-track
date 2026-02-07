@@ -58,25 +58,23 @@ final class FirestoreService {
         let ref = try userRef()
         try await ref.collection("exercises").document(id).delete()
     }
-    
+
     // MARK: - Update Exercise Names in Workouts
-    
+
     func updateExerciseNameInWorkouts(exerciseId: String, newName: String) async throws {
         let workouts = try await fetchWorkouts()
-        
+
         for workout in workouts {
             var needsUpdate = false
             var updatedLogs = workout.logs
-            
-            // Update any logs that match this exercise ID
+
             for i in 0..<updatedLogs.count {
-                if updatedLogs[i].exerciseId == exerciseId {
+                if updatedLogs[i].exerciseId == exerciseId && !updatedLogs[i].isComplex {
                     updatedLogs[i].exerciseName = newName
                     needsUpdate = true
                 }
             }
-            
-            // Save the workout if any logs were updated
+
             if needsUpdate {
                 try await saveWorkout(
                     id: workout.id,
@@ -86,6 +84,97 @@ final class FirestoreService {
                     logs: updatedLogs
                 )
             }
+        }
+    }
+
+    // MARK: - Complexes
+
+    func fetchComplexes() async throws -> [Complex] {
+        let ref = try userRef()
+
+        let snap = try await ref
+            .collection("complexes")
+            .order(by: "name")
+            .getDocuments()
+
+        return snap.documents.map { doc in
+            Complex(
+                id: doc.documentID,
+                name: doc["name"] as? String ?? "",
+                exerciseIds: doc["exerciseIds"] as? [String] ?? []
+            )
+        }
+    }
+
+    func saveComplex(
+        id: String?,
+        name: String,
+        exerciseIds: [String]
+    ) async throws {
+        let ref = try userRef()
+        let doc = id == nil
+            ? ref.collection("complexes").document()
+            : ref.collection("complexes").document(id!)
+
+        try await doc.setData([
+            "name": name,
+            "exerciseIds": exerciseIds
+        ])
+    }
+
+    func deleteComplex(id: String) async throws {
+        let ref = try userRef()
+        try await ref.collection("complexes").document(id).delete()
+    }
+
+    func updateComplexNameInWorkouts(complexId: String, newName: String) async throws {
+        let workouts = try await fetchWorkouts()
+
+        for workout in workouts {
+            var needsUpdate = false
+            var updatedLogs = workout.logs
+
+            for i in 0..<updatedLogs.count {
+                if updatedLogs[i].exerciseId == complexId && updatedLogs[i].isComplex {
+                    updatedLogs[i].exerciseName = newName
+                    needsUpdate = true
+                }
+            }
+
+            if needsUpdate {
+                try await saveWorkout(
+                    id: workout.id,
+                    name: workout.name,
+                    date: workout.date,
+                    blockId: workout.blockId,
+                    logs: updatedLogs
+                )
+            }
+        }
+    }
+
+    // MARK: - Default Exercise Seeding
+
+    func seedDefaultExercisesIfNeeded() async throws {
+        let ref = try userRef()
+
+        let snap = try await ref.collection("exercises").limit(to: 1).getDocuments()
+        guard snap.documents.isEmpty else { return }
+
+        let defaults: [(name: String, primary: [MuscleGroup], secondary: [MuscleGroup])] = [
+            ("Press", [.shoulders, .triceps], [.core]),
+            ("Clean", [.hamstrings, .glutes, .back], [.quads, .forearms]),
+            ("Squat", [.quads], [.hamstrings, .glutes]),
+            ("Swing", [.hamstrings, .glutes], [.core, .back]),
+        ]
+
+        for exercise in defaults {
+            let doc = ref.collection("exercises").document()
+            try await doc.setData([
+                "name": exercise.name,
+                "primaryMuscles": exercise.primary.map { $0.rawValue },
+                "secondaryMuscles": exercise.secondary.map { $0.rawValue },
+            ])
         }
     }
 
@@ -165,7 +254,7 @@ final class FirestoreService {
         let ref = try userRef()
         try await ref.collection("blocks").document(id).delete()
     }
-    
+
     func completeBlock(id: String) async throws {
         let ref = try userRef()
         try await ref.collection("blocks").document(id).updateData([
@@ -200,9 +289,10 @@ final class FirestoreService {
                     id: id,
                     exerciseId: exerciseId,
                     exerciseName: exerciseName,
+                    isComplex: log["isComplex"] as? Bool ?? false,
                     sets: log["sets"] as? Int,
                     reps: log["reps"] as? String,
-                    weight: log["weight"] as? String,  // Now String instead of Double
+                    weight: log["weight"] as? String,
                     note: log["note"] as? String
                 )
             }
@@ -235,6 +325,7 @@ final class FirestoreService {
                 "id": $0.id,
                 "exerciseId": $0.exerciseId,
                 "exerciseName": $0.exerciseName,
+                "isComplex": $0.isComplex,
                 "sets": $0.sets as Any,
                 "reps": $0.reps as Any,
                 "weight": $0.weight as Any,

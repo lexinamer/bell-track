@@ -5,6 +5,8 @@ import Combine
 final class ExercisesViewModel: ObservableObject {
 
     @Published var exercises: [Exercise] = []
+    @Published var complexes: [Complex] = []
+    @Published var resolvedComplexes: [ResolvedComplex] = []
     @Published var workoutCounts: [String: Int] = [:]
     @Published var setCounts: [String: Int] = [:]
     @Published var isLoading = false
@@ -21,8 +23,13 @@ final class ExercisesViewModel: ObservableObject {
         do {
             async let fetchedExercises = firestore.fetchExercises()
             async let fetchedWorkouts = firestore.fetchWorkouts()
+            async let fetchedComplexes = firestore.fetchComplexes()
+
             exercises = try await fetchedExercises
+            complexes = try await fetchedComplexes
             let workouts = try await fetchedWorkouts
+
+            resolvedComplexes = complexes.map { $0.resolved(with: exercises) }
             loadExerciseStats(from: workouts)
         } catch {
             errorMessage = error.localizedDescription
@@ -48,7 +55,7 @@ final class ExercisesViewModel: ObservableObject {
         setCounts = setCountsDict
     }
 
-    // MARK: - Create / Update
+    // MARK: - Exercise CRUD
 
     func saveExercise(
         id: String? = nil,
@@ -65,16 +72,63 @@ final class ExercisesViewModel: ObservableObject {
                 primaryMuscles: primaryMuscles,
                 secondaryMuscles: secondaryMuscles
             )
-            
-            // If this is an edit (has ID), update all workout logs with new name
+
             if let exerciseId = id {
                 try await firestore.updateExerciseNameInWorkouts(exerciseId: exerciseId, newName: name)
             }
-            
+
             await load()
         } catch {
             errorMessage = error.localizedDescription
             print("❌ Failed to save exercise:", error)
+        }
+    }
+
+    func deleteExercise(id: String) async {
+        do {
+            try await firestore.deleteExercise(id: id)
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+            print("❌ Failed to delete exercise:", error)
+        }
+    }
+
+    // MARK: - Complex CRUD
+
+    func saveComplex(
+        id: String? = nil,
+        name: String,
+        exerciseIds: [String]
+    ) async {
+        guard !name.trimmingCharacters(in: .whitespaces).isEmpty,
+              !exerciseIds.isEmpty else { return }
+
+        do {
+            try await firestore.saveComplex(
+                id: id,
+                name: name,
+                exerciseIds: exerciseIds
+            )
+
+            if let complexId = id {
+                try await firestore.updateComplexNameInWorkouts(complexId: complexId, newName: name)
+            }
+
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+            print("❌ Failed to save complex:", error)
+        }
+    }
+
+    func deleteComplex(id: String) async {
+        do {
+            try await firestore.deleteComplex(id: id)
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+            print("❌ Failed to delete complex:", error)
         }
     }
 }
