@@ -111,6 +111,7 @@ struct TrainingView: View {
         // Block sheets
         .sheet(isPresented: $showingNewBlock) {
             BlockFormView(
+                blocksVM: blocksVM,
                 onSave: { name, startDate, type, durationWeeks, notes, colorIndex in
                     Task {
                         await blocksVM.saveBlock(
@@ -133,6 +134,7 @@ struct TrainingView: View {
         .sheet(item: $editingBlock) { block in
             BlockFormView(
                 block: block,
+                blocksVM: blocksVM,
                 onSave: { name, startDate, type, durationWeeks, notes, colorIndex in
                     Task {
                         await blocksVM.saveBlock(
@@ -271,6 +273,7 @@ struct TrainingView: View {
         BlockCard(
             block: block,
             workoutCount: blocksVM.workoutCounts[block.id] ?? 0,
+            templateCount: blocksVM.templatesForBlock(block.id).count,
             isExpanded: expandedBlockId == block.id,
             backgroundColor: ColorTheme.blockColor(for: block.colorIndex),
 

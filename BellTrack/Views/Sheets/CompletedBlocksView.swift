@@ -45,6 +45,7 @@ struct CompletedBlocksView: View {
             .sheet(item: $editingBlock) { block in
                 BlockFormView(
                     block: block,
+                    blocksVM: blocksVM,
                     onSave: { name, startDate, type, durationWeeks, notes, colorIndex in
                         Task {
                             await blocksVM.saveBlock(

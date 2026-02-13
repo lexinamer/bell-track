@@ -68,6 +68,34 @@ extension Complex {
     }
 }
 
+// MARK: - Workout Template
+
+struct TemplateEntry: Identifiable, Codable, Equatable {
+    let id: String
+    var exerciseId: String
+    var exerciseName: String
+    var isComplex: Bool
+
+    init(
+        id: String = UUID().uuidString,
+        exerciseId: String,
+        exerciseName: String,
+        isComplex: Bool = false
+    ) {
+        self.id = id
+        self.exerciseId = exerciseId
+        self.exerciseName = exerciseName
+        self.isComplex = isComplex
+    }
+}
+
+struct WorkoutTemplate: Identifiable, Codable, Equatable {
+    let id: String
+    var name: String
+    var blockId: String
+    var entries: [TemplateEntry]
+}
+
 // MARK: - Block
 
 enum BlockType: String, Codable, CaseIterable {

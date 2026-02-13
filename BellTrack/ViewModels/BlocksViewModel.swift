@@ -6,6 +6,7 @@ final class BlocksViewModel: ObservableObject {
 
     @Published var blocks: [Block] = []
     @Published var workouts: [Workout] = []
+    @Published var templates: [WorkoutTemplate] = []
     @Published var workoutCounts: [String: Int] = [:]
     @Published var isLoading = false
 
@@ -19,8 +20,10 @@ final class BlocksViewModel: ObservableObject {
         do {
             async let fetchedBlocks = firestore.fetchBlocks()
             async let fetchedWorkouts = firestore.fetchWorkouts()
+            async let fetchedTemplates = firestore.fetchWorkoutTemplates()
             blocks = try await fetchedBlocks
             workouts = try await fetchedWorkouts
+            templates = try await fetchedTemplates
             await loadWorkoutCounts()
             await autoCompleteExpiredBlocks()
         } catch {
@@ -112,8 +115,42 @@ final class BlocksViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Templates
+
+    func templatesForBlock(_ blockId: String) -> [WorkoutTemplate] {
+        templates.filter { $0.blockId == blockId }
+    }
+
+    func saveTemplate(
+        id: String?,
+        name: String,
+        blockId: String,
+        entries: [TemplateEntry]
+    ) async {
+        do {
+            try await firestore.saveWorkoutTemplate(
+                id: id,
+                name: name,
+                blockId: blockId,
+                entries: entries
+            )
+            await load()
+        } catch {
+            print("❌ Failed to save template:", error)
+        }
+    }
+
+    func deleteTemplate(id: String) async {
+        do {
+            try await firestore.deleteWorkoutTemplate(id: id)
+            await load()
+        } catch {
+            print("❌ Failed to delete template:", error)
+        }
+    }
+
     // MARK: - Complete Block
-    
+
     func completeBlock(id: String) async {
         // Find the block to complete
         guard let block = blocks.first(where: { $0.id == id }) else { return }

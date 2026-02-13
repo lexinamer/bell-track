@@ -8,13 +8,15 @@ struct WorkoutFormView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var name: String
     @State private var date: Date
     @State private var blockId: String?
     @State private var logs: [WorkoutLog]
     @State private var exercises: [Exercise] = []
     @State private var complexes: [Complex] = []
     @State private var blocks: [Block] = []
+    @State private var templates: [WorkoutTemplate] = []
+    @State private var workouts: [Workout] = []
+    @State private var selectedTemplateId: String? = nil
     @State private var showingNotes: [String: Bool] = [:]
 
     private let firestore = FirestoreService()
@@ -30,7 +32,6 @@ struct WorkoutFormView: View {
         self.onSave = onSave
         self.onCancel = onCancel
 
-        _name = State(initialValue: workout?.name ?? "")
         _date = State(initialValue: workout?.date ?? Date())
         _blockId = State(initialValue: workout?.blockId)
         _logs = State(initialValue: workout?.logs ?? [])
@@ -45,21 +46,6 @@ struct WorkoutFormView: View {
 
                     // MARK: - Meta Section
                     VStack(spacing: 0) {
-                        // Name
-                        HStack {
-                            Text("Name")
-                            Spacer()
-                            TextField("e.g. Workout A, Upper Body", text: $name)
-                                .multilineTextAlignment(.trailing)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(Color(.systemBackground))
-
-                        Divider()
-                            .padding(.leading, 16)
-
                         // Date Picker
                         HStack {
                             Text("Date")
@@ -95,6 +81,34 @@ struct WorkoutFormView: View {
                             .padding(.vertical, 12)
                             .background(Color(.systemBackground))
                         }
+
+                        // Template Selector (only when a block is selected and has templates)
+                        if let currentBlockId = blockId {
+                            let blockTemplates = templates.filter { $0.blockId == currentBlockId }
+                            if !blockTemplates.isEmpty {
+                                Divider()
+                                    .padding(.leading, 16)
+
+                                HStack {
+                                    Text("Template")
+                                    Spacer()
+
+                                    Picker("Template", selection: $selectedTemplateId) {
+                                        Text("None")
+                                            .tag(String?.none)
+                                        ForEach(blockTemplates) { template in
+                                            Text(template.name)
+                                                .tag(Optional(template.id))
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .foregroundColor(.secondary)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(Color(.systemBackground))
+                            }
+                        }
                     }
                     .cornerRadius(12)
                     .padding(.horizontal)
@@ -123,6 +137,27 @@ struct WorkoutFormView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Log Workout")
             .navigationBarTitleDisplayMode(.inline)
+            .onChange(of: blockId) { _, _ in
+                selectedTemplateId = nil
+            }
+            .onChange(of: selectedTemplateId) { _, newTemplateId in
+                guard let templateId = newTemplateId,
+                      let template = templates.first(where: { $0.id == templateId })
+                else { return }
+
+                logs = template.entries.map { entry in
+                    WorkoutLog(
+                        id: UUID().uuidString,
+                        exerciseId: entry.exerciseId,
+                        exerciseName: entry.exerciseName,
+                        isComplex: entry.isComplex,
+                        sets: nil,
+                        reps: nil,
+                        weight: nil,
+                        note: nil
+                    )
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -155,13 +190,55 @@ struct WorkoutFormView: View {
 
         return VStack(spacing: Theme.Space.md) {
 
-            // Header: selected name + action icons
+            // Header: exercise picker + action icons
             HStack {
-                Text(log.exerciseName.wrappedValue.isEmpty ? "Select exercise" : log.exerciseName.wrappedValue)
-                    .font(Theme.Font.cardTitle)
-                    .fontWeight(.semibold)
-                    .foregroundColor(log.exerciseName.wrappedValue.isEmpty ? .gray : .primary)
-                    .lineLimit(1)
+                if log.exerciseName.wrappedValue.isEmpty {
+                    // No exercise selected — show picker
+                    Menu {
+                        if !complexes.isEmpty {
+                            Section("Complexes") {
+                                ForEach(complexes) { complex in
+                                    Button {
+                                        log.exerciseId.wrappedValue = complex.id
+                                        log.exerciseName.wrappedValue = complex.name
+                                        log.isComplex.wrappedValue = true
+                                    } label: {
+                                        Label(complex.name, systemImage: "rectangle.stack")
+                                    }
+                                }
+                            }
+                        }
+
+                        Section("Exercises") {
+                            ForEach(exercises) { exercise in
+                                Button {
+                                    log.exerciseId.wrappedValue = exercise.id
+                                    log.exerciseName.wrappedValue = exercise.name
+                                    log.isComplex.wrappedValue = false
+                                } label: {
+                                    Text(exercise.name)
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text("Select exercise")
+                                .font(Theme.Font.cardTitle)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.gray)
+
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } else {
+                    // Exercise already set — just show name
+                    Text(log.exerciseName.wrappedValue)
+                        .font(Theme.Font.cardTitle)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
+                }
 
                 Spacer()
 
@@ -184,38 +261,6 @@ struct WorkoutFormView: View {
                         .font(Theme.Font.cardTitle)
                 }
                 .buttonStyle(PlainButtonStyle())
-            }
-
-            // Exercise / Complex chips (single row)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Theme.Space.sm) {
-                    // Complex chips first (with icon)
-                    if !complexes.isEmpty {
-                        ForEach(complexes) { complex in
-                            exerciseChip(
-                                title: complex.name,
-                                isSelected: log.exerciseId.wrappedValue == complex.id && log.isComplex.wrappedValue,
-                                isComplex: true
-                            ) {
-                                log.exerciseId.wrappedValue = complex.id
-                                log.exerciseName.wrappedValue = complex.name
-                                log.isComplex.wrappedValue = true
-                            }
-                        }
-                    }
-
-                    // Exercise chips
-                    ForEach(exercises) { exercise in
-                        exerciseChip(
-                            title: exercise.name,
-                            isSelected: log.exerciseId.wrappedValue == exercise.id && !log.isComplex.wrappedValue
-                        ) {
-                            log.exerciseId.wrappedValue = exercise.id
-                            log.exerciseName.wrappedValue = exercise.name
-                            log.isComplex.wrappedValue = false
-                        }
-                    }
-                }
             }
 
             // Single row layout: Sets | Reps/Time | Weight
@@ -290,48 +335,6 @@ struct WorkoutFormView: View {
         .padding(.horizontal)
     }
 
-    // MARK: - Exercise Chip
-
-    private func exerciseChip(
-        title: String,
-        isSelected: Bool,
-        isComplex: Bool = false,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                if isComplex {
-                    Image(systemName: "rectangle.stack")
-                        .font(.system(size: 12))
-                }
-                Text(title)
-            }
-            .font(Theme.Font.cardSecondary)
-            .lineLimit(1)
-            .padding(.horizontal, Theme.Space.md)
-            .padding(.vertical, Theme.Space.sm)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(
-                        isSelected
-                            ? Color.brand.primary.opacity(0.15)
-                            : Color.clear
-                    )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(
-                        isSelected ? Color.clear : Color(.systemGray4),
-                        lineWidth: 1
-                    )
-            )
-            .foregroundColor(
-                isSelected ? Color.brand.primary : .primary
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-
     // MARK: - Helpers
 
     private func addLog() {
@@ -354,9 +357,19 @@ struct WorkoutFormView: View {
     }
 
     private func save() async {
+        // Derive name from template or exercise names
+        let workoutName: String?
+        if let templateId = selectedTemplateId,
+           let template = templates.first(where: { $0.id == templateId }) {
+            workoutName = template.name
+        } else {
+            let names = logs.compactMap { $0.exerciseName.isEmpty ? nil : $0.exerciseName }
+            workoutName = names.isEmpty ? nil : names.joined(separator: ", ")
+        }
+
         try? await firestore.saveWorkout(
             id: workout?.id,
-            name: name.isEmpty ? nil : name,
+            name: workoutName,
             date: date,
             blockId: blockId,
             logs: logs
@@ -367,5 +380,6 @@ struct WorkoutFormView: View {
         exercises = (try? await firestore.fetchExercises()) ?? []
         complexes = (try? await firestore.fetchComplexes()) ?? []
         blocks = (try? await firestore.fetchBlocks()) ?? []
+        templates = (try? await firestore.fetchWorkoutTemplates()) ?? []
     }
 }

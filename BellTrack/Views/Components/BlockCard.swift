@@ -4,6 +4,7 @@ struct BlockCard: View {
 
     let block: Block
     let workoutCount: Int
+    let templateCount: Int
     let isExpanded: Bool
     let backgroundColor: Color
 
@@ -28,7 +29,7 @@ struct BlockCard: View {
                 .foregroundColor(.white)
 
             // Workout count
-            Text("\(workoutCount) workouts")
+            Text("\(workoutCount) workouts\(templateCount > 0 ? " \u{00B7} \(templateCount) templates" : "")")
                 .font(Theme.Font.cardCaption)
                 .foregroundColor(.white)
 

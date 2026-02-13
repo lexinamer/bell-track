@@ -178,6 +178,79 @@ final class FirestoreService {
         }
     }
 
+    // MARK: - Workout Templates
+
+    func fetchWorkoutTemplates() async throws -> [WorkoutTemplate] {
+        let ref = try userRef()
+
+        let snap = try await ref
+            .collection("workoutTemplates")
+            .order(by: "name")
+            .getDocuments()
+
+        return snap.documents.compactMap { doc in
+            guard
+                let name = doc["name"] as? String,
+                let blockId = doc["blockId"] as? String,
+                let entriesData = doc["entries"] as? [[String: Any]]
+            else { return nil }
+
+            let entries: [TemplateEntry] = entriesData.compactMap { entry in
+                guard
+                    let id = entry["id"] as? String,
+                    let exerciseId = entry["exerciseId"] as? String,
+                    let exerciseName = entry["exerciseName"] as? String
+                else { return nil }
+
+                return TemplateEntry(
+                    id: id,
+                    exerciseId: exerciseId,
+                    exerciseName: exerciseName,
+                    isComplex: entry["isComplex"] as? Bool ?? false
+                )
+            }
+
+            return WorkoutTemplate(
+                id: doc.documentID,
+                name: name,
+                blockId: blockId,
+                entries: entries
+            )
+        }
+    }
+
+    func saveWorkoutTemplate(
+        id: String?,
+        name: String,
+        blockId: String,
+        entries: [TemplateEntry]
+    ) async throws {
+        let ref = try userRef()
+        let doc = id == nil
+            ? ref.collection("workoutTemplates").document()
+            : ref.collection("workoutTemplates").document(id!)
+
+        let entriesPayload = entries.map {
+            [
+                "id": $0.id,
+                "exerciseId": $0.exerciseId,
+                "exerciseName": $0.exerciseName,
+                "isComplex": $0.isComplex
+            ] as [String: Any]
+        }
+
+        try await doc.setData([
+            "name": name,
+            "blockId": blockId,
+            "entries": entriesPayload
+        ])
+    }
+
+    func deleteWorkoutTemplate(id: String) async throws {
+        let ref = try userRef()
+        try await ref.collection("workoutTemplates").document(id).delete()
+    }
+
     // MARK: - Blocks
 
     func fetchBlocks() async throws -> [Block] {
