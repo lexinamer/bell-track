@@ -146,14 +146,19 @@ struct WorkoutFormView: View {
                 else { return }
 
                 logs = template.entries.map { entry in
-                    WorkoutLog(
+                    let recent = mostRecentLog(
+                        exerciseId: entry.exerciseId,
+                        isComplex: entry.isComplex
+                    )
+
+                    return WorkoutLog(
                         id: UUID().uuidString,
                         exerciseId: entry.exerciseId,
                         exerciseName: entry.exerciseName,
                         isComplex: entry.isComplex,
-                        sets: nil,
-                        reps: nil,
-                        weight: nil,
+                        sets: recent?.sets,
+                        reps: recent?.reps,
+                        weight: recent?.weight,
                         note: nil
                     )
                 }
@@ -376,10 +381,23 @@ struct WorkoutFormView: View {
         )
     }
 
+    private func mostRecentLog(exerciseId: String, isComplex: Bool) -> WorkoutLog? {
+        // workouts are sorted by date descending, so first match = most recent
+        for workout in workouts {
+            if let log = workout.logs.first(where: {
+                $0.exerciseId == exerciseId && $0.isComplex == isComplex
+            }) {
+                return log
+            }
+        }
+        return nil
+    }
+
     private func loadReferenceData() async {
         exercises = (try? await firestore.fetchExercises()) ?? []
         complexes = (try? await firestore.fetchComplexes()) ?? []
         blocks = (try? await firestore.fetchBlocks()) ?? []
         templates = (try? await firestore.fetchWorkoutTemplates()) ?? []
+        workouts = (try? await firestore.fetchWorkouts()) ?? []
     }
 }
