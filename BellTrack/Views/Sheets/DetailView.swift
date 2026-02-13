@@ -99,19 +99,32 @@ struct DetailView: View {
                     .foregroundColor(.secondary)
             }
 
-            // Muscle tags
-            MuscleTagsView(
-                primaryMuscles: stats.primaryMuscles,
-                secondaryMuscles: stats.secondaryMuscles,
-                spacing: 6,
-                tagPadding: (10, 4),
-                cornerRadius: 12
-            )
+            // Muscles label + tags
+            VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                Text("Muscles")
+                    .font(Theme.Font.cardTitle)
+                    .fontWeight(.bold)
 
-            // Stat boxes row
-            HStack(spacing: Theme.Space.sm) {
-                statBox(value: "\(stats.totalWorkouts)", label: "Workouts")
-                statBox(value: "\(stats.totalSets)", label: "Total Sets")
+                MuscleTagsView(
+                    primaryMuscles: stats.primaryMuscles,
+                    secondaryMuscles: stats.secondaryMuscles,
+                    spacing: 8,
+                    tagPadding: (14, 8),
+                    cornerRadius: 16,
+                    font: Theme.Font.cardSecondary
+                )
+            }
+
+            // Overview label + stat boxes
+            VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                Text("Overview")
+                    .font(Theme.Font.cardTitle)
+                    .fontWeight(.bold)
+
+                HStack(spacing: Theme.Space.sm) {
+                    statBox(value: "\(stats.totalWorkouts)", label: "Workouts")
+                    statBox(value: "\(stats.totalSets)", label: "Total Sets")
+                }
             }
 
             // Personal Records

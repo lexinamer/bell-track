@@ -6,6 +6,7 @@ struct MuscleTagsView: View {
     var spacing: CGFloat = Theme.Space.xs
     var tagPadding: (horizontal: CGFloat, vertical: CGFloat) = (8, 3)
     var cornerRadius: CGFloat = 10
+    var font: Font = Theme.Font.cardCaption
 
     private var allMuscles: [(muscle: MuscleGroup, isPrimary: Bool)] {
         primaryMuscles.map { ($0, true) } +
@@ -17,7 +18,7 @@ struct MuscleTagsView: View {
             FlowLayout(spacing: spacing) {
                 ForEach(Array(allMuscles.enumerated()), id: \.offset) { _, item in
                     Text(item.muscle.displayName)
-                        .font(Theme.Font.cardCaption)
+                        .font(font)
                         .lineLimit(1)
                         .fixedSize()
                         .padding(.horizontal, tagPadding.horizontal)

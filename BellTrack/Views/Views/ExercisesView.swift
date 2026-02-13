@@ -293,12 +293,6 @@ struct ExercisesView: View {
                     .font(Theme.Font.cardCaption)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
-
-//                MuscleTagsView(
-//                    primaryMuscles: resolved.primaryMuscles,
-//                    secondaryMuscles: resolved.secondaryMuscles
-//                )
-//                .padding(.top, Theme.Space.xs)
             }
         }
     }
