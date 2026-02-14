@@ -3,48 +3,44 @@ import SwiftUI
 struct TrainingView: View {
 
     @StateObject private var blocksVM = BlocksViewModel()
-    @StateObject private var workoutsVM = WorkoutsViewModel()
 
     // Navigation
     @State private var selectedBlock: Block?
-    @State private var showingAllBlocks = false
-
-    // Create menu
-    @State private var showingCreateOptions = false
 
     // Sheets
-    @State private var showingNewWorkout = false
     @State private var showingNewBlock = false
-    @State private var editingWorkout: Workout?
-    @State private var workoutToDelete: Workout?
+    @State private var showingNewWorkout = false
+    @State private var editingBlock: Block?
+    @State private var blockToDelete: Block?
 
     // MARK: - Derived
 
     private var activeBlocks: [Block] {
         blocksVM.blocks
-            .filter { $0.completedDate == nil && $0.startDate <= Date() }
+            .filter {
+                $0.completedDate == nil &&
+                $0.startDate <= Date()
+            }
             .sorted { $0.startDate > $1.startDate }
     }
 
-    private var recentWorkouts: [Workout] {
-        let cutoff = Calendar.current.date(
-            byAdding: .day,
-            value: -30,
-            to: Date()
-        )!
-
-        return workoutsVM.sortedWorkouts
-            .filter { $0.date >= cutoff }
+    private var futureBlocks: [Block] {
+        blocksVM.blocks
+            .filter {
+                $0.completedDate == nil &&
+                $0.startDate > Date()
+            }
+            .sorted { $0.startDate < $1.startDate }
     }
 
-    private var isInitialLoading: Bool {
-        (blocksVM.isLoading || workoutsVM.isLoading)
-        && blocksVM.blocks.isEmpty
-        && workoutsVM.workouts.isEmpty
-    }
-
-    private var isEmptyState: Bool {
-        activeBlocks.isEmpty && recentWorkouts.isEmpty
+    private var completedBlocks: [Block] {
+        blocksVM.blocks
+            .filter { $0.completedDate != nil }
+            .sorted {
+                ($0.completedDate ?? .distantPast)
+                >
+                ($1.completedDate ?? .distantPast)
+            }
     }
 
     // MARK: - View
@@ -56,13 +52,13 @@ struct TrainingView: View {
             Color.brand.background
                 .ignoresSafeArea()
 
-            if isInitialLoading {
+            if blocksVM.isLoading && blocksVM.blocks.isEmpty {
 
                 ProgressView()
 
-            } else if isEmptyState {
+            } else if blocksVM.blocks.isEmpty {
 
-                emptyTrainingState
+                emptyState
 
             } else {
 
@@ -73,9 +69,26 @@ struct TrainingView: View {
                         spacing: Theme.Space.xl
                     ) {
 
-                        blocksSection
+                        if !activeBlocks.isEmpty {
+                            section(
+                                title: "Active",
+                                blocks: activeBlocks
+                            )
+                        }
 
-                        recentWorkoutsSection
+                        if !futureBlocks.isEmpty {
+                            section(
+                                title: "Planned",
+                                blocks: futureBlocks
+                            )
+                        }
+
+                        if !completedBlocks.isEmpty {
+                            section(
+                                title: "Completed",
+                                blocks: completedBlocks
+                            )
+                        }
                     }
                     .padding(.vertical)
                 }
@@ -89,69 +102,27 @@ struct TrainingView: View {
 
             ToolbarItem(placement: .topBarTrailing) {
 
-                Button {
-                    showingCreateOptions = true
-                } label: {
-                    Image(systemName: "plus")
+                HStack(spacing: Theme.Space.xs) {
+
+                    Button {
+                        showingNewWorkout = true
+                    } label: {
+                        Image(systemName: "figure.run")
+                    }
+
+                    Button {
+                        showingNewBlock = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
                 }
-            }
-        }
-
-        .confirmationDialog(
-            "Create",
-            isPresented: $showingCreateOptions,
-            titleVisibility: .hidden
-        ) {
-
-            Button("Log Workout") {
-                showingNewWorkout = true
-            }
-
-            Button("New Block") {
-                showingNewBlock = true
             }
         }
 
         // MARK: - Navigation
 
         .navigationDestination(item: $selectedBlock) {
-            BlockDetailView(block: $0)
-        }
-
-        .navigationDestination(isPresented: $showingAllBlocks) {
-            AllBlocksView(blocksVM: blocksVM)
-        }
-
-        // MARK: - Edit Workout Sheet
-
-        .fullScreenCover(item: $editingWorkout) { workout in
-
-            WorkoutFormView(
-                workout: workout,
-                onSave: {
-                    editingWorkout = nil
-                    Task { await workoutsVM.load() }
-                },
-                onCancel: {
-                    editingWorkout = nil
-                }
-            )
-        }
-
-        // MARK: - New Workout Sheet
-
-        .fullScreenCover(isPresented: $showingNewWorkout) {
-
-            WorkoutFormView(
-                workout: nil,
-                onSave: {
-                    showingNewWorkout = false
-                    Task { await workoutsVM.load() }
-                },
-                onCancel: {
-                    showingNewWorkout = false
-                }
-            )
+            BlockDetailView(block: $0, blocksVM: blocksVM)
         }
 
         // MARK: - New Block Sheet
@@ -184,36 +155,105 @@ struct TrainingView: View {
             )
         }
 
-        // MARK: - Delete Alert
+        // MARK: - Edit Block Sheet
 
-        .alert("Delete Workout?", isPresented: deleteWorkoutBinding) {
+        .fullScreenCover(item: $editingBlock) { block in
 
-            Button("Cancel", role: .cancel) {}
-
-            Button("Delete", role: .destructive) {
-
-                if let workout = workoutToDelete {
-
+            BlockFormView(
+                block: block,
+                blocksVM: blocksVM,
+                onSave: { name, startDate, type, durationWeeks, notes, colorIndex, _ in
                     Task {
-                        await workoutsVM.deleteWorkout(id: workout.id)
-                        await workoutsVM.load()
+                        await blocksVM.saveBlock(
+                            id: block.id,
+                            name: name,
+                            startDate: startDate,
+                            type: type,
+                            durationWeeks: durationWeeks,
+                            notes: notes,
+                            colorIndex: colorIndex
+                        )
+                        editingBlock = nil
+                    }
+                },
+                onCancel: {
+                    editingBlock = nil
+                }
+            )
+        }
+
+        // MARK: - New Workout Sheet
+
+        .fullScreenCover(isPresented: $showingNewWorkout) {
+
+            WorkoutFormView(
+                workout: nil,
+                onSave: {
+                    showingNewWorkout = false
+                    Task { await blocksVM.load() }
+                },
+                onCancel: {
+                    showingNewWorkout = false
+                }
+            )
+        }
+
+        // MARK: - Delete Block Alert
+
+        .alert(
+            "Delete Block?",
+            isPresented: deleteBlockBinding
+        ) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                if let block = blockToDelete {
+                    Task {
+                        await blocksVM.deleteBlock(id: block.id)
                     }
                 }
             }
+        } message: {
+            Text(
+                "This will permanently delete \"\(blockToDelete?.name ?? "")\"."
+            )
         }
 
         // MARK: - Load
 
         .task {
-
             await blocksVM.load()
-            await workoutsVM.load()
+        }
+    }
+
+    // MARK: - Section
+
+    private func section(
+        title: String,
+        blocks: [Block]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.sm) {
+            Text(title)
+                .font(Theme.Font.sectionTitle)
+                .padding(.horizontal)
+            LazyVStack(spacing: Theme.Space.sm) {
+                ForEach(blocks) { block in
+                    BlockCard(
+                        block: block,
+                        workoutCount: blocksVM.workoutCounts[block.id],
+                        templateCount: blocksVM.templatesForBlock(block.id).count
+                    )
+                    .padding(.horizontal)
+                    .onTapGesture {
+                        selectedBlock = block
+                    }
+                }
+            }
         }
     }
 
     // MARK: - Empty State
 
-    private var emptyTrainingState: some View {
+    private var emptyState: some View {
 
         VStack(spacing: Theme.Space.lg) {
 
@@ -232,30 +272,17 @@ struct TrainingView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, Theme.Space.lg)
 
-            VStack(spacing: Theme.Space.sm) {
+            Button {
+                showingNewBlock = true
+            } label: {
 
-                Button {
-                    showingNewBlock = true
-                } label: {
-
-                    Text("Create Block")
-                        .font(Theme.Font.buttonPrimary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Theme.Space.sm)
-                        .background(Color.brand.primary)
-                        .foregroundColor(.white)
-                        .cornerRadius(Theme.Radius.md)
-                }
-
-                Button {
-                    showingNewWorkout = true
-                } label: {
-
-                    Text("Log Workout")
-                        .font(Theme.Font.buttonPrimary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Theme.Space.sm)
-                }
+                Text("Create Block")
+                    .font(Theme.Font.buttonPrimary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Theme.Space.sm)
+                    .background(Color.brand.primary)
+                    .foregroundColor(.white)
+                    .cornerRadius(Theme.Radius.md)
             }
             .padding(.horizontal, Theme.Space.xl)
 
@@ -263,98 +290,16 @@ struct TrainingView: View {
         }
     }
 
-    // MARK: - Blocks Section
+    // MARK: - Binding
 
-    private var blocksSection: some View {
-
-        VStack(alignment: .leading, spacing: Theme.Space.sm) {
-
-            HStack {
-
-                Text("Active Blocks")
-                    .font(Theme.Font.sectionTitle)
-
-                Spacer()
-
-                Button {
-                    showingAllBlocks = true
-                } label: {
-                    Image(systemName: "square.stack")
-                        .frame(width: 44, height: 44)
-                }
-            }
-            .padding(.horizontal)
-
-            LazyVStack(spacing: Theme.Space.md) {
-                ForEach(activeBlocks) { block in
-                    BlockCard(
-                        block: block,
-                        workoutCount: blocksVM.workoutCounts[block.id],
-                        templateCount: blocksVM.templatesForBlock(block.id).count,
-                        onEdit: {
-                            selectedBlock = block
-                        },
-                        onComplete: {
-                            Task {
-                                await blocksVM.completeBlock(id: block.id)
-                            }
-                        },
-                        onDelete: {
-                            Task {
-                                await blocksVM.deleteBlock(id: block.id)
-                            }
-                        }
-                    )
-                    .frame(maxWidth: .infinity)
-                    .onTapGesture {
-                        selectedBlock = block
-                    }
-                }
-            }
-            .padding(.horizontal)
-        }
-    }
-
-    // MARK: - Recent Workouts Section
-
-    private var recentWorkoutsSection: some View {
-
-        VStack(alignment: .leading, spacing: Theme.Space.sm) {
-
-            Text("Recent Workouts")
-                .font(Theme.Font.sectionTitle)
-                .padding(.horizontal)
-
-            LazyVStack(spacing: Theme.Space.md) {
-
-                ForEach(recentWorkouts) { workout in
-
-                    WorkoutCard(
-                        workout: workout,
-                        badgeColor: workoutsVM.badgeColor(for: workout),
-                        onEdit: {
-                            editingWorkout = workout
-                        },
-                        onDuplicate: {
-                            editingWorkout = workoutsVM.duplicate(workout)
-                        },
-                        onDelete: {
-                            workoutToDelete = workout
-                        }
-                    )
-                }
-            }
-            .padding(.horizontal)
-        }
-    }
-
-    // MARK: - Delete Binding
-
-    private var deleteWorkoutBinding: Binding<Bool> {
-
+    private var deleteBlockBinding: Binding<Bool> {
         Binding(
-            get: { workoutToDelete != nil },
-            set: { if !$0 { workoutToDelete = nil } }
+            get: { blockToDelete != nil },
+            set: {
+                if !$0 {
+                    blockToDelete = nil
+                }
+            }
         )
     }
 }

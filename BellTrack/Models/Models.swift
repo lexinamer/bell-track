@@ -41,7 +41,6 @@ struct Complex: Identifiable, Codable, Equatable, Hashable {
     var exerciseIds: [String]
 }
 
-/// A complex with muscles resolved from its component exercises (runtime only)
 struct ResolvedComplex: Identifiable, Equatable, Hashable {
     let id: String
     let name: String

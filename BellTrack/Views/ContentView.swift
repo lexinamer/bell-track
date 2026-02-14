@@ -28,7 +28,8 @@ struct ContentView: View {
                     HistoryView()
                 }
                 .tabItem {
-                    Label("History", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
+                    Image(systemName: "clock.arrow.trianglehead.counterclockwise.rotate.90")
+                    Text("History")
                 }
                 
                 NavigationStack {

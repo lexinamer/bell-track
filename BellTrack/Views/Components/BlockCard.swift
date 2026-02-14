@@ -3,31 +3,19 @@ import SwiftUI
 struct BlockCard: View {
 
     let block: Block
-
-    // Optional overrides
     let workoutCount: Int?
     let templateCount: Int?
-
-    let onEdit: (() -> Void)?
-    let onComplete: (() -> Void)?
-    let onDelete: (() -> Void)?
 
     // MARK: - Init
 
     init(
         block: Block,
         workoutCount: Int? = nil,
-        templateCount: Int? = nil,
-        onEdit: (() -> Void)? = nil,
-        onComplete: (() -> Void)? = nil,
-        onDelete: (() -> Void)? = nil
+        templateCount: Int? = nil
     ) {
         self.block = block
         self.workoutCount = workoutCount
         self.templateCount = templateCount
-        self.onEdit = onEdit
-        self.onComplete = onComplete
-        self.onDelete = onDelete
     }
 
     // MARK: - Derived
@@ -106,7 +94,8 @@ struct BlockCard: View {
         .padding(Theme.Space.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(blockColor)
-        .cornerRadius(Theme.Radius.md)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md))
+        .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: Theme.Radius.md))
         .shadow(
             color: blockColor.opacity(0.25),
             radius: 6,
@@ -114,29 +103,5 @@ struct BlockCard: View {
             y: 3
         )
         .contentShape(Rectangle())
-        .contextMenu {
-
-            if let onEdit {
-
-                Button(action: onEdit) {
-                    Label("Edit", systemImage: "pencil")
-                }
-            }
-
-            if block.completedDate == nil,
-               let onComplete {
-
-                Button(action: onComplete) {
-                    Label("Complete", systemImage: "checkmark")
-                }
-            }
-
-            if let onDelete {
-
-                Button(role: .destructive, action: onDelete) {
-                    Label("Delete", systemImage: "trash")
-                }
-            }
-        }
     }
 }

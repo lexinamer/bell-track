@@ -67,8 +67,6 @@ struct WorkoutFormView: View {
                                 Spacer()
 
                                 Picker("Block", selection: $blockId) {
-                                    Text("None")
-                                        .tag(String?.none)
                                     ForEach(blocks) { block in
                                         Text(block.name)
                                             .tag(Optional(block.id))
@@ -76,6 +74,17 @@ struct WorkoutFormView: View {
                                 }
                                 .pickerStyle(.menu)
                                 .foregroundColor(.secondary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(Color(.systemBackground))
+                        } else {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .foregroundColor(.orange)
+                                Text("Create a block first to log workouts.")
+                                    .font(Theme.Font.cardSecondary)
+                                    .foregroundColor(.secondary)
                             }
                             .padding(.horizontal, 16)
                             .padding(.vertical, 12)
@@ -183,7 +192,7 @@ struct WorkoutFormView: View {
                             dismiss()
                         }
                     }
-                    .disabled(logs.isEmpty)
+                    .disabled(logs.isEmpty || blockId == nil)
                 }
             }
             .task {

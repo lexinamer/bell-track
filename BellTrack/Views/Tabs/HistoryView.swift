@@ -52,7 +52,7 @@ struct HistoryView: View {
                 }
             }
         }
-        .navigationTitle("History")
+        .navigationTitle("Workouts")
         .task {
             await workoutsVM.load()
         }
