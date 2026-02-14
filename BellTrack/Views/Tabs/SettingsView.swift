@@ -21,20 +21,6 @@ struct SettingsView: View {
     var body: some View {
         List {
 
-            // MARK: - Library
-            Section("Library") {
-
-                NavigationLink {
-                    ExercisesView()
-                } label: {
-                    settingsRow(
-                        title: "Exercises & Complexes",
-                        systemImage: "dumbbell"
-                    )
-                }
-
-            }
-
             // MARK: - Feedback
             Section("Feedback") {
 

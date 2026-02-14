@@ -17,6 +17,14 @@ struct ContentView: View {
                 }
                 
                 NavigationStack {
+                    InsightsView()
+                }
+                .tabItem {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                    Text("Insights")
+                }
+                
+                NavigationStack {
                     HistoryView()
                 }
                 .tabItem {
@@ -24,11 +32,11 @@ struct ContentView: View {
                 }
                 
                 NavigationStack {
-                    InsightsView()
+                    ExercisesView()
                 }
                 .tabItem {
-                    Image(systemName: "chart.line.uptrend.xyaxis")
-                    Text("Insights")
+                    Image(systemName: "dumbbell")
+                    Text("Exercises")
                 }
 
                 NavigationStack {
