@@ -59,7 +59,7 @@ struct InsightsView: View {
 
             Spacer()
 
-            Image(systemName: "chart.bar.xaxis")
+            Image(systemName: "chart.xyaxis.line")
                 .font(.system(size: 44))
                 .foregroundColor(.secondary)
 

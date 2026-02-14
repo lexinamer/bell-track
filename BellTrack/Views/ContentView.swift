@@ -12,31 +12,31 @@ struct ContentView: View {
                     TrainingView()
                 }
                 .tabItem {
-                    Image(systemName: "list.bullet.clipboard")
+                    Image(systemName: "square.stack.3d.up")
                     Text("Training")
-                }
-                
-                NavigationStack {
-                    InsightsView()
-                }
-                .tabItem {
-                    Image(systemName: "chart.line.uptrend.xyaxis")
-                    Text("Insights")
                 }
                 
                 NavigationStack {
                     HistoryView()
                 }
                 .tabItem {
-                    Image(systemName: "clock.arrow.trianglehead.counterclockwise.rotate.90")
+                    Image(systemName: "clock.arrow.circlepath")
                     Text("History")
+                }
+                
+                NavigationStack {
+                    InsightsView()
+                }
+                .tabItem {
+                    Image(systemName: "chart.xyaxis.line")
+                    Text("Insights")
                 }
                 
                 NavigationStack {
                     ExercisesView()
                 }
                 .tabItem {
-                    Image(systemName: "dumbbell")
+                    Image(systemName: "list.bullet")
                     Text("Exercises")
                 }
 
@@ -44,7 +44,7 @@ struct ContentView: View {
                     SettingsView()
                 }
                 .tabItem {
-                    Image(systemName: "gearshape")
+                    Image(systemName: "gear")
                     Text("Settings")
                 }
             }

@@ -259,7 +259,7 @@ struct TrainingView: View {
 
             Spacer()
 
-            Image(systemName: "figure.strengthtraining.traditional")
+            Image(systemName: "square.stack.3d.up")
                 .font(.system(size: 44))
                 .foregroundColor(.secondary)
 
