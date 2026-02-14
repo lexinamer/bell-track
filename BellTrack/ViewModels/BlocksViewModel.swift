@@ -78,6 +78,7 @@ final class BlocksViewModel: ObservableObject {
 
     // MARK: - Save
 
+    @discardableResult
     func saveBlock(
         id: String?,
         name: String,
@@ -85,11 +86,12 @@ final class BlocksViewModel: ObservableObject {
         type: BlockType,
         durationWeeks: Int?,
         notes: String? = nil,
-        colorIndex: Int? = nil
-    ) async {
+        colorIndex: Int? = nil,
+        pendingTemplates: [(name: String, entries: [TemplateEntry])] = []
+    ) async -> String? {
 
         do {
-            try await firestore.saveBlock(
+            let blockId = try await firestore.saveBlock(
                 id: id,
                 name: name,
                 startDate: startDate,
@@ -98,9 +100,21 @@ final class BlocksViewModel: ObservableObject {
                 notes: notes,
                 colorIndex: colorIndex
             )
+
+            for template in pendingTemplates {
+                try await firestore.saveWorkoutTemplate(
+                    id: nil,
+                    name: template.name,
+                    blockId: blockId,
+                    entries: template.entries
+                )
+            }
+
             await load()
+            return blockId
         } catch {
             print("❌ Failed to save block:", error)
+            return nil
         }
     }
 

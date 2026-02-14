@@ -160,7 +160,7 @@ struct TrainingView: View {
 
             BlockFormView(
                 blocksVM: blocksVM,
-                onSave: { name, start, type, duration, notes, color in
+                onSave: { name, start, type, duration, notes, color, pendingTemplates in
 
                     Task {
 
@@ -171,7 +171,8 @@ struct TrainingView: View {
                             type: type,
                             durationWeeks: duration,
                             notes: notes,
-                            colorIndex: color
+                            colorIndex: color,
+                            pendingTemplates: pendingTemplates
                         )
 
                         showingNewBlock = false
@@ -284,24 +285,27 @@ struct TrainingView: View {
             }
             .padding(.horizontal)
 
-            LazyVGrid(
-                columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ],
-                spacing: Theme.Space.md
-            ) {
-
+            LazyVStack(spacing: Theme.Space.md) {
                 ForEach(activeBlocks) { block in
-
                     BlockCard(
                         block: block,
                         workoutCount: blocksVM.workoutCounts[block.id],
                         templateCount: blocksVM.templatesForBlock(block.id).count,
-                        onEdit: {},
-                        onComplete: {},
-                        onDelete: {}
+                        onEdit: {
+                            selectedBlock = block
+                        },
+                        onComplete: {
+                            Task {
+                                await blocksVM.completeBlock(id: block.id)
+                            }
+                        },
+                        onDelete: {
+                            Task {
+                                await blocksVM.deleteBlock(id: block.id)
+                            }
+                        }
                     )
+                    .frame(maxWidth: .infinity)
                     .onTapGesture {
                         selectedBlock = block
                     }

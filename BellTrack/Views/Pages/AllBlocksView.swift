@@ -100,7 +100,7 @@ struct AllBlocksView: View {
         .fullScreenCover(isPresented: $showingNewBlock) {
             BlockFormView(
                 blocksVM: blocksVM,
-                onSave: { name, start, type, duration, notes, color in
+                onSave: { name, start, type, duration, notes, color, pendingTemplates in
                     Task {
 
                         await blocksVM.saveBlock(
@@ -110,7 +110,8 @@ struct AllBlocksView: View {
                             type: type,
                             durationWeeks: duration,
                             notes: notes,
-                            colorIndex: color
+                            colorIndex: color,
+                            pendingTemplates: pendingTemplates
                         )
                         showingNewBlock = false
                     }
@@ -124,7 +125,7 @@ struct AllBlocksView: View {
             BlockFormView(
                 block: block,
                 blocksVM: blocksVM,
-                onSave: { name, startDate, type, durationWeeks, notes, colorIndex in
+                onSave: { name, startDate, type, durationWeeks, notes, colorIndex, _ in
                     Task {
                         await blocksVM.saveBlock(
                             id: block.id,

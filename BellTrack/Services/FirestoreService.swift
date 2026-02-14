@@ -285,6 +285,7 @@ final class FirestoreService {
         }
     }
 
+    @discardableResult
     func saveBlock(
         id: String?,
         name: String,
@@ -294,7 +295,7 @@ final class FirestoreService {
         completedDate: Date? = nil,
         notes: String? = nil,
         colorIndex: Int? = nil
-    ) async throws {
+    ) async throws -> String {
 
         let ref = try userRef()
         let doc = id == nil
@@ -321,6 +322,7 @@ final class FirestoreService {
         }
 
         try await doc.setData(data)
+        return doc.documentID
     }
 
     func deleteBlock(id: String) async throws {
