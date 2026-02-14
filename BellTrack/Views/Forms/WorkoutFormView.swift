@@ -137,8 +137,12 @@ struct WorkoutFormView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Log Workout")
             .navigationBarTitleDisplayMode(.inline)
-            .onChange(of: blockId) { _, _ in
+            .onChange(of: blockId) { _, newBlockId in
                 selectedTemplateId = nil
+                if let newBlockId {
+                    selectedTemplateId =
+                        templates.first(where: { $0.blockId == newBlockId })?.id
+                }
             }
             .onChange(of: selectedTemplateId) { _, newTemplateId in
                 guard let templateId = newTemplateId,
@@ -399,5 +403,13 @@ struct WorkoutFormView: View {
         blocks = (try? await firestore.fetchBlocks()) ?? []
         templates = (try? await firestore.fetchWorkoutTemplates()) ?? []
         workouts = (try? await firestore.fetchWorkouts()) ?? []
+
+        if workout == nil, blockId == nil {
+
+            blockId = blocks
+                .filter { $0.completedDate == nil && $0.startDate <= Date() }
+                .sorted { $0.startDate > $1.startDate }
+                .first?.id
+        }
     }
 }
