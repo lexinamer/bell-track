@@ -11,6 +11,9 @@ struct BlockDetailView: View {
     @State private var showingEdit = false
     @State private var showingDeleteAlert = false
     @State private var showingCompleteAlert = false
+    @State private var editingWorkout: Workout?
+    @State private var workoutToDelete: Workout?
+
 
     // MARK: - Derived
 
@@ -60,6 +63,38 @@ struct BlockDetailView: View {
         .task {
             await workoutsVM.load()
         }
+        .fullScreenCover(item: $editingWorkout) { workout in
+            WorkoutFormView(
+                workout: workout,
+                onSave: {
+                    editingWorkout = nil
+                    Task { await workoutsVM.load() }
+                },
+                onCancel: {
+                    editingWorkout = nil
+                }
+            )
+        }
+        .alert("Delete Workout?", isPresented: Binding(
+            get: { workoutToDelete != nil },
+            set: { if !$0 { workoutToDelete = nil } }
+        )) {
+
+            Button("Cancel", role: .cancel) {}
+
+            Button("Delete", role: .destructive) {
+                if let workout = workoutToDelete {
+                    Task {
+                        await workoutsVM.deleteWorkout(id: workout.id)
+                        await workoutsVM.load()
+                    }
+                }
+            }
+
+        } message: {
+            Text("This will permanently delete this workout.")
+        }
+
         .alert("Delete Block?", isPresented: $showingDeleteAlert) {
 
             Button("Cancel", role: .cancel) { }
@@ -190,8 +225,18 @@ struct BlockDetailView: View {
 
                         WorkoutCard(
                             workout: workout,
-                            badgeColor: blockColor
+                            badgeColor: blockColor,
+                            onEdit: {
+                                editingWorkout = workout
+                            },
+                            onDuplicate: {
+                                editingWorkout = workoutsVM.duplicate(workout)
+                            },
+                            onDelete: {
+                                workoutToDelete = workout
+                            }
                         )
+
                     }
                 }
             }

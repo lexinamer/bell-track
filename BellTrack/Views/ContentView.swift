@@ -17,18 +17,18 @@ struct ContentView: View {
                 }
                 
                 NavigationStack {
+                    HistoryView()
+                }
+                .tabItem {
+                    Label("History", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
+                }
+                
+                NavigationStack {
                     InsightsView()
                 }
                 .tabItem {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                     Text("Insights")
-                }
-                
-                NavigationStack {
-//                    HistoryView()
-                }
-                .tabItem {
-                    Label("History", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
                 }
 
                 NavigationStack {

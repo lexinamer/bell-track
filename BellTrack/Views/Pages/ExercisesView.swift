@@ -65,7 +65,7 @@ struct ExercisesView: View {
 
         // MARK: Sheets
 
-        .sheet(item: $editingExercise) { exercise in
+        .fullScreenCover(item: $editingExercise) { exercise in
             ExerciseFormView(
                 exercise: exercise,
                 onSave: { name, primary, secondary in
@@ -83,7 +83,7 @@ struct ExercisesView: View {
             )
         }
 
-        .sheet(isPresented: $showingNewForm) {
+        .fullScreenCover(isPresented: $showingNewForm) {
             ExerciseFormView(
                 onSave: { name, primary, secondary in
                     Task {
@@ -100,7 +100,7 @@ struct ExercisesView: View {
             )
         }
 
-        .sheet(isPresented: $showingNewComplexForm) {
+        .fullScreenCover(isPresented: $showingNewComplexForm) {
             ComplexFormView(
                 exercises: vm.exercises,
                 onSave: { name, ids in

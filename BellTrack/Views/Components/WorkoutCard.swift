@@ -51,7 +51,7 @@ struct WorkoutCard: View {
         }
     }
 
-    // MARK: - Derived Properties
+    // MARK: - Derived
 
     private var badgeColor: Color {
         externalBadgeColor ?? ColorTheme.unassignedWorkoutColor
@@ -104,27 +104,30 @@ struct WorkoutCard: View {
             x: 0,
             y: 2
         )
-        .contextMenu {
+        .contentShape(Rectangle()) // critical
+        .contextMenu { contextMenu }
+    }
 
-            if let onEdit {
+    // MARK: - Context Menu
 
-                Button(action: onEdit) {
-                    Label("Edit", systemImage: "pencil")
-                }
+    @ViewBuilder
+    private var contextMenu: some View {
+
+        if let onEdit {
+            Button(action: onEdit) {
+                Label("Edit", systemImage: "pencil")
             }
+        }
 
-            if let onDuplicate {
-
-                Button(action: onDuplicate) {
-                    Label("Duplicate", systemImage: "doc.on.doc")
-                }
+        if let onDuplicate {
+            Button(action: onDuplicate) {
+                Label("Duplicate", systemImage: "doc.on.doc")
             }
+        }
 
-            if let onDelete {
-
-                Button(role: .destructive, action: onDelete) {
-                    Label("Delete", systemImage: "trash")
-                }
+        if let onDelete {
+            Button(role: .destructive, action: onDelete) {
+                Label("Delete", systemImage: "trash")
             }
         }
     }
