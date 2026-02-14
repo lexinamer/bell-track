@@ -21,7 +21,8 @@ struct SimpleCard<Content: View>: View {
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.systemBackground))
-        .cornerRadius(Theme.Radius.md)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md))
+        .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: Theme.Radius.md))
         .shadow(
             color: .black.opacity(0.05),
             radius: 2,
