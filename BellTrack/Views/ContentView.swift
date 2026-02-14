@@ -15,7 +15,7 @@ struct ContentView: View {
                     Image(systemName: "list.bullet.clipboard")
                     Text("Training")
                 }
-
+                
                 NavigationStack {
                     InsightsView()
                 }
@@ -23,13 +23,12 @@ struct ContentView: View {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                     Text("Insights")
                 }
-
+                
                 NavigationStack {
-                    ExercisesView()
+//                    HistoryView()
                 }
                 .tabItem {
-                    Image(systemName: "dumbbell")
-                    Text("Exercises")
+                    Label("History", systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
                 }
 
                 NavigationStack {

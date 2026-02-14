@@ -126,7 +126,7 @@ struct ExerciseDetailView: View {
             Text("Muscles")
                 .font(Theme.Font.sectionTitle)
 
-            MuscleTagsView(
+            MuscleTags(
                 primaryMuscles: stats.primaryMuscles,
                 secondaryMuscles: stats.secondaryMuscles
             )
