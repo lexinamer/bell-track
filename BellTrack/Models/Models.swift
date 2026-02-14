@@ -26,7 +26,7 @@ enum MuscleGroup: String, Codable, CaseIterable {
 
 // MARK: - Exercise
 
-struct Exercise: Identifiable, Codable, Equatable {
+struct Exercise: Identifiable, Codable, Equatable, Hashable {
     let id: String
     var name: String
     var primaryMuscles: [MuscleGroup]
@@ -35,14 +35,14 @@ struct Exercise: Identifiable, Codable, Equatable {
 
 // MARK: - Complex
 
-struct Complex: Identifiable, Codable, Equatable {
+struct Complex: Identifiable, Codable, Equatable, Hashable {
     let id: String
     var name: String
     var exerciseIds: [String]
 }
 
 /// A complex with muscles resolved from its component exercises (runtime only)
-struct ResolvedComplex: Identifiable, Equatable {
+struct ResolvedComplex: Identifiable, Equatable, Hashable {
     let id: String
     let name: String
     let exerciseIds: [String]
@@ -98,12 +98,12 @@ struct WorkoutTemplate: Identifiable, Codable, Equatable {
 
 // MARK: - Block
 
-enum BlockType: String, Codable, CaseIterable {
+enum BlockType: String, Codable, CaseIterable, Hashable {
     case duration
     case ongoing
 }
 
-struct Block: Identifiable, Codable, Equatable {
+struct Block: Identifiable, Codable, Equatable, Hashable {
     let id: String
     var name: String
     var startDate: Date

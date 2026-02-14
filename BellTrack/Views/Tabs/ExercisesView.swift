@@ -101,8 +101,8 @@ struct ExercisesView: View {
                 }
             )
         }
-        .sheet(item: $selectedExercise) { exercise in
-            DetailView(exercise: exercise)
+        .navigationDestination(item: $selectedExercise) {
+            ExerciseDetailView(exercise: $0)
         }
         // Complex sheets
         .sheet(isPresented: $showingNewComplexForm) {
@@ -138,8 +138,11 @@ struct ExercisesView: View {
                 }
             )
         }
-        .sheet(item: $selectedComplex) { resolved in
-            complexDetailView(for: resolved)
+        .navigationDestination(item: $selectedComplex) {
+            ExerciseDetailView(
+                resolvedComplex: $0,
+                exercises: vm.exercises
+            )
         }
         .alert("Delete Exercise?", isPresented: .init(
             get: { exerciseToDelete != nil },
@@ -260,11 +263,11 @@ struct ExercisesView: View {
                     .foregroundColor(.primary)
                     .lineLimit(2)
 
-//                MuscleTagsView(
-//                    primaryMuscles: exercise.primaryMuscles,
-//                    secondaryMuscles: exercise.secondaryMuscles
-//                )
-//                .padding(.top, Theme.Space.xs)
+                MuscleTagsView(
+                    primaryMuscles: exercise.primaryMuscles,
+                    secondaryMuscles: exercise.secondaryMuscles
+                )
+                .padding(.top, Theme.Space.xs)
             }
         }
     }
@@ -295,12 +298,6 @@ struct ExercisesView: View {
                     .lineLimit(1)
             }
         }
-    }
-
-    // MARK: - Complex Detail Helper
-
-    private func complexDetailView(for resolved: ResolvedComplex) -> DetailView {
-        DetailView(resolvedComplex: resolved, exercises: vm.exercises)
     }
 
     // MARK: - Empty States

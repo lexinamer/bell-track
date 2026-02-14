@@ -40,7 +40,6 @@ struct ContentView: View {
                     Text("Settings")
                 }
             }
-            .tint(Color.brand.primary)
             .background(Color.brand.background)
             .task {
                 try? await FirestoreService().seedDefaultExercisesIfNeeded()

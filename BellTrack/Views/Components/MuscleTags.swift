@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct MuscleTagsView: View {
+struct MuscleTags: View {
     let primaryMuscles: [MuscleGroup]
     let secondaryMuscles: [MuscleGroup]
     var spacing: CGFloat = Theme.Space.xs

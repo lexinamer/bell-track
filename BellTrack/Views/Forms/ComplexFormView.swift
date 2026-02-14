@@ -75,7 +75,7 @@ struct ComplexFormView: View {
                 // Live preview of derived muscles
                 if !selectedExerciseIds.isEmpty {
                     Section("Derived Muscles") {
-                        MuscleTagsView(
+                        MuscleTags(
                             primaryMuscles: derivedPrimary,
                             secondaryMuscles: derivedSecondary
                         )

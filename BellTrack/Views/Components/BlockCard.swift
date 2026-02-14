@@ -3,112 +3,139 @@ import SwiftUI
 struct BlockCard: View {
 
     let block: Block
-    let workoutCount: Int
-    let templateCount: Int
-    let isExpanded: Bool
-    let backgroundColor: Color
 
-    let onToggle: () -> Void
-    let onEdit: () -> Void
-    let onComplete: () -> Void
-    let onDelete: () -> Void
+    // Optional overrides
+    let workoutCount: Int?
+    let templateCount: Int?
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+    let onEdit: (() -> Void)?
+    let onComplete: (() -> Void)?
+    let onDelete: (() -> Void)?
 
-            // Name
-            Text(block.name)
-                .font(Theme.Font.cardTitle)
-                .fontWeight(.semibold)
-                .foregroundColor(.white)
-                .lineLimit(1)
+    // MARK: - Init
 
-            // Progress text
-            Text(progressText)
-                .font(Theme.Font.cardCaption)
-                .foregroundColor(.white)
-
-            // Workout count
-            Text("\(workoutCount) workouts\(templateCount > 0 ? " \u{00B7} \(templateCount) templates" : "")")
-                .font(Theme.Font.cardCaption)
-                .foregroundColor(.white)
-
-            // Expanded notes
-            if isExpanded, let notes = block.notes, !notes.isEmpty {
-                Text("Goal: \(notes)")
-                    .font(Theme.Font.cardCaption)
-                    .foregroundColor(.white)
-                    .padding(.top, Theme.Space.xs)
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(
-            ZStack {
-                backgroundColor
-                if isExpanded {
-                    Color.black.opacity(0.15)
-                }
-            }
-        )
-        .cornerRadius(12)
-        .shadow(
-            color: isExpanded
-                ? backgroundColor.opacity(0.6)
-                : Color.black.opacity(0.1),
-            radius: isExpanded ? 10 : 2,
-            x: 0,
-            y: isExpanded ? 5 : 1
-        )
-        .contentShape(Rectangle())
-        .onTapGesture {
-            withAnimation { onToggle() }
-        }
-        .contextMenu {
-            Button(action: onEdit) {
-                Label("Edit", systemImage: "pencil")
-            }
-
-            if block.completedDate == nil {
-                Button(action: onComplete) {
-                    Label("Complete", systemImage: "checkmark")
-                }
-            }
-
-            Button(role: .destructive, action: onDelete) {
-                Label("Delete", systemImage: "trash")
-            }
-            .tint(.red)
-        }
+    init(
+        block: Block,
+        workoutCount: Int? = nil,
+        templateCount: Int? = nil,
+        onEdit: (() -> Void)? = nil,
+        onComplete: (() -> Void)? = nil,
+        onDelete: (() -> Void)? = nil
+    ) {
+        self.block = block
+        self.workoutCount = workoutCount
+        self.templateCount = templateCount
+        self.onEdit = onEdit
+        self.onComplete = onComplete
+        self.onDelete = onDelete
     }
 
-    // MARK: - Progress Text (now belongs here)
+    // MARK: - Derived
+
+    private var blockColor: Color {
+        ColorTheme.blockColor(for: block.colorIndex)
+    }
+
+    private var workoutText: String {
+
+        guard let workoutCount else { return "" }
+
+        return "\(workoutCount) workouts"
+    }
 
     private var progressText: String {
+
         switch block.type {
+
         case .ongoing:
-            let weeksSinceStart =
+
+            let weeks =
                 Calendar.current.dateComponents(
                     [.weekOfYear],
                     from: block.startDate,
                     to: Date()
                 ).weekOfYear ?? 0
 
-            return "Week \(max(1, weeksSinceStart + 1)) (ongoing)"
+            return "Week \(max(1, weeks + 1)) (ongoing)"
 
         case .duration:
-            if let weeks = block.durationWeeks {
-                let weeksSinceStart =
-                    Calendar.current.dateComponents(
-                        [.weekOfYear],
-                        from: block.startDate,
-                        to: Date()
-                    ).weekOfYear ?? 0
 
-                let currentWeek = min(max(1, weeksSinceStart + 1), weeks)
-                return "Week \(currentWeek) of \(weeks)"
-            } else {
+            guard let duration = block.durationWeeks else {
                 return ""
+            }
+
+            let weeks =
+                Calendar.current.dateComponents(
+                    [.weekOfYear],
+                    from: block.startDate,
+                    to: Date()
+                ).weekOfYear ?? 0
+
+            let current =
+                min(max(1, weeks + 1), duration)
+
+            return "Week \(current) of \(duration)"
+        }
+    }
+
+    // MARK: - View
+
+    var body: some View {
+
+        VStack(
+            alignment: .leading,
+            spacing: Theme.Space.xs
+        ) {
+
+            Text(block.name)
+                .font(Theme.Font.cardTitle)
+                .foregroundColor(.white)
+                .lineLimit(1)
+
+            Text(progressText)
+                .font(Theme.Font.cardCaption)
+                .foregroundColor(.white.opacity(0.9))
+
+            if !workoutText.isEmpty {
+
+                Text(workoutText)
+                    .font(Theme.Font.cardCaption)
+                    .foregroundColor(.white.opacity(0.9))
+            }
+        }
+        .padding(Theme.Space.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(blockColor)
+        .cornerRadius(Theme.Radius.md)
+        .shadow(
+            color: blockColor.opacity(0.25),
+            radius: 6,
+            x: 0,
+            y: 3
+        )
+        .contentShape(Rectangle())
+        .contextMenu {
+
+            if let onEdit {
+
+                Button(action: onEdit) {
+                    Label("Edit", systemImage: "pencil")
+                }
+            }
+
+            if block.completedDate == nil,
+               let onComplete {
+
+                Button(action: onComplete) {
+                    Label("Complete", systemImage: "checkmark")
+                }
+            }
+
+            if let onDelete {
+
+                Button(role: .destructive, action: onDelete) {
+                    Label("Delete", systemImage: "trash")
+                }
             }
         }
     }

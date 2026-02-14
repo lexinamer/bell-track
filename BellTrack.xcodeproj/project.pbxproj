@@ -40,7 +40,6 @@
 			isa = PBXGroup;
 			children = (
 				310C718C2F033644004417B4 /* BellTrack */,
-				310C71A62F033DCE004417B4 /* Frameworks */,
 				310C718B2F033644004417B4 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -51,13 +50,6 @@
 				310C718A2F033644004417B4 /* BellTrack.app */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		310C71A62F033DCE004417B4 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
