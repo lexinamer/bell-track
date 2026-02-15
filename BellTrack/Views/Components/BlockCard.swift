@@ -20,10 +20,6 @@ struct BlockCard: View {
 
     // MARK: - Derived
 
-    private var blockColor: Color {
-        ColorTheme.blockColor(for: block.colorIndex)
-    }
-
     private var workoutText: String {
 
         guard let workoutCount else { return "" }
@@ -49,37 +45,45 @@ struct BlockCard: View {
 
     var body: some View {
 
-        VStack(
-            alignment: .leading,
-            spacing: Theme.Space.xs
-        ) {
+        HStack(spacing: 0) {
 
-            Text(block.name)
-                .font(Theme.Font.cardTitle)
-                .foregroundColor(.white)
-                .lineLimit(1)
+            // Purple accent bar
+            Rectangle()
+                .fill(ColorTheme.blockColor)
+                .frame(width: 4)
 
-            Text(progressText)
-                .font(Theme.Font.cardCaption)
-                .foregroundColor(.white.opacity(0.9))
+            VStack(
+                alignment: .leading,
+                spacing: Theme.Space.xs
+            ) {
 
-            if !workoutText.isEmpty {
+                Text(block.name)
+                    .font(Theme.Font.cardTitle)
+                    .foregroundColor(Color.brand.textPrimary)
+                    .lineLimit(1)
 
-                Text(workoutText)
+                Text(progressText)
                     .font(Theme.Font.cardCaption)
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(Color.brand.textSecondary)
+
+                if !workoutText.isEmpty {
+
+                    Text(workoutText)
+                        .font(Theme.Font.cardCaption)
+                        .foregroundColor(Color.brand.textSecondary)
+                }
             }
+            .padding(Theme.Space.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(Theme.Space.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(blockColor)
+        .background(Color.brand.surface)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md))
         .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: Theme.Radius.md))
         .shadow(
-            color: blockColor.opacity(0.25),
-            radius: 6,
+            color: Color.black.opacity(0.25),
+            radius: 8,
             x: 0,
-            y: 3
+            y: 2
         )
         .contentShape(Rectangle())
     }

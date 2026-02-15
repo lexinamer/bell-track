@@ -18,10 +18,6 @@ struct BlockDetailView: View {
 
     // MARK: - Derived
 
-    private var blockColor: Color {
-        ColorTheme.blockColor(for: block.colorIndex)
-    }
-
     private var workouts: [Workout] {
         workoutsVM.workouts(for: block.id)
     }
@@ -90,7 +86,7 @@ struct BlockDetailView: View {
             BlockFormView(
                 block: block,
                 blocksVM: blocksVM,
-                onSave: { name, startDate, endDate, notes, colorIndex, _ in
+                onSave: { name, startDate, endDate, notes, _, _ in
                     Task {
                         await blocksVM.saveBlock(
                             id: block.id,
@@ -98,7 +94,7 @@ struct BlockDetailView: View {
                             startDate: startDate,
                             endDate: endDate,
                             notes: notes,
-                            colorIndex: colorIndex
+                            colorIndex: nil
                         )
                         showingEdit = false
                     }
@@ -170,15 +166,16 @@ struct BlockDetailView: View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
 
             Text(block.name)
-                .font(.system(size: 28, weight: .bold))
-                .foregroundColor(.primary)
+                .font(Theme.Font.pageTitle)
+                .foregroundColor(Color.brand.textPrimary)
 
             Text(progressText)
                 .font(Theme.Font.cardSecondary)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.brand.textSecondary)
 
             if let goal = block.notes, !goal.isEmpty {
                 Text("\(Text("Goal: ").fontWeight(.semibold))\(Text(goal))")
+                    .foregroundColor(Color.brand.textPrimary)
             }
         }
     }
@@ -203,18 +200,19 @@ struct BlockDetailView: View {
         .padding(.vertical, Theme.Space.smp)
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                .fill(Color(.secondarySystemBackground))
+                .fill(Color.brand.surface)
         )
     }
+    
     private func statItem(value: Int, label: String) -> some View {
         VStack(spacing: Theme.Space.xs) {
             Text("\(value)")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(.primary)
+                .font(Theme.Font.statValue)
+                .foregroundColor(Color.brand.textPrimary)
 
             Text(label)
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
+                .font(Theme.Font.statLabel)
+                .foregroundColor(Color.brand.textSecondary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -230,7 +228,7 @@ struct BlockDetailView: View {
                     ForEach(workouts) { workout in
                         WorkoutCard(
                             workout: workout,
-                            badgeColor: blockColor,
+                            badgeColor: ColorTheme.blockColor,
                             onEdit: {
                                 editingWorkout = workout
                             },
@@ -251,12 +249,13 @@ struct BlockDetailView: View {
         VStack(spacing: Theme.Space.sm) {
             Image(systemName: "figure.strengthtraining.traditional")
                 .font(.system(size: Theme.IconSize.lg))
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.brand.textSecondary)
             Text("No workouts yet")
                 .font(Theme.Font.emptyStateTitle)
+                .foregroundColor(Color.brand.textPrimary)
             Text("Workouts assigned to this block will appear here.")
                 .font(Theme.Font.emptyStateDescription)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.brand.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Space.lg)

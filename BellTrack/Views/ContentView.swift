@@ -13,15 +13,15 @@ struct ContentView: View {
                 }
                 .tabItem {
                     Image(systemName: "square.stack.3d.up")
-                    Text("Training")
+                    Text("Blocks")
                 }
-                
+
                 NavigationStack {
                     HistoryView()
                 }
                 .tabItem {
                     Image(systemName: "clock.arrow.circlepath")
-                    Text("History")
+                    Text("Workouts")
                 }
                 
                 NavigationStack {
@@ -30,14 +30,6 @@ struct ContentView: View {
                 .tabItem {
                     Image(systemName: "chart.xyaxis.line")
                     Text("Insights")
-                }
-                
-                NavigationStack {
-                    ExercisesView()
-                }
-                .tabItem {
-                    Image(systemName: "list.bullet")
-                    Text("Exercises")
                 }
 
                 NavigationStack {

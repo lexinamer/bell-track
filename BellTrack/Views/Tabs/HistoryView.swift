@@ -107,6 +107,7 @@ struct HistoryView: View {
                 format: .dateTime.month(.abbreviated).year()
             )
             .font(Theme.Font.sectionTitle)
+            .foregroundColor(Color.brand.textPrimary)
             .padding(.horizontal)
             LazyVStack(
                 spacing: Theme.Space.md
@@ -139,12 +140,13 @@ struct HistoryView: View {
         ) {
             Image(systemName: "clock.arrow.circlepath")
                 .font(.system(size: Theme.IconSize.xl))
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.brand.textSecondary)
             Text("No workout history")
                 .font(Theme.Font.emptyStateTitle)
+                .foregroundColor(Color.brand.textPrimary)
             Text("Your completed workouts will appear here.")
                 .font(Theme.Font.emptyStateDescription)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.brand.textSecondary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -162,4 +164,3 @@ struct HistoryView: View {
         )
     }
 }
-

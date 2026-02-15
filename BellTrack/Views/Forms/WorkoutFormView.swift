@@ -12,7 +12,6 @@ struct WorkoutFormView: View {
     @State private var blockId: String?
     @State private var logs: [WorkoutLog]
     @State private var exercises: [Exercise] = []
-    @State private var complexes: [Complex] = []
     @State private var blocks: [Block] = []
     @State private var templates: [WorkoutTemplate] = []
     @State private var workouts: [Workout] = []
@@ -42,28 +41,30 @@ struct WorkoutFormView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 32) {
+                VStack(spacing: Theme.Space.xl) {
 
                     // MARK: - Meta Section
                     VStack(spacing: 0) {
                         // Date Picker
                         HStack {
                             Text("Date")
+                                .foregroundColor(Color.brand.textPrimary)
                             Spacer()
                             DatePicker("", selection: $date, displayedComponents: .date)
                                 .labelsHidden()
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(Color(.systemBackground))
+                        .padding(.horizontal, Theme.Space.md)
+                        .padding(.vertical, Theme.Space.smp)
+                        .background(Color.brand.surface)
 
                         Divider()
-                            .padding(.leading, 16)
+                            .padding(.leading, Theme.Space.md)
 
                         // Block Selector
                         if !blocks.isEmpty {
                             HStack {
                                 Text("Block")
+                                    .foregroundColor(Color.brand.textPrimary)
                                 Spacer()
 
                                 Picker("Block", selection: $blockId) {
@@ -73,33 +74,34 @@ struct WorkoutFormView: View {
                                     }
                                 }
                                 .pickerStyle(.menu)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color.brand.textSecondary)
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .background(Color(.systemBackground))
+                            .padding(.horizontal, Theme.Space.md)
+                            .padding(.vertical, Theme.Space.smp)
+                            .background(Color.brand.surface)
                         } else {
                             HStack {
                                 Image(systemName: "exclamationmark.triangle")
                                     .foregroundColor(.orange)
                                 Text("Create a block first to log workouts.")
                                     .font(Theme.Font.cardSecondary)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Color.brand.textSecondary)
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .background(Color(.systemBackground))
+                            .padding(.horizontal, Theme.Space.md)
+                            .padding(.vertical, Theme.Space.smp)
+                            .background(Color.brand.surface)
                         }
 
-                        // Template Selector (only when a block is selected and has templates)
+                        // Template Selector
                         if let currentBlockId = blockId {
                             let blockTemplates = templates.filter { $0.blockId == currentBlockId }
                             if !blockTemplates.isEmpty {
                                 Divider()
-                                    .padding(.leading, 16)
+                                    .padding(.leading, Theme.Space.md)
 
                                 HStack {
                                     Text("Template")
+                                        .foregroundColor(Color.brand.textPrimary)
                                     Spacer()
 
                                     Picker("Template", selection: $selectedTemplateId) {
@@ -111,15 +113,15 @@ struct WorkoutFormView: View {
                                         }
                                     }
                                     .pickerStyle(.menu)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Color.brand.textSecondary)
                                 }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
-                                .background(Color(.systemBackground))
+                                .padding(.horizontal, Theme.Space.md)
+                                .padding(.vertical, Theme.Space.smp)
+                                .background(Color.brand.surface)
                             }
                         }
                     }
-                    .cornerRadius(12)
+                    .cornerRadius(Theme.Radius.md)
                     .padding(.horizontal)
 
                     // MARK: - Exercises Section
@@ -138,12 +140,12 @@ struct WorkoutFormView: View {
                             .foregroundColor(Color.brand.primary)
                         }
                         .padding(.horizontal)
-                        .padding(.top, 8)
+                        .padding(.top, Theme.Space.sm)
                     }
                 }
                 .padding(.vertical)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(Color.brand.background)
             .navigationTitle("Log Workout")
             .navigationBarTitleDisplayMode(.inline)
             .onChange(of: blockId) { _, newBlockId in
@@ -159,16 +161,12 @@ struct WorkoutFormView: View {
                 else { return }
 
                 logs = template.entries.map { entry in
-                    let recent = mostRecentLog(
-                        exerciseId: entry.exerciseId,
-                        isComplex: entry.isComplex
-                    )
+                    let recent = mostRecentLog(exerciseId: entry.exerciseId)
 
                     return WorkoutLog(
                         id: UUID().uuidString,
                         exerciseId: entry.exerciseId,
                         exerciseName: entry.exerciseName,
-                        isComplex: entry.isComplex,
                         sets: recent?.sets,
                         reps: recent?.reps,
                         weight: recent?.weight,
@@ -213,29 +211,12 @@ struct WorkoutFormView: View {
                 if log.exerciseName.wrappedValue.isEmpty {
                     // No exercise selected — show picker
                     Menu {
-                        if !complexes.isEmpty {
-                            Section("Complexes") {
-                                ForEach(complexes) { complex in
-                                    Button {
-                                        log.exerciseId.wrappedValue = complex.id
-                                        log.exerciseName.wrappedValue = complex.name
-                                        log.isComplex.wrappedValue = true
-                                    } label: {
-                                        Label(complex.name, systemImage: "rectangle.stack")
-                                    }
-                                }
-                            }
-                        }
-
-                        Section("Exercises") {
-                            ForEach(exercises) { exercise in
-                                Button {
-                                    log.exerciseId.wrappedValue = exercise.id
-                                    log.exerciseName.wrappedValue = exercise.name
-                                    log.isComplex.wrappedValue = false
-                                } label: {
-                                    Text(exercise.name)
-                                }
+                        ForEach(exercises) { exercise in
+                            Button {
+                                log.exerciseId.wrappedValue = exercise.id
+                                log.exerciseName.wrappedValue = exercise.name
+                            } label: {
+                                Text(exercise.name)
                             }
                         }
                     } label: {
@@ -243,11 +224,11 @@ struct WorkoutFormView: View {
                             Text("Select exercise")
                                 .font(Theme.Font.cardTitle)
                                 .fontWeight(.semibold)
-                                .foregroundColor(.gray)
+                                .foregroundColor(Color.brand.textSecondary)
 
                             Image(systemName: "chevron.up.chevron.down")
                                 .font(.system(size: 12))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color.brand.textSecondary)
                         }
                     }
                 } else {
@@ -255,6 +236,7 @@ struct WorkoutFormView: View {
                     Text(log.exerciseName.wrappedValue)
                         .font(Theme.Font.cardTitle)
                         .fontWeight(.semibold)
+                        .foregroundColor(Color.brand.textPrimary)
                         .lineLimit(1)
                 }
 
@@ -265,7 +247,7 @@ struct WorkoutFormView: View {
                     showingNotes[logId] = !(showingNotes[logId] ?? false)
                 } label: {
                     Image(systemName: "square.and.pencil")
-                        .foregroundColor(.gray)
+                        .foregroundColor(Color.brand.textSecondary)
                         .font(Theme.Font.cardSecondary)
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -275,7 +257,7 @@ struct WorkoutFormView: View {
                     removeLog(logId)
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.gray)
+                        .foregroundColor(Color.brand.textSecondary)
                         .font(Theme.Font.cardTitle)
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -287,43 +269,46 @@ struct WorkoutFormView: View {
                     Text("Sets")
                         .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color.brand.textSecondary)
 
                     TextField("5", value: log.sets, format: .number)
                         .keyboardType(.numberPad)
                         .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
+                        .background(Color.brand.background)
+                        .foregroundColor(Color.brand.textPrimary)
+                        .cornerRadius(Theme.Radius.sm)
                 }
 
                 VStack(alignment: .leading, spacing: Theme.Space.sm) {
                     Text("Reps/Time")
                         .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color.brand.textSecondary)
 
                     TextField("8 or :30", text: Binding(
                         get: { log.reps.wrappedValue ?? "" },
                         set: { log.reps.wrappedValue = $0.isEmpty ? nil : $0 }
                     ))
                     .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
+                    .background(Color.brand.background)
+                    .foregroundColor(Color.brand.textPrimary)
+                    .cornerRadius(Theme.Radius.sm)
                 }
 
                 VStack(alignment: .leading, spacing: Theme.Space.sm) {
                     Text("Weight (kg)")
                         .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color.brand.textSecondary)
 
                     TextField("12", text: Binding(
                         get: { log.weight.wrappedValue ?? "" },
                         set: { log.weight.wrappedValue = $0.isEmpty ? nil : $0 }
                     ))
                     .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
+                    .background(Color.brand.background)
+                    .foregroundColor(Color.brand.textPrimary)
+                    .cornerRadius(Theme.Radius.sm)
                 }
             }
 
@@ -333,23 +318,24 @@ struct WorkoutFormView: View {
                     Text("Notes")
                         .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(Color.brand.textSecondary)
 
                     TextField("Assistance, progression notes", text: Binding(
                         get: { log.note.wrappedValue ?? "" },
                         set: { log.note.wrappedValue = $0.isEmpty ? nil : $0 }
                     ))
                     .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
+                    .background(Color.brand.background)
+                    .foregroundColor(Color.brand.textPrimary)
+                    .cornerRadius(Theme.Radius.sm)
                 }
-                .padding(.top, 8)
+                .padding(.top, Theme.Space.sm)
             }
         }
-        .padding(20)
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+        .padding(Theme.Space.mdp)
+        .background(Color.brand.surface)
+        .cornerRadius(Theme.Radius.md)
+        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
         .padding(.horizontal)
     }
 
@@ -361,7 +347,6 @@ struct WorkoutFormView: View {
                 id: UUID().uuidString,
                 exerciseId: "",
                 exerciseName: "",
-                isComplex: false,
                 sets: nil,
                 reps: "",
                 weight: nil,
@@ -394,11 +379,10 @@ struct WorkoutFormView: View {
         )
     }
 
-    private func mostRecentLog(exerciseId: String, isComplex: Bool) -> WorkoutLog? {
-        // workouts are sorted by date descending, so first match = most recent
+    private func mostRecentLog(exerciseId: String) -> WorkoutLog? {
         for workout in workouts {
             if let log = workout.logs.first(where: {
-                $0.exerciseId == exerciseId && $0.isComplex == isComplex
+                $0.exerciseId == exerciseId
             }) {
                 return log
             }
@@ -408,7 +392,6 @@ struct WorkoutFormView: View {
 
     private func loadReferenceData() async {
         exercises = (try? await firestore.fetchExercises()) ?? []
-        complexes = (try? await firestore.fetchComplexes()) ?? []
         blocks = (try? await firestore.fetchBlocks()) ?? []
         templates = (try? await firestore.fetchWorkoutTemplates()) ?? []
         workouts = (try? await firestore.fetchWorkouts()) ?? []

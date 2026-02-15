@@ -96,15 +96,15 @@ struct WorkoutCard: View {
                 expandedSection
             }
         }
-        .background(Color(.systemBackground))
+        .background(Color.brand.surface)
         .cornerRadius(Theme.Radius.md)
         .shadow(
-            color: Color.black.opacity(0.03),
-            radius: 6,
+            color: Color.black.opacity(0.25),
+            radius: 8,
             x: 0,
             y: 2
         )
-        .contentShape(Rectangle()) // critical
+        .contentShape(Rectangle())
         .contextMenu { contextMenu }
     }
 
@@ -150,10 +150,11 @@ struct WorkoutCard: View {
 
                 Text(title)
                     .font(Theme.Font.cardTitle)
+                    .foregroundColor(Color.brand.textPrimary)
 
                 Text(exerciseCountText)
                     .font(Theme.Font.cardSecondary)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color.brand.textSecondary)
             }
 
             Spacer()
@@ -201,13 +202,14 @@ struct WorkoutCard: View {
             }
         }
         .padding(Theme.Space.md)
-        .background(Color(.systemGray6).opacity(0.3))
+        .background(Color.brand.background)
     }
 
     private func exerciseRow(_ log: WorkoutLog) -> some View {
 
         Text(formatExerciseDetails(log))
             .font(Theme.Font.cardSecondary)
+            .foregroundColor(Color.brand.textPrimary)
     }
 
     // MARK: - Formatting

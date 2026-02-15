@@ -40,16 +40,20 @@ enum Theme {
         static let pageTitle = SwiftUI.Font.system(size: TypeSize.xxxl, weight: .bold)
         static let navigationTitle = SwiftUI.Font.system(size: TypeSize.lg, weight: .semibold)
         static let sectionTitle = SwiftUI.Font.system(size: TypeSize.md, weight: .bold)
-        
+
         // Cards
         static let cardTitle = SwiftUI.Font.system(size: TypeSize.md, weight: .medium)
         static let cardSecondary = SwiftUI.Font.system(size: TypeSize.md, weight: .regular)
         static let cardCaption = SwiftUI.Font.system(size: TypeSize.sm, weight: .regular)
-        
+
         // Forms
         static let formLabel = SwiftUI.Font.system(size: TypeSize.md, weight: .medium)
         static let formInput = SwiftUI.Font.system(size: TypeSize.md, weight: .regular)
-        
+
+        // Stats
+        static let statValue = SwiftUI.Font.system(size: TypeSize.xl, weight: .semibold)
+        static let statLabel = SwiftUI.Font.system(size: TypeSize.xs, weight: .regular)
+
         // UI elements
         static let buttonPrimary = SwiftUI.Font.system(size: TypeSize.md, weight: .medium)
         static let emptyStateTitle = SwiftUI.Font.system(size: TypeSize.lg, weight: .semibold)

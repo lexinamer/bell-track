@@ -8,7 +8,6 @@ struct ExerciseDetailView: View {
     private let itemName: String
     private let primaryMuscles: [MuscleGroup]
     private let secondaryMuscles: [MuscleGroup]
-    private let isComplex: Bool
     private let componentNames: String?
 
     // MARK: - State
@@ -18,34 +17,14 @@ struct ExerciseDetailView: View {
 
     private let firestore = FirestoreService()
 
-    // MARK: - Init (Exercise)
+    // MARK: - Init
 
     init(exercise: Exercise) {
         self.itemId = exercise.id
         self.itemName = exercise.name
         self.primaryMuscles = exercise.primaryMuscles
         self.secondaryMuscles = exercise.secondaryMuscles
-        self.isComplex = false
         self.componentNames = nil
-    }
-
-    // MARK: - Init (Complex)
-
-    init(
-        resolvedComplex: ResolvedComplex,
-        exercises: [Exercise]
-    ) {
-        self.itemId = resolvedComplex.id
-        self.itemName = resolvedComplex.name
-        self.primaryMuscles = resolvedComplex.primaryMuscles
-        self.secondaryMuscles = resolvedComplex.secondaryMuscles
-        self.isComplex = true
-
-        self.componentNames =
-            exercises
-                .filter { resolvedComplex.exerciseIds.contains($0.id) }
-                .map { $0.name }
-                .joined(separator: " + ")
     }
 
     // MARK: - View
@@ -240,7 +219,7 @@ struct ExerciseDetailView: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(Color(.systemGray6))
+        .background(Color.brand.surface)
         .cornerRadius(Theme.Radius.md)
     }
 
@@ -300,7 +279,6 @@ struct ExerciseDetailView: View {
                 workouts.filter { workout in
                     workout.logs.contains {
                         $0.exerciseId == itemId
-                        && $0.isComplex == isComplex
                     }
                 }
 
@@ -308,7 +286,6 @@ struct ExerciseDetailView: View {
                 filtered.flatMap { workout in
                     workout.logs.filter {
                         $0.exerciseId == itemId
-                        && $0.isComplex == isComplex
                     }
                 }
 

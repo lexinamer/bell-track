@@ -21,6 +21,20 @@ struct SettingsView: View {
     var body: some View {
         List {
 
+            // MARK: - App
+            Section("App") {
+
+                NavigationLink {
+                    ExercisesView()
+                } label: {
+                    settingsRow(
+                        title: "Exercises",
+                        systemImage: "list.bullet"
+                    )
+                }
+
+            }
+
             // MARK: - Feedback
             Section("Feedback") {
 
@@ -140,11 +154,11 @@ struct SettingsView: View {
         HStack {
 
             Image(systemName: systemImage)
-                .foregroundColor(isDestructive ? .red : Color.brand.primary)
+                .foregroundColor(isDestructive ? Color.brand.destructive : Color.brand.textPrimary)
 
             Text(title)
                 .font(Theme.Font.cardSecondary)
-                .foregroundColor(isDestructive ? .red : Color.brand.textPrimary)
+                .foregroundColor(isDestructive ? Color.brand.destructive : Color.brand.textPrimary)
 
             Spacer()
         }

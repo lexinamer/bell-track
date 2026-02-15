@@ -16,17 +16,15 @@ struct SignupView: View {
         NavigationStack {
             VStack(spacing: Theme.Space.md) {
 
-                // Push content down (matches Login + Reset)
                 Spacer()
-                    .frame(height: 20)
+                    .frame(height: Theme.Space.mdp)
 
-                // Title
                 Text("Create Account")
                     .font(Theme.Font.pageTitle)
                     .foregroundColor(Color.brand.textPrimary)
 
                 Spacer()
-                    .frame(height: 20)
+                    .frame(height: Theme.Space.mdp)
 
                 // FORM
                 VStack(spacing: Theme.Space.md) {
@@ -37,6 +35,7 @@ struct SignupView: View {
                         .disableAutocorrection(true)
                         .padding()
                         .background(Color.brand.surface)
+                        .foregroundColor(Color.brand.textPrimary)
                         .cornerRadius(Theme.Radius.md)
                         .overlay(
                             RoundedRectangle(cornerRadius: Theme.Radius.md)
@@ -46,6 +45,7 @@ struct SignupView: View {
                     SecureField("Password", text: $password)
                         .padding()
                         .background(Color.brand.surface)
+                        .foregroundColor(Color.brand.textPrimary)
                         .cornerRadius(Theme.Radius.md)
                         .overlay(
                             RoundedRectangle(cornerRadius: Theme.Radius.md)
@@ -55,6 +55,7 @@ struct SignupView: View {
                     SecureField("Confirm Password", text: $confirmPassword)
                         .padding()
                         .background(Color.brand.surface)
+                        .foregroundColor(Color.brand.textPrimary)
                         .cornerRadius(Theme.Radius.md)
                         .overlay(
                             RoundedRectangle(cornerRadius: Theme.Radius.md)
@@ -64,7 +65,7 @@ struct SignupView: View {
                     if !errorMessage.isEmpty {
                         Text(errorMessage)
                             .font(.system(size: Theme.TypeSize.sm))
-                            .foregroundColor(.red)
+                            .foregroundColor(Color.brand.destructive)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
@@ -123,7 +124,7 @@ struct SignupView: View {
         }
 
         guard trimmedPassword == trimmedConfirm else {
-            errorMessage = "Passwords don’t match."
+            errorMessage = "Passwords don't match."
             return
         }
 

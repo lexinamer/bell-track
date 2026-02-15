@@ -115,7 +115,7 @@ struct TrainingView: View {
 
             BlockFormView(
                 blocksVM: blocksVM,
-                onSave: { name, start, endDate, notes, color, pendingTemplates in
+                onSave: { name, start, endDate, notes, _, pendingTemplates in
 
                     Task {
 
@@ -125,7 +125,7 @@ struct TrainingView: View {
                             startDate: start,
                             endDate: endDate,
                             notes: notes,
-                            colorIndex: color,
+                            colorIndex: nil,
                             pendingTemplates: pendingTemplates
                         )
 
@@ -145,7 +145,7 @@ struct TrainingView: View {
             BlockFormView(
                 block: block,
                 blocksVM: blocksVM,
-                onSave: { name, startDate, endDate, notes, colorIndex, _ in
+                onSave: { name, startDate, endDate, notes, _, _ in
                     Task {
                         await blocksVM.saveBlock(
                             id: block.id,
@@ -153,7 +153,7 @@ struct TrainingView: View {
                             startDate: startDate,
                             endDate: endDate,
                             notes: notes,
-                            colorIndex: colorIndex
+                            colorIndex: nil
                         )
                         editingBlock = nil
                     }
@@ -231,6 +231,7 @@ struct TrainingView: View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
             Text(title)
                 .font(Theme.Font.sectionTitle)
+                .foregroundColor(Color.brand.textPrimary)
                 .padding(.horizontal)
                 
             LazyVStack(spacing: Theme.Space.sm) {
@@ -259,14 +260,15 @@ struct TrainingView: View {
 
             Image(systemName: "square.stack.3d.up")
                 .font(.system(size: 44))
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.brand.textSecondary)
 
             Text("Start your training")
                 .font(Theme.Font.emptyStateTitle)
+                .foregroundColor(Color.brand.textPrimary)
 
             Text("Create a block to organize your training, then log workouts.")
                 .font(Theme.Font.emptyStateDescription)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.brand.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, Theme.Space.lg)
 

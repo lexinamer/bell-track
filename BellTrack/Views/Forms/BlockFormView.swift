@@ -11,11 +11,9 @@ struct BlockFormView: View {
     @State private var hasEndDate: Bool
     @State private var endDate: Date
     @State private var notes: String
-    @State private var colorIndex: Int
 
     // Template management state
     @State private var exercises: [Exercise] = []
-    @State private var complexes: [Complex] = []
     @State private var templateToDelete: WorkoutTemplate? = nil
 
     // Pending templates for new blocks (not yet saved to Firestore)
@@ -40,7 +38,6 @@ struct BlockFormView: View {
         self._hasEndDate = State(initialValue: block?.endDate != nil)
         self._endDate = State(initialValue: block?.endDate ?? Calendar.current.date(byAdding: .weekOfYear, value: 4, to: Date())!)
         self._notes = State(initialValue: block?.notes ?? "")
-        self._colorIndex = State(initialValue: block?.colorIndex ?? 0)
     }
 
     private var blockTemplates: [WorkoutTemplate] {
@@ -106,39 +103,20 @@ struct BlockFormView: View {
                         .frame(minHeight: 80)
                 }
 
-                Section("Color") {
-                    HStack(spacing: Theme.Space.md) {
-                        ForEach(0..<ColorTheme.blockPalette.count, id: \.self) { idx in
-                            Circle()
-                                .fill(ColorTheme.blockPalette[idx])
-                                .frame(width: 32, height: 32)
-                                .overlay(
-                                    Circle()
-                                        .strokeBorder(Color.primary, lineWidth: colorIndex == idx ? 2.5 : 0)
-                                )
-                                .onTapGesture {
-                                    colorIndex = idx
-                                }
-                        }
-                        Spacer()
-                    }
-                }
-
-                // Templates section — available for both new and existing blocks
+                // Templates section
                 Section {
                     if block != nil {
                         if blockTemplates.isEmpty && pendingTemplates.isEmpty {
                             Text("No templates yet")
                                 .font(Theme.Font.cardSecondary)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color.brand.textSecondary)
                         } else {
                             ForEach(blockTemplates) { template in
                                 NavigationLink {
                                     WorkoutTemplateFormView(
                                         template: template,
                                         exercises: exercises,
-                                        complexes: complexes,
-                                        onSave: { templateName, entries in
+                                                                                onSave: { templateName, entries in
                                             if let blockId = block?.id {
                                                 Task {
                                                     await blocksVM?.saveTemplate(
@@ -169,7 +147,7 @@ struct BlockFormView: View {
                     if block == nil && pendingTemplates.isEmpty {
                         Text("No templates yet")
                             .font(Theme.Font.cardSecondary)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.brand.textSecondary)
                     }
 
                     ForEach(Array(pendingTemplates.enumerated()), id: \.offset) { index, pending in
@@ -182,8 +160,7 @@ struct BlockFormView: View {
                                     entries: pending.entries
                                 ),
                                 exercises: exercises,
-                                complexes: complexes,
-                                onSave: { templateName, entries in
+                                                                onSave: { templateName, entries in
                                     pendingTemplates[index] = (name: templateName, entries: entries)
                                 },
                                 onCancel: {}
@@ -203,8 +180,7 @@ struct BlockFormView: View {
                     NavigationLink {
                         WorkoutTemplateFormView(
                             exercises: exercises,
-                            complexes: complexes,
-                            onSave: { templateName, entries in
+                                                        onSave: { templateName, entries in
                                 if let blockId = block?.id {
                                     Task {
                                         await blocksVM?.saveTemplate(
@@ -231,6 +207,8 @@ struct BlockFormView: View {
                     Text("Workout Templates")
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.brand.background)
             .navigationTitle(block == nil ? "New Block" : "Edit Block")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -244,7 +222,7 @@ struct BlockFormView: View {
                     Button("Save") {
                         let finalNotes = notes.trimmingCharacters(in: .whitespaces)
                         let finalEndDate: Date? = hasEndDate ? endDate : nil
-                        onSave(name, startDate, finalEndDate, finalNotes.isEmpty ? nil : finalNotes, colorIndex, pendingTemplates)
+                        onSave(name, startDate, finalEndDate, finalNotes.isEmpty ? nil : finalNotes, nil, pendingTemplates)
                     }
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
@@ -281,7 +259,6 @@ struct BlockFormView: View {
             }
             .task {
                 exercises = (try? await firestore.fetchExercises()) ?? []
-                complexes = (try? await firestore.fetchComplexes()) ?? []
             }
         }
     }
@@ -296,11 +273,11 @@ struct BlockFormView: View {
             endDate = target
         }
         .buttonStyle(.borderless)
-        .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
-        .padding(.horizontal, 12)
+        .font(Theme.Font.cardCaption)
+        .padding(.horizontal, Theme.Space.smp)
         .padding(.vertical, 6)
-        .background(isSelected ? Color.brand.primary : Color(.tertiarySystemFill))
-        .foregroundColor(isSelected ? .white : .primary)
+        .background(isSelected ? Color.brand.primary : Color.brand.surface)
+        .foregroundColor(isSelected ? .white : Color.brand.textPrimary)
         .clipShape(Capsule())
     }
 
@@ -310,10 +287,10 @@ struct BlockFormView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(name)
                 .font(Theme.Font.cardTitle)
-                .foregroundColor(.primary)
+                .foregroundColor(Color.brand.textPrimary)
             Text(entries.map { $0.exerciseName }.joined(separator: ", "))
                 .font(Theme.Font.cardCaption)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.brand.textSecondary)
                 .lineLimit(1)
         }
     }

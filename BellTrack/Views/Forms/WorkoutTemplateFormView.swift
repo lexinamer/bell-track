@@ -4,7 +4,6 @@ struct WorkoutTemplateFormView: View {
 
     let template: WorkoutTemplate?
     let exercises: [Exercise]
-    let complexes: [Complex]
     let onSave: (String, [TemplateEntry]) -> Void
     let onCancel: () -> Void
 
@@ -16,13 +15,11 @@ struct WorkoutTemplateFormView: View {
     init(
         template: WorkoutTemplate? = nil,
         exercises: [Exercise],
-        complexes: [Complex],
         onSave: @escaping (String, [TemplateEntry]) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.template = template
         self.exercises = exercises
-        self.complexes = complexes
         self.onSave = onSave
         self.onCancel = onCancel
         _nameInput = State(initialValue: template?.name ?? "")
@@ -52,11 +49,6 @@ struct WorkoutTemplateFormView: View {
                             Image(systemName: "line.3.horizontal")
                                 .foregroundColor(.secondary)
                                 .font(.system(size: 14))
-                            if entry.isComplex {
-                                Image(systemName: "rectangle.stack")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.secondary)
-                            }
                             Text(entry.exerciseName)
                         }
                     }
@@ -73,37 +65,18 @@ struct WorkoutTemplateFormView: View {
 
             // Available exercises to tap-add
             Section("Add Exercise") {
-                if exercises.isEmpty && complexes.isEmpty {
+                if exercises.isEmpty {
                     Text("No exercises available. Create exercises first.")
                         .font(Theme.Font.cardSecondary)
                         .foregroundColor(.secondary)
                 } else {
                     ForEach(exercises) { exercise in
                         Button {
-                            addEntry(exerciseId: exercise.id, name: exercise.name, isComplex: false)
+                            addEntry(exerciseId: exercise.id, name: exercise.name)
                         } label: {
                             HStack {
                                 Text(exercise.name)
                                     .foregroundColor(.primary)
-                                Spacer()
-                                Image(systemName: "plus.circle")
-                                    .foregroundColor(Color.brand.primary)
-                            }
-                        }
-                    }
-
-                    ForEach(complexes) { complex in
-                        Button {
-                            addEntry(exerciseId: complex.id, name: complex.name, isComplex: true)
-                        } label: {
-                            HStack {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "rectangle.stack")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(.secondary)
-                                    Text(complex.name)
-                                        .foregroundColor(.primary)
-                                }
                                 Spacer()
                                 Image(systemName: "plus.circle")
                                     .foregroundColor(Color.brand.primary)
@@ -127,12 +100,11 @@ struct WorkoutTemplateFormView: View {
         }
     }
 
-    private func addEntry(exerciseId: String, name: String, isComplex: Bool) {
+    private func addEntry(exerciseId: String, name: String) {
         selectedEntries.append(
             TemplateEntry(
                 exerciseId: exerciseId,
-                exerciseName: name,
-                isComplex: isComplex
+                exerciseName: name
             )
         )
     }

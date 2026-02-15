@@ -4,29 +4,20 @@ struct ColorTheme {
     let primary = Color("AccentColor")
     let background = Color("Background")
     let surface = Color("Surface")
-    let textPrimary = Color("TextPrimary")     // #333
-    let textSecondary = Color("TextSecondary") // #666
+    let textPrimary = Color("TextPrimary")
+    let textSecondary = Color("TextSecondary")
     let border = Color("Border")
 
-    /// Purple shades for blocks — each block picks one via colorIndex
-    static let blockPalette: [Color] = [
-        Color(red: 0.42, green: 0.16, blue: 0.71),  // deep purple (close to AccentColor)
-        Color(red: 0.31, green: 0.22, blue: 0.72),  // indigo-purple
-        Color(red: 0.55, green: 0.24, blue: 0.78),  // medium purple
-        Color(red: 0.38, green: 0.10, blue: 0.55),  // dark plum
-        Color(red: 0.60, green: 0.40, blue: 0.80),  // soft lavender-purple
-        Color(red: 0.25, green: 0.12, blue: 0.50),  // very dark purple
-    ]
+    // Additional semantic colors for dark mode
+    let surfaceSecondary = Color(red: 0.15, green: 0.15, blue: 0.15)  // #262626
+    let destructive = Color(red: 1.0, green: 0.27, blue: 0.23)        // #FF453A
+    let success = Color(red: 0.20, green: 0.78, blue: 0.35)           // #32C759
+
+    /// Single unified block color - bright purple for dark backgrounds
+    static let blockColor = Color(red: 0.60, green: 0.60, blue: 1.0)  // #9999FF
 
     /// Color for workouts not assigned to any block
-    static let unassignedWorkoutColor = Color(red: 0.55, green: 0.55, blue: 0.62)
-
-    static func blockColor(for colorIndex: Int?) -> Color {
-        guard let idx = colorIndex, idx >= 0, idx < blockPalette.count else {
-            return blockPalette[0]
-        }
-        return blockPalette[idx]
-    }
+    static let unassignedWorkoutColor = Color(red: 0.67, green: 0.67, blue: 0.67)  // #AAAAAA
 }
 
 extension Color {

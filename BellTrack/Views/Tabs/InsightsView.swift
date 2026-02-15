@@ -61,14 +61,15 @@ struct InsightsView: View {
 
             Image(systemName: "chart.xyaxis.line")
                 .font(.system(size: 44))
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.brand.textSecondary)
 
             Text("No insights yet")
                 .font(Theme.Font.emptyStateTitle)
+                .foregroundColor(Color.brand.textPrimary)
 
             Text("Log workouts to see muscle load and training balance.")
                 .font(Theme.Font.emptyStateDescription)
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.brand.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, Theme.Space.xl)
 
@@ -115,6 +116,7 @@ struct InsightsView: View {
 
                 Text("Muscle Load")
                     .font(Theme.Font.sectionTitle)
+                    .foregroundColor(Color.brand.textPrimary)
 
                 Spacer()
 
@@ -123,7 +125,7 @@ struct InsightsView: View {
                     Label {
                         Text("Primary")
                             .font(Theme.Font.cardCaption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.brand.textSecondary)
                     } icon: {
                         Circle()
                             .fill(Color.brand.primary)
@@ -133,7 +135,7 @@ struct InsightsView: View {
                     Label {
                         Text("Secondary")
                             .font(Theme.Font.cardCaption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.brand.textSecondary)
                     } icon: {
                         Circle()
                             .fill(Color.brand.primary.opacity(0.55))
@@ -202,12 +204,13 @@ struct InsightsView: View {
 
                 Text(stat.muscle.displayName)
                     .font(Theme.Font.cardTitle)
+                    .foregroundColor(Color.brand.textPrimary)
 
                 Spacer()
 
                 Text("\(Int(round(stat.displayPercent * 100)))%")
                     .font(Theme.Font.cardSecondary)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color.brand.textSecondary)
             }
 
             GeometryReader { geo in
@@ -215,7 +218,7 @@ struct InsightsView: View {
                 ZStack(alignment: .leading) {
 
                     Capsule()
-                        .fill(Color(.systemGray5))
+                        .fill(Color.brand.surface)
 
                     HStack(spacing: 0) {
 
@@ -251,7 +254,7 @@ struct InsightsView: View {
                 .padding(.horizontal, Theme.Space.md)
                 .padding(.vertical, Theme.Space.xs)
                 .background(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: Theme.Radius.md)
                         .fill(
                             isSelected
                             ? Color.brand.primary.opacity(0.15)
@@ -259,17 +262,17 @@ struct InsightsView: View {
                         )
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: Theme.Radius.md)
                         .stroke(
                             isSelected
                             ? Color.clear
-                            : Color(.systemGray4)
+                            : Color.brand.border
                         )
                 )
                 .foregroundColor(
                     isSelected
                     ? Color.brand.primary
-                    : .primary
+                    : Color.brand.textPrimary
                 )
         }
     }

@@ -31,39 +31,10 @@ struct Exercise: Identifiable, Codable, Equatable, Hashable {
     var name: String
     var primaryMuscles: [MuscleGroup]
     var secondaryMuscles: [MuscleGroup]
-}
+    var exerciseIds: [String]?  // For multi-exercise combos (formerly complexes)
 
-// MARK: - Complex
-
-struct Complex: Identifiable, Codable, Equatable, Hashable {
-    let id: String
-    var name: String
-    var exerciseIds: [String]
-}
-
-struct ResolvedComplex: Identifiable, Equatable, Hashable {
-    let id: String
-    let name: String
-    let exerciseIds: [String]
-    let primaryMuscles: [MuscleGroup]
-    let secondaryMuscles: [MuscleGroup]
-}
-
-extension Complex {
-    func resolved(with exercises: [Exercise]) -> ResolvedComplex {
-        let components = exercises.filter { exerciseIds.contains($0.id) }
-        let allPrimary = Array(Set(components.flatMap { $0.primaryMuscles }))
-        let allSecondary = Array(Set(components.flatMap { $0.secondaryMuscles }))
-        // Remove any muscle that appears in primary from secondary
-        let filteredSecondary = allSecondary.filter { !allPrimary.contains($0) }
-
-        return ResolvedComplex(
-            id: id,
-            name: name,
-            exerciseIds: exerciseIds,
-            primaryMuscles: allPrimary,
-            secondaryMuscles: filteredSecondary
-        )
+    var isMultiExercise: Bool {
+        exerciseIds != nil && !(exerciseIds?.isEmpty ?? true)
     }
 }
 
@@ -73,18 +44,15 @@ struct TemplateEntry: Identifiable, Codable, Equatable {
     let id: String
     var exerciseId: String
     var exerciseName: String
-    var isComplex: Bool
 
     init(
         id: String = UUID().uuidString,
         exerciseId: String,
-        exerciseName: String,
-        isComplex: Bool = false
+        exerciseName: String
     ) {
         self.id = id
         self.exerciseId = exerciseId
         self.exerciseName = exerciseName
-        self.isComplex = isComplex
     }
 }
 
@@ -107,6 +75,13 @@ struct Block: Identifiable, Codable, Equatable, Hashable {
     var colorIndex: Int?
 }
 
+// MARK: - Exercise Mode
+
+enum ExerciseMode: String, Codable {
+    case reps
+    case time
+}
+
 // MARK: - WorkoutLog
 
 struct WorkoutLog: Identifiable, Codable, Equatable {
@@ -114,10 +89,10 @@ struct WorkoutLog: Identifiable, Codable, Equatable {
 
     var exerciseId: String
     var exerciseName: String
-    var isComplex: Bool
+    var mode: ExerciseMode  // reps or time (set at logging time)
 
     var sets: Int?
-    var reps: String?
+    var reps: String?  // Can be number (reps mode) or time string (time mode)
     var weight: String?
     var note: String?
 
@@ -125,7 +100,7 @@ struct WorkoutLog: Identifiable, Codable, Equatable {
         id: String,
         exerciseId: String,
         exerciseName: String,
-        isComplex: Bool = false,
+        mode: ExerciseMode = .reps,
         sets: Int? = nil,
         reps: String? = nil,
         weight: String? = nil,
@@ -134,7 +109,7 @@ struct WorkoutLog: Identifiable, Codable, Equatable {
         self.id = id
         self.exerciseId = exerciseId
         self.exerciseName = exerciseName
-        self.isComplex = isComplex
+        self.mode = mode
         self.sets = sets
         self.reps = reps
         self.weight = weight

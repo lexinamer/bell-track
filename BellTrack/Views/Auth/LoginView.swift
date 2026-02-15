@@ -16,9 +16,8 @@ struct LoginView: View {
         NavigationStack {
             VStack(spacing: Theme.Space.md) {
 
-                // Push content down slightly (feels centered, not top-heavy)
                 Spacer()
-                    .frame(height: 20)
+                    .frame(height: Theme.Space.mdp)
 
                 // Logo + title
                 HStack(spacing: Theme.Space.sm) {
@@ -28,7 +27,7 @@ struct LoginView: View {
                         .frame(width: 40, height: 50)
 
                     Text("BELL TRACK")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(Theme.Font.pageTitle)
                         .foregroundColor(Color.brand.primary)
                         .kerning(2.8)
                 }
@@ -39,7 +38,7 @@ struct LoginView: View {
                     .kerning(0.3)
 
                 Spacer()
-                    .frame(height: 20)
+                    .frame(height: Theme.Space.mdp)
 
                 // FORM
                 VStack(spacing: Theme.Space.md) {
@@ -51,6 +50,7 @@ struct LoginView: View {
                         .disableAutocorrection(true)
                         .padding()
                         .background(Color.brand.surface)
+                        .foregroundColor(Color.brand.textPrimary)
                         .cornerRadius(Theme.Radius.md)
                         .overlay(
                             RoundedRectangle(cornerRadius: Theme.Radius.md)
@@ -61,6 +61,7 @@ struct LoginView: View {
                     SecureField("Password", text: $password)
                         .padding()
                         .background(Color.brand.surface)
+                        .foregroundColor(Color.brand.textPrimary)
                         .cornerRadius(Theme.Radius.md)
                         .overlay(
                             RoundedRectangle(cornerRadius: Theme.Radius.md)
@@ -71,11 +72,11 @@ struct LoginView: View {
                     if !errorMessage.isEmpty {
                         Text(errorMessage)
                             .font(.system(size: Theme.TypeSize.sm))
-                            .foregroundColor(.red)
+                            .foregroundColor(Color.brand.destructive)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    // Log In button (close to password — intentionally)
+                    // Log In button
                     Button(action: signIn) {
                         if isLoading {
                             ProgressView()
@@ -103,7 +104,7 @@ struct LoginView: View {
                 .padding(.horizontal, Theme.Space.lg)
 
                 Spacer()
-                    .frame(height: 20)
+                    .frame(height: Theme.Space.mdp)
 
                 // Sign up
                 Button {
@@ -113,7 +114,7 @@ struct LoginView: View {
                         .foregroundColor(Color.brand.primary)
                 }
             }
-            .background(Color.brand.surface)
+            .background(Color.brand.background)
             .sheet(isPresented: $showSignUp) {
                 SignupView()
             }

@@ -13,13 +13,11 @@ struct PasswordResetView: View {
         NavigationStack {
             VStack(spacing: Theme.Space.md) {
 
-                // Push content down slightly (matches LoginView)
                 Spacer()
-                    .frame(height: 20)
+                    .frame(height: Theme.Space.mdp)
 
-                // Title
                 Text("Reset Password")
-                    .font(Theme.Font.cardTitle)
+                    .font(Theme.Font.pageTitle)
                     .foregroundColor(Color.brand.textPrimary)
 
                 Text("Enter your email to receive a password reset link.")
@@ -29,7 +27,7 @@ struct PasswordResetView: View {
                     .padding(.horizontal, Theme.Space.md)
 
                 Spacer()
-                    .frame(height: 20)
+                    .frame(height: Theme.Space.mdp)
 
                 // FORM
                 VStack(spacing: Theme.Space.md) {
@@ -40,6 +38,7 @@ struct PasswordResetView: View {
                         .disableAutocorrection(true)
                         .padding()
                         .background(Color.brand.surface)
+                        .foregroundColor(Color.brand.textPrimary)
                         .cornerRadius(Theme.Radius.md)
                         .overlay(
                             RoundedRectangle(cornerRadius: Theme.Radius.md)
@@ -51,8 +50,8 @@ struct PasswordResetView: View {
                             .font(.system(size: Theme.TypeSize.sm))
                             .foregroundColor(
                                 message.contains("sent")
-                                ? .green
-                                : .red
+                                ? Color.brand.success
+                                : Color.brand.destructive
                             )
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -77,7 +76,7 @@ struct PasswordResetView: View {
 
                 Spacer()
             }
-            .background(Color.brand.surface)
+            .background(Color.brand.background)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

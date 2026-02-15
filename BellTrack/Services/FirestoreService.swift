@@ -26,12 +26,14 @@ final class FirestoreService {
         return snap.documents.map { doc in
             let primaryRaw = doc["primaryMuscles"] as? [String] ?? []
             let secondaryRaw = doc["secondaryMuscles"] as? [String] ?? []
+            let exerciseIds = doc["exerciseIds"] as? [String]
 
             return Exercise(
                 id: doc.documentID,
                 name: doc["name"] as? String ?? "",
                 primaryMuscles: primaryRaw.compactMap { MuscleGroup(rawValue: $0) },
-                secondaryMuscles: secondaryRaw.compactMap { MuscleGroup(rawValue: $0) }
+                secondaryMuscles: secondaryRaw.compactMap { MuscleGroup(rawValue: $0) },
+                exerciseIds: exerciseIds
             )
         }
     }
@@ -40,18 +42,25 @@ final class FirestoreService {
         id: String?,
         name: String,
         primaryMuscles: [MuscleGroup],
-        secondaryMuscles: [MuscleGroup]
+        secondaryMuscles: [MuscleGroup],
+        exerciseIds: [String]? = nil
     ) async throws {
         let ref = try userRef()
         let doc = id == nil
             ? ref.collection("exercises").document()
             : ref.collection("exercises").document(id!)
 
-        try await doc.setData([
+        var data: [String: Any] = [
             "name": name,
             "primaryMuscles": primaryMuscles.map { $0.rawValue },
             "secondaryMuscles": secondaryMuscles.map { $0.rawValue }
-        ])
+        ]
+
+        if let exerciseIds = exerciseIds {
+            data["exerciseIds"] = exerciseIds
+        }
+
+        try await doc.setData(data)
     }
 
     func deleteExercise(id: String) async throws {
@@ -69,7 +78,7 @@ final class FirestoreService {
             var updatedLogs = workout.logs
 
             for i in 0..<updatedLogs.count {
-                if updatedLogs[i].exerciseId == exerciseId && !updatedLogs[i].isComplex {
+                if updatedLogs[i].exerciseId == exerciseId {
                     updatedLogs[i].exerciseName = newName
                     needsUpdate = true
                 }
@@ -87,71 +96,6 @@ final class FirestoreService {
         }
     }
 
-    // MARK: - Complexes
-
-    func fetchComplexes() async throws -> [Complex] {
-        let ref = try userRef()
-
-        let snap = try await ref
-            .collection("complexes")
-            .order(by: "name")
-            .getDocuments()
-
-        return snap.documents.map { doc in
-            Complex(
-                id: doc.documentID,
-                name: doc["name"] as? String ?? "",
-                exerciseIds: doc["exerciseIds"] as? [String] ?? []
-            )
-        }
-    }
-
-    func saveComplex(
-        id: String?,
-        name: String,
-        exerciseIds: [String]
-    ) async throws {
-        let ref = try userRef()
-        let doc = id == nil
-            ? ref.collection("complexes").document()
-            : ref.collection("complexes").document(id!)
-
-        try await doc.setData([
-            "name": name,
-            "exerciseIds": exerciseIds
-        ])
-    }
-
-    func deleteComplex(id: String) async throws {
-        let ref = try userRef()
-        try await ref.collection("complexes").document(id).delete()
-    }
-
-    func updateComplexNameInWorkouts(complexId: String, newName: String) async throws {
-        let workouts = try await fetchWorkouts()
-
-        for workout in workouts {
-            var needsUpdate = false
-            var updatedLogs = workout.logs
-
-            for i in 0..<updatedLogs.count {
-                if updatedLogs[i].exerciseId == complexId && updatedLogs[i].isComplex {
-                    updatedLogs[i].exerciseName = newName
-                    needsUpdate = true
-                }
-            }
-
-            if needsUpdate {
-                try await saveWorkout(
-                    id: workout.id,
-                    name: workout.name,
-                    date: workout.date,
-                    blockId: workout.blockId,
-                    logs: updatedLogs
-                )
-            }
-        }
-    }
 
     // MARK: - Default Exercise Seeding
 
@@ -205,8 +149,7 @@ final class FirestoreService {
                 return TemplateEntry(
                     id: id,
                     exerciseId: exerciseId,
-                    exerciseName: exerciseName,
-                    isComplex: entry["isComplex"] as? Bool ?? false
+                    exerciseName: exerciseName
                 )
             }
 
@@ -234,8 +177,7 @@ final class FirestoreService {
             [
                 "id": $0.id,
                 "exerciseId": $0.exerciseId,
-                "exerciseName": $0.exerciseName,
-                "isComplex": $0.isComplex
+                "exerciseName": $0.exerciseName
             ] as [String: Any]
         }
 
@@ -359,11 +301,14 @@ final class FirestoreService {
                     let exerciseName = log["exerciseName"] as? String
                 else { return nil }
 
+                let modeString = log["mode"] as? String ?? "reps"
+                let mode = ExerciseMode(rawValue: modeString) ?? .reps
+
                 return WorkoutLog(
                     id: id,
                     exerciseId: exerciseId,
                     exerciseName: exerciseName,
-                    isComplex: log["isComplex"] as? Bool ?? false,
+                    mode: mode,
                     sets: log["sets"] as? Int,
                     reps: log["reps"] as? String,
                     weight: log["weight"] as? String,
@@ -399,7 +344,6 @@ final class FirestoreService {
                 "id": $0.id,
                 "exerciseId": $0.exerciseId,
                 "exerciseName": $0.exerciseName,
-                "isComplex": $0.isComplex,
                 "sets": $0.sets as Any,
                 "reps": $0.reps as Any,
                 "weight": $0.weight as Any,

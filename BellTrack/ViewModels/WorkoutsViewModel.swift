@@ -7,10 +7,6 @@ final class WorkoutsViewModel: ObservableObject {
     // MARK: - Published State
 
     @Published private(set) var workouts: [Workout] = []
-
-    /// Maps blockId → colorIndex
-    @Published private(set) var blockColors: [String: Int] = [:]
-
     @Published private(set) var isLoading: Bool = false
 
     private let firestore = FirestoreService()
@@ -24,25 +20,11 @@ final class WorkoutsViewModel: ObservableObject {
 
         do {
 
-            async let fetchedWorkouts = firestore.fetchWorkouts()
-            async let fetchedBlocks = firestore.fetchBlocks()
-
-            let workoutsResult = try await fetchedWorkouts
-            let blocksResult = try await fetchedBlocks
+            let workoutsResult = try await firestore.fetchWorkouts()
 
             self.workouts = workoutsResult.sorted {
                 $0.date > $1.date
             }
-
-            self.blockColors = Dictionary(
-                uniqueKeysWithValues:
-                    blocksResult.compactMap {
-                        guard let colorIndex = $0.colorIndex else {
-                            return nil
-                        }
-                        return ($0.id, colorIndex)
-                    }
-            )
 
         } catch {
 
@@ -68,10 +50,8 @@ final class WorkoutsViewModel: ObservableObject {
     /// Returns badge color for a workout
     func badgeColor(for workout: Workout) -> Color {
 
-        if let blockId = workout.blockId,
-           let colorIndex = blockColors[blockId] {
-
-            return ColorTheme.blockColor(for: colorIndex)
+        if workout.blockId != nil {
+            return ColorTheme.blockColor
         }
 
         return ColorTheme.unassignedWorkoutColor
@@ -92,7 +72,6 @@ final class WorkoutsViewModel: ObservableObject {
                     id: UUID().uuidString,
                     exerciseId: $0.exerciseId,
                     exerciseName: $0.exerciseName,
-                    isComplex: $0.isComplex,
                     sets: $0.sets,
                     reps: $0.reps,
                     weight: $0.weight,
