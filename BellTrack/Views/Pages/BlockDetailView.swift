@@ -212,13 +212,13 @@ struct BlockDetailView: View {
             if let weekProgress = weekProgressText {
                 Text(weekProgress)
                     .font(Theme.Font.cardSecondary)
-                    .foregroundColor(Color.brand.primary)
+                    .foregroundColor(Color.brand.textSecondary)
             }
 
             if let goal = block.notes, !goal.isEmpty {
                 Text("\(Text("Goal: ").fontWeight(.semibold))\(Text(goal))")
                     .font(Theme.Font.cardSecondary)
-                    .foregroundColor(Color.brand.textPrimary)
+                    .foregroundColor(Color.brand.textSecondary)
             }
         }
     }
@@ -362,7 +362,7 @@ struct BlockDetailView: View {
                     ForEach(filteredWorkouts) { workout in
                         WorkoutCard(
                             workout: workout,
-                            badgeColor: ColorTheme.blockColor,
+                            badgeColor: Color.brand.blockColor,
                             onEdit: {
                                 editingWorkout = workout
                             },

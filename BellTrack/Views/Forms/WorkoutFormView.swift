@@ -24,6 +24,7 @@ struct WorkoutFormView: View {
 
     init(
         workout: Workout?,
+        template: WorkoutTemplate? = nil,
         onSave: @escaping () -> Void,
         onCancel: @escaping () -> Void
     ) {
@@ -32,8 +33,9 @@ struct WorkoutFormView: View {
         self.onCancel = onCancel
 
         _date = State(initialValue: workout?.date ?? Date())
-        _blockId = State(initialValue: workout?.blockId)
+        _blockId = State(initialValue: workout?.blockId ?? template?.blockId)
         _logs = State(initialValue: workout?.logs ?? [])
+        _selectedTemplate = State(initialValue: template)
     }
 
     // MARK: - Derived
@@ -167,6 +169,10 @@ struct WorkoutFormView: View {
             }
             .task {
                 await loadReferenceData()
+                // If a template was passed in via init, load it after reference data is loaded
+                if let template = selectedTemplate, logs.isEmpty {
+                    loadTemplate(template)
+                }
             }
             .sheet(isPresented: $showingTemplateSelector) {
                 TemplateSelector(
@@ -232,7 +238,7 @@ struct WorkoutFormView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "arrow.left.arrow.right")
                                 .font(.system(size: 12))
-                            Text(log.mode.wrappedValue == .reps ? "Switch to Time" : "Switch to Reps")
+                            Text(log.mode.wrappedValue == .reps ? "Time" : "Reps")
                                 .font(Theme.Font.cardCaption)
                         }
                         .foregroundColor(Color.brand.primary)
@@ -253,42 +259,52 @@ struct WorkoutFormView: View {
             // Weight with Double toggle
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
                 HStack {
-                    Text("Weight (kg)")
+                    Text(log.isDouble.wrappedValue ? "Weight (2× kg)" : "Weight (kg)")
                         .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
                         .foregroundColor(Color.brand.textSecondary)
 
                     Spacer()
 
-                    Toggle(isOn: log.isDouble) {
-                        Text("Double")
-                            .font(Theme.Font.cardCaption)
-                            .foregroundColor(Color.brand.textSecondary)
+                    Button {
+                        log.isDouble.wrappedValue.toggle()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.left.arrow.right")
+                                .font(.system(size: 12))
+                            Text(log.isDouble.wrappedValue ? "Single" : "Doubles")
+                                .font(Theme.Font.cardCaption)
+                        }
+                        .foregroundColor(Color.brand.primary)
                     }
-                    .toggleStyle(SwitchToggleStyle(tint: Color.brand.primary))
                 }
 
-                HStack(spacing: Theme.Space.sm) {
-                    if log.isDouble.wrappedValue {
-                        Text("2×")
-                            .font(Theme.Font.cardSecondary)
-                            .foregroundColor(Color.brand.textSecondary)
-                    }
+                TextField("12", text: Binding(
+                    get: { log.weight.wrappedValue ?? "" },
+                    set: { log.weight.wrappedValue = $0.isEmpty ? nil : $0 }
+                ))
+                .keyboardType(.decimalPad)
+                .padding(Theme.Space.sm)
+                .background(Color.brand.background)
+                .foregroundColor(Color.brand.textPrimary)
+                .cornerRadius(Theme.Radius.sm)
+            }
 
-                    TextField("12", text: Binding(
-                        get: { log.weight.wrappedValue ?? "" },
-                        set: { log.weight.wrappedValue = $0.isEmpty ? nil : $0 }
-                    ))
-                    .keyboardType(.decimalPad)
-                    .padding(Theme.Space.sm)
-                    .background(Color.brand.background)
-                    .foregroundColor(Color.brand.textPrimary)
-                    .cornerRadius(Theme.Radius.sm)
+            // Notes (optional)
+            VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                Text("Notes")
+                    .font(Theme.Font.cardSecondary)
+                    .fontWeight(.medium)
+                    .foregroundColor(Color.brand.textSecondary)
 
-                    Text("kg")
-                        .font(Theme.Font.cardSecondary)
-                        .foregroundColor(Color.brand.textSecondary)
-                }
+                TextField("Medium band, pause at top, etc.", text: Binding(
+                    get: { log.note.wrappedValue ?? "" },
+                    set: { log.note.wrappedValue = $0.isEmpty ? nil : $0 }
+                ))
+                .padding(Theme.Space.sm)
+                .background(Color.brand.background)
+                .foregroundColor(Color.brand.textPrimary)
+                .cornerRadius(Theme.Radius.sm)
             }
         }
         .padding(Theme.Space.md)

@@ -49,12 +49,7 @@ final class WorkoutsViewModel: ObservableObject {
 
     /// Returns badge color for a workout
     func badgeColor(for workout: Workout) -> Color {
-
-        if workout.blockId != nil {
-            return ColorTheme.blockColor
-        }
-
-        return ColorTheme.unassignedWorkoutColor
+        return Color.brand.blockColor
     }
 
     // MARK: - Duplication

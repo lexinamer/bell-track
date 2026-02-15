@@ -29,7 +29,7 @@ struct SettingsView: View {
                 } label: {
                     settingsRow(
                         title: "Exercises",
-                        systemImage: "list.bullet"
+                        systemImage: "dumbbell"
                     )
                 }
 

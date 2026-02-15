@@ -32,52 +32,66 @@ struct ExercisesView: View {
 
                         }) {
 
-                            VStack(
-                                alignment: .leading,
-                                spacing: Theme.Space.xs
-                            ) {
+                            HStack(alignment: .top, spacing: Theme.Space.md) {
 
-                                Text(exercise.name)
-                                    .font(Theme.Font.cardTitle)
+                                VStack(
+                                    alignment: .leading,
+                                    spacing: Theme.Space.xs
+                                ) {
 
-                                if let exerciseIds = exercise.exerciseIds, !exerciseIds.isEmpty {
+                                    Text(exercise.name)
+                                        .font(Theme.Font.cardTitle)
 
-                                    let names = vm.exercises
-                                        .filter { exerciseIds.contains($0.id) }
-                                        .map { $0.name }
-                                        .joined(separator: " + ")
+                                    if let exerciseIds = exercise.exerciseIds, !exerciseIds.isEmpty {
 
-                                    Text(names)
-                                        .font(Theme.Font.cardCaption)
-                                        .foregroundColor(Color.brand.textSecondary)
+                                        let names = vm.exercises
+                                            .filter { exerciseIds.contains($0.id) }
+                                            .map { $0.name }
+                                            .joined(separator: " + ")
 
-                                } else {
+                                        Text(names)
+                                            .font(Theme.Font.cardCaption)
+                                            .foregroundColor(Color.brand.textSecondary)
 
-                                    MuscleTags(
-                                        primaryMuscles: exercise.primaryMuscles,
-                                        secondaryMuscles: []
-                                    )
+                                    } else {
+
+                                        MuscleTags(
+                                            primaryMuscles: exercise.primaryMuscles,
+                                            secondaryMuscles: []
+                                        )
+                                    }
                                 }
-                            }
-                        }
-                        .contextMenu {
 
-                            Button {
+                                Spacer()
 
-                                editingExercise = exercise
+                                Menu {
 
-                            } label: {
+                                    Button {
 
-                                Label("Edit", systemImage: "pencil")
-                            }
+                                        editingExercise = exercise
 
-                            Button(role: .destructive) {
+                                    } label: {
 
-                                exerciseToDelete = exercise
+                                        Label("Edit", systemImage: "pencil")
+                                    }
 
-                            } label: {
+                                    Button(role: .destructive) {
 
-                                Label("Delete", systemImage: "trash")
+                                        exerciseToDelete = exercise
+
+                                    } label: {
+
+                                        Label("Delete", systemImage: "trash")
+                                    }
+
+                                } label: {
+
+                                    Image(systemName: "ellipsis")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(Color.brand.textSecondary)
+                                        .frame(width: 32, height: 32)
+                                        .contentShape(Rectangle())
+                                }
                             }
                         }
                         .listRowInsets(EdgeInsets())

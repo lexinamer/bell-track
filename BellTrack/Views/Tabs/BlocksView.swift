@@ -9,7 +9,7 @@ struct BlocksView: View {
 
     // Sheets
     @State private var showingNewBlock = false
-    @State private var showingNewWorkout = false
+    @State private var selectedTemplate: WorkoutTemplate?
     @State private var editingBlock: Block?
     @State private var blockToDelete: Block?
 
@@ -41,6 +41,13 @@ struct BlocksView: View {
                 >
                 ($1.completedDate ?? .distantPast)
             }
+    }
+
+    private var activeTemplates: [WorkoutTemplate] {
+        let activeBlockIds = activeBlocks.map { $0.id }
+        return blocksVM.templates
+            .filter { activeBlockIds.contains($0.blockId) }
+            .sorted { $0.name < $1.name }
     }
 
     // MARK: - View
@@ -83,6 +90,23 @@ struct BlocksView: View {
                             )
                         }
 
+                        // Create Block button
+                        Button {
+                            showingNewBlock = true
+                        } label: {
+                            HStack(spacing: Theme.Space.xs) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(Color.brand.primary)
+
+                                Text("Create Block")
+                                    .font(Theme.Font.cardSecondary)
+                                    .foregroundColor(Color.brand.primary)
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, Theme.Space.sm)
+
                         if !completedBlocks.isEmpty {
                             section(
                                 title: "Completed",
@@ -98,16 +122,12 @@ struct BlocksView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button {
-                        showingNewWorkout = true
-                    } label: {
-                        Label("Log Workout", systemImage: "figure.run")
-                    }
-
-                    Button {
-                        showingNewBlock = true
-                    } label: {
-                        Label("Create Block", systemImage: "square.stack.3d.up")
+                    ForEach(activeTemplates) { template in
+                        Button {
+                            selectedTemplate = template
+                        } label: {
+                            Text(template.name)
+                        }
                     }
                 } label: {
                     Image(systemName: "plus")
@@ -173,18 +193,18 @@ struct BlocksView: View {
             )
         }
 
-        // MARK: - New Workout Sheet
+        // MARK: - New Workout Sheet (from template)
 
-        .fullScreenCover(isPresented: $showingNewWorkout) {
-
+        .fullScreenCover(item: $selectedTemplate) { template in
             WorkoutFormView(
                 workout: nil,
+                template: template,
                 onSave: {
-                    showingNewWorkout = false
+                    selectedTemplate = nil
                     Task { await blocksVM.load() }
                 },
                 onCancel: {
-                    showingNewWorkout = false
+                    selectedTemplate = nil
                 }
             )
         }

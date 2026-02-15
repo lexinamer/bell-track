@@ -64,7 +64,7 @@ struct BlockCard: View {
 
             // Purple accent bar
             Rectangle()
-                .fill(ColorTheme.blockColor)
+                .fill(Color.brand.blockColor)
                 .frame(width: 4)
 
             VStack(

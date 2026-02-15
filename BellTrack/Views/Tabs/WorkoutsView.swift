@@ -3,10 +3,10 @@ import SwiftUI
 struct WorkoutsView: View {
 
     @StateObject private var workoutsVM = WorkoutsViewModel()
+    @StateObject private var blocksVM = BlocksViewModel()
     @State private var editingWorkout: Workout?
     @State private var workoutToDelete: Workout?
-    @State private var showingNewWorkout = false
-    @State private var showingNewBlock = false
+    @State private var selectedTemplate: WorkoutTemplate?
 
     // MARK: - Derived
 
@@ -28,6 +28,16 @@ struct WorkoutsView: View {
 
     private var isEmpty: Bool {
         workoutsVM.sortedWorkouts.isEmpty && !workoutsVM.isLoading
+    }
+
+    private var activeTemplates: [WorkoutTemplate] {
+        let activeBlocks = blocksVM.blocks.filter {
+            $0.completedDate == nil && $0.startDate <= Date()
+        }
+        let activeBlockIds = activeBlocks.map { $0.id }
+        return blocksVM.templates
+            .filter { activeBlockIds.contains($0.blockId) }
+            .sorted { $0.name < $1.name }
     }
 
     // MARK: - View
@@ -58,16 +68,12 @@ struct WorkoutsView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button {
-                        showingNewWorkout = true
-                    } label: {
-                        Label("Log Workout", systemImage: "figure.run")
-                    }
-
-                    Button {
-                        showingNewBlock = true
-                    } label: {
-                        Label("Create Block", systemImage: "square.stack.3d.up")
+                    ForEach(activeTemplates) { template in
+                        Button {
+                            selectedTemplate = template
+                        } label: {
+                            Text(template.name)
+                        }
                     }
                 } label: {
                     Image(systemName: "plus")
@@ -76,6 +82,7 @@ struct WorkoutsView: View {
         }
         .task {
             await workoutsVM.load()
+            await blocksVM.load()
         }
 
         // MARK: - Edit Sheet
@@ -112,34 +119,22 @@ struct WorkoutsView: View {
             Text("This will permanently delete this workout.")
         }
 
-        // MARK: - New Workout Sheet
+        // MARK: - New Workout Sheet (from template)
 
-        .fullScreenCover(isPresented: $showingNewWorkout) {
+        .fullScreenCover(item: $selectedTemplate) { template in
             WorkoutFormView(
                 workout: nil,
+                template: template,
                 onSave: {
-                    showingNewWorkout = false
+                    selectedTemplate = nil
                     Task { await workoutsVM.load() }
                 },
                 onCancel: {
-                    showingNewWorkout = false
+                    selectedTemplate = nil
                 }
             )
         }
 
-        // MARK: - New Block Sheet
-
-        .fullScreenCover(isPresented: $showingNewBlock) {
-            BlockFormView(
-                blocksVM: BlocksViewModel(),
-                onSave: { _, _, _, _, _, _ in
-                    showingNewBlock = false
-                },
-                onCancel: {
-                    showingNewBlock = false
-                }
-            )
-        }
     }
 
     // MARK: - Month Section
@@ -185,7 +180,7 @@ struct WorkoutsView: View {
         VStack(
             spacing: Theme.Space.md
         ) {
-            Image(systemName: "clock.arrow.circlepath")
+            Image(systemName: "list.bullet")
                 .font(.system(size: Theme.IconSize.xl))
                 .foregroundColor(Color.brand.textSecondary)
             Text("No workout history")

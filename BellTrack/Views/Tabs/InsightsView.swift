@@ -3,13 +3,23 @@ import SwiftUI
 struct InsightsView: View {
 
     @StateObject private var vm = InsightsViewModel()
-    @State private var showingNewWorkout = false
-    @State private var showingNewBlock = false
+    @StateObject private var blocksVM = BlocksViewModel()
+    @State private var selectedTemplate: WorkoutTemplate?
 
     // MARK: - Derived
 
     private var isEmpty: Bool {
         combinedStats.isEmpty
+    }
+
+    private var activeTemplates: [WorkoutTemplate] {
+        let activeBlocks = blocksVM.blocks.filter {
+            $0.completedDate == nil && $0.startDate <= Date()
+        }
+        let activeBlockIds = activeBlocks.map { $0.id }
+        return blocksVM.templates
+            .filter { activeBlockIds.contains($0.blockId) }
+            .sorted { $0.name < $1.name }
     }
 
     // MARK: - View
@@ -51,16 +61,12 @@ struct InsightsView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button {
-                        showingNewWorkout = true
-                    } label: {
-                        Label("Log Workout", systemImage: "figure.run")
-                    }
-
-                    Button {
-                        showingNewBlock = true
-                    } label: {
-                        Label("Create Block", systemImage: "square.stack.3d.up")
+                    ForEach(activeTemplates) { template in
+                        Button {
+                            selectedTemplate = template
+                        } label: {
+                            Text(template.name)
+                        }
                     }
                 } label: {
                     Image(systemName: "plus")
@@ -69,36 +75,25 @@ struct InsightsView: View {
         }
         .task {
             await vm.load()
+            await blocksVM.load()
         }
 
-        // MARK: - New Workout Sheet
+        // MARK: - New Workout Sheet (from template)
 
-        .fullScreenCover(isPresented: $showingNewWorkout) {
+        .fullScreenCover(item: $selectedTemplate) { template in
             WorkoutFormView(
                 workout: nil,
+                template: template,
                 onSave: {
-                    showingNewWorkout = false
+                    selectedTemplate = nil
                     Task { await vm.load() }
                 },
                 onCancel: {
-                    showingNewWorkout = false
+                    selectedTemplate = nil
                 }
             )
         }
 
-        // MARK: - New Block Sheet
-
-        .fullScreenCover(isPresented: $showingNewBlock) {
-            BlockFormView(
-                blocksVM: BlocksViewModel(),
-                onSave: { _, _, _, _, _, _ in
-                    showingNewBlock = false
-                },
-                onCancel: {
-                    showingNewBlock = false
-                }
-            )
-        }
     }
 
     // MARK: - Empty State

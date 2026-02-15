@@ -52,7 +52,7 @@ struct WorkoutCard: View {
     // MARK: - Derived
 
     private var badgeColor: Color {
-        externalBadgeColor ?? ColorTheme.unassignedWorkoutColor
+        externalBadgeColor ?? Color.brand.blockColor
     }
 
     private var title: String {

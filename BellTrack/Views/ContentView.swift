@@ -20,7 +20,7 @@ struct ContentView: View {
                     WorkoutsView()
                 }
                 .tabItem {
-                    Image(systemName: "clock.arrow.circlepath")
+                    Image(systemName: "list.bullet")
                     Text("Workouts")
                 }
                 

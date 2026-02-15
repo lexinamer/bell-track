@@ -28,7 +28,6 @@ struct LoginView: View {
 
                     Text("BELL TRACK")
                         .font(Theme.Font.pageTitle)
-                        .foregroundColor(Color.brand.primary)
                         .kerning(2.8)
                 }
 
@@ -44,25 +43,21 @@ struct LoginView: View {
                 VStack(spacing: Theme.Space.md) {
 
                     // Email
-                    TextField("Email", text: $email)
+                    TextField("", text: $email, prompt: Text("Email").foregroundColor(Color.brand.textSecondary))
                         .textInputAutocapitalization(.never)
                         .keyboardType(.emailAddress)
                         .disableAutocorrection(true)
                         .padding()
-                        .background(Color.brand.surface)
                         .foregroundColor(Color.brand.textPrimary)
-                        .cornerRadius(Theme.Radius.md)
                         .overlay(
                             RoundedRectangle(cornerRadius: Theme.Radius.md)
                                 .stroke(Color.brand.border, lineWidth: 1)
                         )
 
                     // Password
-                    SecureField("Password", text: $password)
+                    SecureField("", text: $password, prompt: Text("Password").foregroundColor(Color.brand.textSecondary))
                         .padding()
-                        .background(Color.brand.surface)
                         .foregroundColor(Color.brand.textPrimary)
-                        .cornerRadius(Theme.Radius.md)
                         .overlay(
                             RoundedRectangle(cornerRadius: Theme.Radius.md)
                                 .stroke(Color.brand.border, lineWidth: 1)
@@ -114,7 +109,6 @@ struct LoginView: View {
                         .foregroundColor(Color.brand.primary)
                 }
             }
-            .background(Color.brand.background)
             .sheet(isPresented: $showSignUp) {
                 SignupView()
             }
