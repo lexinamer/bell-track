@@ -201,13 +201,6 @@ struct WorkoutFormView: View {
                 Spacer()
             }
 
-            // Mode Toggle
-            Picker("Mode", selection: log.mode) {
-                Text("Reps").tag(ExerciseMode.reps)
-                Text("Time").tag(ExerciseMode.time)
-            }
-            .pickerStyle(.segmented)
-
             // Sets
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
                 Text("Sets")
@@ -225,15 +218,32 @@ struct WorkoutFormView: View {
 
             // Reps or Time
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                Text(log.mode.wrappedValue == .reps ? "Reps" : "Time")
-                    .font(Theme.Font.cardSecondary)
-                    .fontWeight(.medium)
-                    .foregroundColor(Color.brand.textSecondary)
+                HStack {
+                    Text(log.mode.wrappedValue == .reps ? "Reps" : "Time (sec)")
+                        .font(Theme.Font.cardSecondary)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.brand.textSecondary)
 
-                TextField(log.mode.wrappedValue == .reps ? "8" : "0:30", text: Binding(
+                    Spacer()
+
+                    Button {
+                        log.mode.wrappedValue = log.mode.wrappedValue == .reps ? .time : .reps
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.left.arrow.right")
+                                .font(.system(size: 12))
+                            Text(log.mode.wrappedValue == .reps ? "Switch to Time" : "Switch to Reps")
+                                .font(Theme.Font.cardCaption)
+                        }
+                        .foregroundColor(Color.brand.primary)
+                    }
+                }
+
+                TextField(log.mode.wrappedValue == .reps ? "8" : "30", text: Binding(
                     get: { log.reps.wrappedValue ?? "" },
                     set: { log.reps.wrappedValue = $0.isEmpty ? nil : $0 }
                 ))
+                .keyboardType(log.mode.wrappedValue == .reps ? .numberPad : .decimalPad)
                 .padding(Theme.Space.sm)
                 .background(Color.brand.background)
                 .foregroundColor(Color.brand.textPrimary)

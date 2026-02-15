@@ -77,20 +77,20 @@ struct BlockCard: View {
                     .foregroundColor(Color.brand.textPrimary)
                     .lineLimit(1)
 
-                Text(progressText)
-                    .font(Theme.Font.cardCaption)
-                    .foregroundColor(Color.brand.textSecondary)
-
                 if let weekProgress = weekProgressText {
-                    Text(weekProgress)
-                        .font(Theme.Font.cardCaption)
-                        .foregroundColor(Color.brand.primary)
+                    Text("\(progressText) (\(weekProgress))")
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(Color.brand.textSecondary)
+                } else {
+                    Text("\(progressText) (Ongoing)")
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(Color.brand.textSecondary)
                 }
 
                 if !workoutText.isEmpty {
 
                     Text(workoutText)
-                        .font(Theme.Font.cardCaption)
+                        .font(Theme.Font.cardSecondary)
                         .foregroundColor(Color.brand.textSecondary)
                 }
             }

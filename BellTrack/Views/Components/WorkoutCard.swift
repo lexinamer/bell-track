@@ -216,7 +216,7 @@ struct WorkoutCard: View {
                 }
 
                 if let reps = log.reps, !reps.isEmpty {
-                    let label = log.mode == .time ? "time" : "reps"
+                    let label = log.mode == .time ? "sec" : "reps"
                     detailChip(text: "\(reps) \(label)")
                 }
 
