@@ -68,6 +68,7 @@ struct TrainingView: View {
                         alignment: .leading,
                         spacing: Theme.Space.xl
                     ) {
+                        newBlockButton
 
                         if !activeBlocks.isEmpty {
                             section(
@@ -95,32 +96,15 @@ struct TrainingView: View {
             }
         }
         .navigationTitle("Training")
-
-        // MARK: - Toolbar
-
         .toolbar {
-
             ToolbarItem(placement: .topBarTrailing) {
-
-                HStack(spacing: Theme.Space.xs) {
-
-                    Button {
-                        showingNewWorkout = true
-                    } label: {
-                        Image(systemName: "figure.run")
-                    }
-
-                    Button {
-                        showingNewBlock = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
+                Button {
+                    showingNewWorkout = true
+                } label: {
+                    Image(systemName: "plus")
                 }
             }
         }
-
-        // MARK: - Navigation
-
         .navigationDestination(item: $selectedBlock) {
             BlockDetailView(block: $0, blocksVM: blocksVM)
         }
@@ -131,7 +115,7 @@ struct TrainingView: View {
 
             BlockFormView(
                 blocksVM: blocksVM,
-                onSave: { name, start, type, duration, notes, color, pendingTemplates in
+                onSave: { name, start, endDate, notes, color, pendingTemplates in
 
                     Task {
 
@@ -139,8 +123,7 @@ struct TrainingView: View {
                             id: nil,
                             name: name,
                             startDate: start,
-                            type: type,
-                            durationWeeks: duration,
+                            endDate: endDate,
                             notes: notes,
                             colorIndex: color,
                             pendingTemplates: pendingTemplates
@@ -162,14 +145,13 @@ struct TrainingView: View {
             BlockFormView(
                 block: block,
                 blocksVM: blocksVM,
-                onSave: { name, startDate, type, durationWeeks, notes, colorIndex, _ in
+                onSave: { name, startDate, endDate, notes, colorIndex, _ in
                     Task {
                         await blocksVM.saveBlock(
                             id: block.id,
                             name: name,
                             startDate: startDate,
-                            type: type,
-                            durationWeeks: durationWeeks,
+                            endDate: endDate,
                             notes: notes,
                             colorIndex: colorIndex
                         )
@@ -225,6 +207,21 @@ struct TrainingView: View {
         }
     }
 
+    // MARK: - New Block Button
+
+    private var newBlockButton: some View {
+        Button {
+            showingNewBlock = true
+        } label: {
+            HStack {
+                Image(systemName: "plus.circle.fill")
+                Text("New Block")
+            }
+            .foregroundColor(Color.brand.primary)
+        }
+        .padding(.horizontal)
+    }
+
     // MARK: - Section
 
     private func section(
@@ -235,6 +232,7 @@ struct TrainingView: View {
             Text(title)
                 .font(Theme.Font.sectionTitle)
                 .padding(.horizontal)
+                
             LazyVStack(spacing: Theme.Space.sm) {
                 ForEach(blocks) { block in
                     BlockCard(

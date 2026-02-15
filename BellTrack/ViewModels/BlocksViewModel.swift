@@ -35,29 +35,20 @@ final class BlocksViewModel: ObservableObject {
 
     private func autoCompleteExpiredBlocks() async {
         let now = Date()
-        let calendar = Calendar.current
 
         for block in blocks {
-            // Only check active duration blocks
             guard block.completedDate == nil,
-                  block.type == .duration,
-                  let weeks = block.durationWeeks, weeks > 0
+                  let endDate = block.endDate,
+                  now >= endDate
             else { continue }
 
-            // Calculate end date
-            guard let endDate = calendar.date(byAdding: .weekOfYear, value: weeks, to: block.startDate)
-            else { continue }
-
-            if now >= endDate {
-                do {
-                    try await firestore.completeBlock(id: block.id)
-                    // Update local state
-                    if let index = blocks.firstIndex(where: { $0.id == block.id }) {
-                        blocks[index].completedDate = now
-                    }
-                } catch {
-                    print("❌ Failed to auto-complete block:", error)
+            do {
+                try await firestore.completeBlock(id: block.id)
+                if let index = blocks.firstIndex(where: { $0.id == block.id }) {
+                    blocks[index].completedDate = now
                 }
+            } catch {
+                print("❌ Failed to auto-complete block:", error)
             }
         }
     }
@@ -83,8 +74,7 @@ final class BlocksViewModel: ObservableObject {
         id: String?,
         name: String,
         startDate: Date,
-        type: BlockType,
-        durationWeeks: Int?,
+        endDate: Date? = nil,
         notes: String? = nil,
         colorIndex: Int? = nil,
         pendingTemplates: [(name: String, entries: [TemplateEntry])] = []
@@ -95,8 +85,7 @@ final class BlocksViewModel: ObservableObject {
                 id: id,
                 name: name,
                 startDate: startDate,
-                type: type,
-                durationWeeks: durationWeeks,
+                endDate: endDate,
                 notes: notes,
                 colorIndex: colorIndex
             )

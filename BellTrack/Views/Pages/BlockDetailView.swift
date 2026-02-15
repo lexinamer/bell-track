@@ -90,14 +90,13 @@ struct BlockDetailView: View {
             BlockFormView(
                 block: block,
                 blocksVM: blocksVM,
-                onSave: { name, startDate, type, durationWeeks, notes, colorIndex, _ in
+                onSave: { name, startDate, endDate, notes, colorIndex, _ in
                     Task {
                         await blocksVM.saveBlock(
                             id: block.id,
                             name: name,
                             startDate: startDate,
-                            type: type,
-                            durationWeeks: durationWeeks,
+                            endDate: endDate,
                             notes: notes,
                             colorIndex: colorIndex
                         )
@@ -294,37 +293,16 @@ struct BlockDetailView: View {
     // MARK: - Progress Text
 
     private var progressText: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
 
-        switch block.type {
+        let start = formatter.string(from: block.startDate)
 
-        case .ongoing:
-
-            let weeks =
-                Calendar.current.dateComponents(
-                    [.weekOfYear],
-                    from: block.startDate,
-                    to: Date()
-                ).weekOfYear ?? 0
-
-            return "Week \(max(1, weeks + 1)) (ongoing)"
-
-        case .duration:
-
-            guard let duration = block.durationWeeks else {
-                return ""
-            }
-
-            let weeks =
-                Calendar.current.dateComponents(
-                    [.weekOfYear],
-                    from: block.startDate,
-                    to: Date()
-                ).weekOfYear ?? 0
-
-            let current =
-                min(max(1, weeks + 1), duration)
-
-            return "Week \(current) of \(duration)"
+        if let endDate = block.endDate {
+            let end = formatter.string(from: endDate)
+            return "\(start) – \(end)"
+        } else {
+            return "Started \(start)"
         }
     }
 }

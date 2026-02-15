@@ -3,13 +3,13 @@ import SwiftUI
 struct BlockFormView: View {
     let block: Block?
     let blocksVM: BlocksViewModel?
-    let onSave: (String, Date, BlockType, Int?, String?, Int?, [(name: String, entries: [TemplateEntry])]) -> Void
+    let onSave: (String, Date, Date?, String?, Int?, [(name: String, entries: [TemplateEntry])]) -> Void
     let onCancel: () -> Void
 
     @State private var name: String
     @State private var startDate: Date
-    @State private var isDuration: Bool
-    @State private var durationWeeks: Int?
+    @State private var hasEndDate: Bool
+    @State private var endDate: Date
     @State private var notes: String
     @State private var colorIndex: Int
 
@@ -27,7 +27,7 @@ struct BlockFormView: View {
     init(
         block: Block? = nil,
         blocksVM: BlocksViewModel? = nil,
-        onSave: @escaping (String, Date, BlockType, Int?, String?, Int?, [(name: String, entries: [TemplateEntry])]) -> Void,
+        onSave: @escaping (String, Date, Date?, String?, Int?, [(name: String, entries: [TemplateEntry])]) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.block = block
@@ -37,8 +37,8 @@ struct BlockFormView: View {
 
         self._name = State(initialValue: block?.name ?? "")
         self._startDate = State(initialValue: block?.startDate ?? Date())
-        self._isDuration = State(initialValue: block?.type == .duration)
-        self._durationWeeks = State(initialValue: block?.durationWeeks)
+        self._hasEndDate = State(initialValue: block?.endDate != nil)
+        self._endDate = State(initialValue: block?.endDate ?? Calendar.current.date(byAdding: .weekOfYear, value: 4, to: Date())!)
         self._notes = State(initialValue: block?.notes ?? "")
         self._colorIndex = State(initialValue: block?.colorIndex ?? 0)
     }
@@ -55,18 +55,48 @@ struct BlockFormView: View {
                     TextField("Block name", text: $name)
                         .autocorrectionDisabled()
 
-                    DatePicker("Start date", selection: $startDate, displayedComponents: .date)
+                    HStack {
+                        Text("Start date")
+                        Spacer()
+                        DatePicker(
+                            "",
+                            selection: $startDate,
+                            displayedComponents: .date
+                        )
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                    }
 
-                    Toggle("Duration block", isOn: $isDuration)
-
-                    if isDuration {
-                        HStack {
-                            Text("Duration")
+                    Toggle("End date", isOn: $hasEndDate)
+                        .onChange(of: hasEndDate) { _, enabled in
+                            if enabled {
+                                endDate = Calendar.current.date(
+                                    byAdding: .weekOfYear,
+                                    value: 4,
+                                    to: startDate
+                                )!
+                            }
+                        }
+                    
+                    if hasEndDate {
+                        HStack(spacing: Theme.Space.sm) {
+                            durationChip(weeks: 4)
+                            durationChip(weeks: 6)
+                            durationChip(weeks: 8)
+                            durationChip(weeks: 10)
                             Spacer()
-                            TextField("Weeks", value: $durationWeeks, format: .number)
-                                .keyboardType(.numberPad)
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 80)
+                        }
+                        HStack {
+                            Text("End date")
+                            Spacer()
+                            DatePicker(
+                                "",
+                                selection: $endDate,
+                                in: startDate.addingTimeInterval(86400)...,
+                                displayedComponents: .date
+                            )
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
                         }
                     }
                 }
@@ -96,7 +126,6 @@ struct BlockFormView: View {
 
                 // Templates section — available for both new and existing blocks
                 Section {
-                    // Existing saved templates (editing an existing block)
                     if block != nil {
                         if blockTemplates.isEmpty && pendingTemplates.isEmpty {
                             Text("No templates yet")
@@ -137,7 +166,6 @@ struct BlockFormView: View {
                         }
                     }
 
-                    // Pending templates (for new blocks, or additional ones while editing)
                     if block == nil && pendingTemplates.isEmpty {
                         Text("No templates yet")
                             .font(Theme.Font.cardSecondary)
@@ -178,7 +206,6 @@ struct BlockFormView: View {
                             complexes: complexes,
                             onSave: { templateName, entries in
                                 if let blockId = block?.id {
-                                    // Editing existing block — save directly
                                     Task {
                                         await blocksVM?.saveTemplate(
                                             id: nil,
@@ -188,7 +215,6 @@ struct BlockFormView: View {
                                         )
                                     }
                                 } else {
-                                    // New block — store locally until block is saved
                                     pendingTemplates.append((name: templateName, entries: entries))
                                 }
                             },
@@ -216,12 +242,11 @@ struct BlockFormView: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        let blockType: BlockType = isDuration ? .duration : .ongoing
                         let finalNotes = notes.trimmingCharacters(in: .whitespaces)
-                        onSave(name, startDate, blockType, durationWeeks, finalNotes.isEmpty ? nil : finalNotes, colorIndex, pendingTemplates)
+                        let finalEndDate: Date? = hasEndDate ? endDate : nil
+                        onSave(name, startDate, finalEndDate, finalNotes.isEmpty ? nil : finalNotes, colorIndex, pendingTemplates)
                     }
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty ||
-                             (isDuration && (durationWeeks == nil || durationWeeks! <= 0)))
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
             .alert("Delete Template?", isPresented: .init(
@@ -259,6 +284,24 @@ struct BlockFormView: View {
                 complexes = (try? await firestore.fetchComplexes()) ?? []
             }
         }
+    }
+
+    // MARK: - Duration Chip
+
+    private func durationChip(weeks: Int) -> some View {
+        let target = Calendar.current.date(byAdding: .weekOfYear, value: weeks, to: startDate)!
+        let isSelected = Calendar.current.isDate(endDate, inSameDayAs: target)
+
+        return Button("\(weeks) wks") {
+            endDate = target
+        }
+        .buttonStyle(.borderless)
+        .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(isSelected ? Color.brand.primary : Color(.tertiarySystemFill))
+        .foregroundColor(isSelected ? .white : .primary)
+        .clipShape(Capsule())
     }
 
     // MARK: - Template Row

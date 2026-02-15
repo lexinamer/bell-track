@@ -97,17 +97,11 @@ struct WorkoutTemplate: Identifiable, Codable, Equatable {
 
 // MARK: - Block
 
-enum BlockType: String, Codable, CaseIterable, Hashable {
-    case duration
-    case ongoing
-}
-
 struct Block: Identifiable, Codable, Equatable, Hashable {
     let id: String
     var name: String
     var startDate: Date
-    var type: BlockType
-    var durationWeeks: Int?
+    var endDate: Date?
     var completedDate: Date?
     var notes: String?
     var colorIndex: Int?

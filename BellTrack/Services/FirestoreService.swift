@@ -264,11 +264,10 @@ final class FirestoreService {
         return snap.documents.compactMap { doc in
             guard
                 let name = doc["name"] as? String,
-                let startDate = (doc["startDate"] as? Timestamp)?.dateValue(),
-                let typeRaw = doc["type"] as? String,
-                let type = BlockType(rawValue: typeRaw)
+                let startDate = (doc["startDate"] as? Timestamp)?.dateValue()
             else { return nil }
 
+            let endDate = (doc["endDate"] as? Timestamp)?.dateValue()
             let completedDate = (doc["completedDate"] as? Timestamp)?.dateValue()
             let notes = doc["notes"] as? String
 
@@ -276,8 +275,7 @@ final class FirestoreService {
                 id: doc.documentID,
                 name: name,
                 startDate: startDate,
-                type: type,
-                durationWeeks: doc["durationWeeks"] as? Int,
+                endDate: endDate,
                 completedDate: completedDate,
                 notes: notes,
                 colorIndex: doc["colorIndex"] as? Int
@@ -290,8 +288,7 @@ final class FirestoreService {
         id: String?,
         name: String,
         startDate: Date,
-        type: BlockType,
-        durationWeeks: Int?,
+        endDate: Date? = nil,
         completedDate: Date? = nil,
         notes: String? = nil,
         colorIndex: Int? = nil
@@ -304,10 +301,12 @@ final class FirestoreService {
 
         var data: [String: Any] = [
             "name": name,
-            "startDate": startDate,
-            "type": type.rawValue,
-            "durationWeeks": durationWeeks as Any
+            "startDate": startDate
         ]
+
+        if let endDate = endDate {
+            data["endDate"] = endDate
+        }
 
         if let completedDate = completedDate {
             data["completedDate"] = completedDate

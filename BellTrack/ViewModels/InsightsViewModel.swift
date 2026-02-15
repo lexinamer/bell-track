@@ -37,7 +37,14 @@ final class InsightsViewModel: ObservableObject {
 
             exercises = try await fetchedExercises
             workouts = try await fetchedWorkouts
+            
             blocks = try await fetchedBlocks
+                .filter {
+                    $0.completedDate == nil &&
+                    $0.startDate <= Date()
+                }
+                .sorted { $0.startDate > $1.startDate }
+
             complexes = try await fetchedComplexes
 
             computeStats()
@@ -73,7 +80,11 @@ final class InsightsViewModel: ObservableObject {
         if let blockId = selectedBlockId {
             filteredWorkouts = workouts.filter { $0.blockId == blockId }
         } else {
-            filteredWorkouts = workouts
+            let activeBlockIds = Set(blocks.map(\.id))
+            filteredWorkouts = workouts.filter {
+                guard let blockId = $0.blockId else { return false }
+                return activeBlockIds.contains(blockId)
+            }
         }
 
         var primarySets: [MuscleGroup: Int] = [:]
