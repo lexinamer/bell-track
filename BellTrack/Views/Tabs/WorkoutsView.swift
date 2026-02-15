@@ -41,31 +41,39 @@ struct WorkoutsView: View {
             } else if isEmpty {
                 emptyState
             } else {
-                ZStack {
-                    ScrollView {
-                        LazyVStack(
-                            alignment: .leading,
-                            spacing: Theme.Space.xl
-                        ) {
-                            ForEach(workoutsByMonth, id: \.0) { month, workouts in
-                                monthSection(month, workouts: workouts)
-                            }
+                ScrollView {
+                    LazyVStack(
+                        alignment: .leading,
+                        spacing: Theme.Space.xl
+                    ) {
+                        ForEach(workoutsByMonth, id: \.0) { month, workouts in
+                            monthSection(month, workouts: workouts)
                         }
-                        .padding(.vertical)
                     }
-
-                    FAB(
-                        onLogWorkout: {
-                            showingNewWorkout = true
-                        },
-                        onCreateBlock: {
-                            showingNewBlock = true
-                        }
-                    )
+                    .padding(.vertical)
                 }
             }
         }
         .navigationTitle("Workouts")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        showingNewWorkout = true
+                    } label: {
+                        Label("Log Workout", systemImage: "figure.run")
+                    }
+
+                    Button {
+                        showingNewBlock = true
+                    } label: {
+                        Label("Create Block", systemImage: "square.stack.3d.up")
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
         .task {
             await workoutsVM.load()
         }

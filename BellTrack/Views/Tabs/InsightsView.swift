@@ -31,34 +31,42 @@ struct InsightsView: View {
 
             } else {
 
-                ZStack {
-                    ScrollView {
+                ScrollView {
 
-                        VStack(
-                            alignment: .leading,
-                            spacing: Theme.Space.xl
-                        ) {
+                    VStack(
+                        alignment: .leading,
+                        spacing: Theme.Space.xl
+                    ) {
 
-                            filterSection
+                        filterSection
 
-                            muscleLoadSection
-                        }
-                        .padding(.vertical)
+                        muscleLoadSection
                     }
-
-                    FAB(
-                        onLogWorkout: {
-                            showingNewWorkout = true
-                        },
-                        onCreateBlock: {
-                            showingNewBlock = true
-                        }
-                    )
+                    .padding(.vertical)
                 }
             }
         }
         .navigationTitle("Insights")
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        showingNewWorkout = true
+                    } label: {
+                        Label("Log Workout", systemImage: "figure.run")
+                    }
+
+                    Button {
+                        showingNewBlock = true
+                    } label: {
+                        Label("Create Block", systemImage: "square.stack.3d.up")
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
         .task {
             await vm.load()
         }

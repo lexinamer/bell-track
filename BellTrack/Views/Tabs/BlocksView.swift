@@ -62,50 +62,58 @@ struct BlocksView: View {
 
             } else {
 
-                ZStack {
-                    ScrollView {
+                ScrollView {
 
-                        LazyVStack(
-                            alignment: .leading,
-                            spacing: Theme.Space.xl
-                        ) {
+                    LazyVStack(
+                        alignment: .leading,
+                        spacing: Theme.Space.xl
+                    ) {
 
-                            if !activeBlocks.isEmpty {
-                                section(
-                                    title: "Active",
-                                    blocks: activeBlocks
-                                )
-                            }
-
-                            if !futureBlocks.isEmpty {
-                                section(
-                                    title: "Planned",
-                                    blocks: futureBlocks
-                                )
-                            }
-
-                            if !completedBlocks.isEmpty {
-                                section(
-                                    title: "Completed",
-                                    blocks: completedBlocks
-                                )
-                            }
+                        if !activeBlocks.isEmpty {
+                            section(
+                                title: "Active",
+                                blocks: activeBlocks
+                            )
                         }
-                        .padding(.vertical)
+
+                        if !futureBlocks.isEmpty {
+                            section(
+                                title: "Planned",
+                                blocks: futureBlocks
+                            )
+                        }
+
+                        if !completedBlocks.isEmpty {
+                            section(
+                                title: "Completed",
+                                blocks: completedBlocks
+                            )
+                        }
                     }
-
-                    FAB(
-                        onLogWorkout: {
-                            showingNewWorkout = true
-                        },
-                        onCreateBlock: {
-                            showingNewBlock = true
-                        }
-                    )
+                    .padding(.vertical)
                 }
             }
         }
         .navigationTitle("Blocks")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        showingNewWorkout = true
+                    } label: {
+                        Label("Log Workout", systemImage: "figure.run")
+                    }
+
+                    Button {
+                        showingNewBlock = true
+                    } label: {
+                        Label("Create Block", systemImage: "square.stack.3d.up")
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
         .navigationDestination(item: $selectedBlock) {
             BlockDetailView(block: $0, blocksVM: blocksVM)
         }
