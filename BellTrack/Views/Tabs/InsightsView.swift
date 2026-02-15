@@ -3,6 +3,8 @@ import SwiftUI
 struct InsightsView: View {
 
     @StateObject private var vm = InsightsViewModel()
+    @State private var showingNewWorkout = false
+    @State private var showingNewBlock = false
 
     // MARK: - Derived
 
@@ -29,18 +31,29 @@ struct InsightsView: View {
 
             } else {
 
-                ScrollView {
+                ZStack {
+                    ScrollView {
 
-                    VStack(
-                        alignment: .leading,
-                        spacing: Theme.Space.xl
-                    ) {
+                        VStack(
+                            alignment: .leading,
+                            spacing: Theme.Space.xl
+                        ) {
 
-                        filterSection
+                            filterSection
 
-                        muscleLoadSection
+                            muscleLoadSection
+                        }
+                        .padding(.vertical)
                     }
-                    .padding(.vertical)
+
+                    FAB(
+                        onLogWorkout: {
+                            showingNewWorkout = true
+                        },
+                        onCreateBlock: {
+                            showingNewBlock = true
+                        }
+                    )
                 }
             }
         }
@@ -48,6 +61,35 @@ struct InsightsView: View {
         .navigationBarTitleDisplayMode(.large)
         .task {
             await vm.load()
+        }
+
+        // MARK: - New Workout Sheet
+
+        .fullScreenCover(isPresented: $showingNewWorkout) {
+            WorkoutFormView(
+                workout: nil,
+                onSave: {
+                    showingNewWorkout = false
+                    Task { await vm.load() }
+                },
+                onCancel: {
+                    showingNewWorkout = false
+                }
+            )
+        }
+
+        // MARK: - New Block Sheet
+
+        .fullScreenCover(isPresented: $showingNewBlock) {
+            BlockFormView(
+                blocksVM: BlocksViewModel(),
+                onSave: { _, _, _, _, _, _ in
+                    showingNewBlock = false
+                },
+                onCancel: {
+                    showingNewBlock = false
+                }
+            )
         }
     }
 

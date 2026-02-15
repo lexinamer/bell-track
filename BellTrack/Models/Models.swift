@@ -94,6 +94,7 @@ struct WorkoutLog: Identifiable, Codable, Equatable {
     var sets: Int?
     var reps: String?  // Can be number (reps mode) or time string (time mode)
     var weight: String?
+    var isDouble: Bool  // Double toggle: false = "12kg", true = "2×12kg"
     var note: String?
 
     init(
@@ -104,6 +105,7 @@ struct WorkoutLog: Identifiable, Codable, Equatable {
         sets: Int? = nil,
         reps: String? = nil,
         weight: String? = nil,
+        isDouble: Bool = false,
         note: String? = nil
     ) {
         self.id = id
@@ -113,6 +115,7 @@ struct WorkoutLog: Identifiable, Codable, Equatable {
         self.sets = sets
         self.reps = reps
         self.weight = weight
+        self.isDouble = isDouble
         self.note = note
     }
 }

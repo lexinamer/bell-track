@@ -41,6 +41,21 @@ struct BlockCard: View {
         }
     }
 
+    private var weekProgressText: String? {
+        guard let endDate = block.endDate else { return nil }
+
+        let calendar = Calendar.current
+        let totalWeeks = calendar.dateComponents([.weekOfYear], from: block.startDate, to: endDate).weekOfYear ?? 0
+        let currentWeek = min(
+            calendar.dateComponents([.weekOfYear], from: block.startDate, to: Date()).weekOfYear ?? 0,
+            totalWeeks
+        ) + 1
+
+        guard totalWeeks > 0 else { return nil }
+
+        return "Week \(currentWeek) of \(totalWeeks + 1)"
+    }
+
     // MARK: - View
 
     var body: some View {
@@ -65,6 +80,12 @@ struct BlockCard: View {
                 Text(progressText)
                     .font(Theme.Font.cardCaption)
                     .foregroundColor(Color.brand.textSecondary)
+
+                if let weekProgress = weekProgressText {
+                    Text(weekProgress)
+                        .font(Theme.Font.cardCaption)
+                        .foregroundColor(Color.brand.primary)
+                }
 
                 if !workoutText.isEmpty {
 

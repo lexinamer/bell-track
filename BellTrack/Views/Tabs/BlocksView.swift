@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct TrainingView: View {
+struct BlocksView: View {
 
     @StateObject private var blocksVM = BlocksViewModel()
 
@@ -62,49 +62,50 @@ struct TrainingView: View {
 
             } else {
 
-                ScrollView {
+                ZStack {
+                    ScrollView {
 
-                    LazyVStack(
-                        alignment: .leading,
-                        spacing: Theme.Space.xl
-                    ) {
-                        newBlockButton
+                        LazyVStack(
+                            alignment: .leading,
+                            spacing: Theme.Space.xl
+                        ) {
 
-                        if !activeBlocks.isEmpty {
-                            section(
-                                title: "Active",
-                                blocks: activeBlocks
-                            )
+                            if !activeBlocks.isEmpty {
+                                section(
+                                    title: "Active",
+                                    blocks: activeBlocks
+                                )
+                            }
+
+                            if !futureBlocks.isEmpty {
+                                section(
+                                    title: "Planned",
+                                    blocks: futureBlocks
+                                )
+                            }
+
+                            if !completedBlocks.isEmpty {
+                                section(
+                                    title: "Completed",
+                                    blocks: completedBlocks
+                                )
+                            }
                         }
-
-                        if !futureBlocks.isEmpty {
-                            section(
-                                title: "Planned",
-                                blocks: futureBlocks
-                            )
-                        }
-
-                        if !completedBlocks.isEmpty {
-                            section(
-                                title: "Completed",
-                                blocks: completedBlocks
-                            )
-                        }
+                        .padding(.vertical)
                     }
-                    .padding(.vertical)
+
+                    FAB(
+                        onLogWorkout: {
+                            showingNewWorkout = true
+                        },
+                        onCreateBlock: {
+                            showingNewBlock = true
+                        }
+                    )
                 }
             }
         }
-        .navigationTitle("Training")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showingNewWorkout = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-            }
-        }
+        .navigationTitle("Blocks")
         .navigationDestination(item: $selectedBlock) {
             BlockDetailView(block: $0, blocksVM: blocksVM)
         }
@@ -205,21 +206,6 @@ struct TrainingView: View {
         .task {
             await blocksVM.load()
         }
-    }
-
-    // MARK: - New Block Button
-
-    private var newBlockButton: some View {
-        Button {
-            showingNewBlock = true
-        } label: {
-            HStack {
-                Image(systemName: "plus.circle.fill")
-                Text("New Block")
-            }
-            .foregroundColor(Color.brand.primary)
-        }
-        .padding(.horizontal)
     }
 
     // MARK: - Section

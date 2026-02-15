@@ -9,7 +9,7 @@ struct ContentView: View {
             TabView {
 
                 NavigationStack {
-                    TrainingView()
+                    BlocksView()
                 }
                 .tabItem {
                     Image(systemName: "square.stack.3d.up")
@@ -17,7 +17,7 @@ struct ContentView: View {
                 }
 
                 NavigationStack {
-                    HistoryView()
+                    WorkoutsView()
                 }
                 .tabItem {
                     Image(systemName: "clock.arrow.circlepath")

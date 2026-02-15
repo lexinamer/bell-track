@@ -1,10 +1,12 @@
 import SwiftUI
 
-struct HistoryView: View {
+struct WorkoutsView: View {
 
     @StateObject private var workoutsVM = WorkoutsViewModel()
     @State private var editingWorkout: Workout?
     @State private var workoutToDelete: Workout?
+    @State private var showingNewWorkout = false
+    @State private var showingNewBlock = false
 
     // MARK: - Derived
 
@@ -39,16 +41,27 @@ struct HistoryView: View {
             } else if isEmpty {
                 emptyState
             } else {
-                ScrollView {
-                    LazyVStack(
-                        alignment: .leading,
-                        spacing: Theme.Space.xl
-                    ) {
-                        ForEach(workoutsByMonth, id: \.0) { month, workouts in
-                            monthSection(month, workouts: workouts)
+                ZStack {
+                    ScrollView {
+                        LazyVStack(
+                            alignment: .leading,
+                            spacing: Theme.Space.xl
+                        ) {
+                            ForEach(workoutsByMonth, id: \.0) { month, workouts in
+                                monthSection(month, workouts: workouts)
+                            }
                         }
+                        .padding(.vertical)
                     }
-                    .padding(.vertical)
+
+                    FAB(
+                        onLogWorkout: {
+                            showingNewWorkout = true
+                        },
+                        onCreateBlock: {
+                            showingNewBlock = true
+                        }
+                    )
                 }
             }
         }
@@ -90,6 +103,35 @@ struct HistoryView: View {
         } message: {
             Text("This will permanently delete this workout.")
         }
+
+        // MARK: - New Workout Sheet
+
+        .fullScreenCover(isPresented: $showingNewWorkout) {
+            WorkoutFormView(
+                workout: nil,
+                onSave: {
+                    showingNewWorkout = false
+                    Task { await workoutsVM.load() }
+                },
+                onCancel: {
+                    showingNewWorkout = false
+                }
+            )
+        }
+
+        // MARK: - New Block Sheet
+
+        .fullScreenCover(isPresented: $showingNewBlock) {
+            BlockFormView(
+                blocksVM: BlocksViewModel(),
+                onSave: { _, _, _, _, _, _ in
+                    showingNewBlock = false
+                },
+                onCancel: {
+                    showingNewBlock = false
+                }
+            )
+        }
     }
 
     // MARK: - Month Section
@@ -118,9 +160,6 @@ struct HistoryView: View {
                         badgeColor: workoutsVM.badgeColor(for: workout),
                         onEdit: {
                             editingWorkout = workout
-                        },
-                        onDuplicate: {
-                            editingWorkout = workoutsVM.duplicate(workout)
                         },
                         onDelete: {
                             workoutToDelete = workout

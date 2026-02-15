@@ -312,6 +312,7 @@ final class FirestoreService {
                     sets: log["sets"] as? Int,
                     reps: log["reps"] as? String,
                     weight: log["weight"] as? String,
+                    isDouble: log["isDouble"] as? Bool ?? false,
                     note: log["note"] as? String
                 )
             }
@@ -344,9 +345,11 @@ final class FirestoreService {
                 "id": $0.id,
                 "exerciseId": $0.exerciseId,
                 "exerciseName": $0.exerciseName,
+                "mode": $0.mode.rawValue,
                 "sets": $0.sets as Any,
                 "reps": $0.reps as Any,
                 "weight": $0.weight as Any,
+                "isDouble": $0.isDouble,
                 "note": $0.note as Any
             ]
         }
