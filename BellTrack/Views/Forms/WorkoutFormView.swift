@@ -18,7 +18,7 @@ struct WorkoutFormView: View {
     @State private var workouts: [Workout] = []
     @State private var showingTemplateSelector = false
 
-    private let firestore = FirestoreService()
+    private let firestore = FirestoreService.shared
 
     // MARK: - Init
 
@@ -175,7 +175,7 @@ struct WorkoutFormView: View {
                 }
             }
             .sheet(isPresented: $showingTemplateSelector) {
-                TemplateSelector(
+                TemplateSelectorSheet(
                     templates: templateOptions,
                     onSelect: { template in
                         selectedTemplate = template
@@ -360,23 +360,81 @@ struct WorkoutFormView: View {
         templates = (try? await firestore.fetchWorkoutTemplates()) ?? []
         workouts = (try? await firestore.fetchWorkouts()) ?? []
 
-        // If editing, find and set template
+        // If editing, try to match template by name
         if let workout = workout, let workoutName = workout.name {
             selectedTemplate = templates.first { $0.name == workoutName }
-            if selectedTemplate == nil {
-                // Create a synthetic template from workout data
-                selectedTemplate = WorkoutTemplate(
-                    id: UUID().uuidString,
-                    name: workoutName,
-                    blockId: workout.blockId ?? "",
-                    entries: workout.logs.map { log in
-                        TemplateEntry(
-                            exerciseId: log.exerciseId,
-                            exerciseName: log.exerciseName
-                        )
+        }
+    }
+}
+
+// MARK: - Template Selector Sheet
+
+private struct TemplateSelectorSheet: View {
+
+    let templates: [(template: WorkoutTemplate, blockName: String)]
+    let onSelect: (WorkoutTemplate) -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+
+        NavigationStack {
+            ZStack {
+                Color.brand.background
+                    .ignoresSafeArea()
+
+                if templates.isEmpty {
+                    emptyState
+                } else {
+                    List {
+                        ForEach(templates, id: \.template.id) { item in
+                            Button {
+                                onSelect(item.template)
+                            } label: {
+                                VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                                    Text(item.template.name)
+                                        .font(Theme.Font.cardTitle)
+                                        .foregroundColor(Color.brand.textPrimary)
+
+                                    Text(item.blockName)
+                                        .font(Theme.Font.cardCaption)
+                                        .foregroundColor(Color.brand.textSecondary)
+                                }
+                                .padding(.vertical, Theme.Space.xs)
+                            }
+                            .listRowBackground(Color.brand.surface)
+                        }
                     }
-                )
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                }
             }
+            .navigationTitle("Select Template")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        onCancel()
+                    }
+                }
+            }
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: Theme.Space.md) {
+            Image(systemName: "list.clipboard")
+                .font(.system(size: 44))
+                .foregroundColor(Color.brand.textSecondary)
+
+            Text("No templates available")
+                .font(Theme.Font.emptyStateTitle)
+                .foregroundColor(Color.brand.textPrimary)
+
+            Text("Create templates in your active blocks first.")
+                .font(Theme.Font.emptyStateDescription)
+                .foregroundColor(Color.brand.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Theme.Space.xl)
         }
     }
 }

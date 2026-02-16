@@ -12,7 +12,6 @@ struct WorkoutCard: View {
 
     // Internal expansion state fallback
     @State private var internalExpanded: Bool = false
-    @State private var showingMenu: Bool = false
 
     // Optional actions
     let onEdit: (() -> Void)?

@@ -14,7 +14,11 @@ struct LoginView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: Theme.Space.md) {
+            ZStack {
+                Color.brand.background
+                    .ignoresSafeArea()
+
+                VStack(spacing: Theme.Space.md) {
 
                 Spacer()
                     .frame(height: Theme.Space.mdp)
@@ -28,10 +32,11 @@ struct LoginView: View {
 
                     Text("BELL TRACK")
                         .font(Theme.Font.pageTitle)
+                        .foregroundColor(Color.brand.primary)
                         .kerning(2.8)
                 }
 
-                Text("A simple way to track training blocks.")
+                Text("A simple way to track workouts.")
                     .font(.system(size: Theme.TypeSize.lg))
                     .foregroundColor(Color.brand.textPrimary)
                     .kerning(0.3)
@@ -106,7 +111,8 @@ struct LoginView: View {
                     showSignUp = true
                 } label: {
                     Text("Don't have an account? Sign Up")
-                        .foregroundColor(Color.brand.primary)
+                        .foregroundColor(Color.brand.textPrimary)
+                }
                 }
             }
             .sheet(isPresented: $showSignUp) {

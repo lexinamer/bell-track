@@ -15,7 +15,7 @@ struct ExerciseDetailView: View {
     @State private var stats: ExerciseDetailStats?
     @State private var isLoading = true
 
-    private let firestore = FirestoreService()
+    private let firestore = FirestoreService.shared
 
     // MARK: - Init
 

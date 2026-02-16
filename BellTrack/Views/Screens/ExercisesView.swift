@@ -26,7 +26,7 @@ struct ExercisesView: View {
 
                     ForEach(vm.exercises) { exercise in
 
-                        SimpleCard(onTap: {
+                        ExerciseCard(onTap: {
 
                             selectedExercise = exercise
 
@@ -42,24 +42,10 @@ struct ExercisesView: View {
                                     Text(exercise.name)
                                         .font(Theme.Font.cardTitle)
 
-                                    if let exerciseIds = exercise.exerciseIds, !exerciseIds.isEmpty {
-
-                                        let names = vm.exercises
-                                            .filter { exerciseIds.contains($0.id) }
-                                            .map { $0.name }
-                                            .joined(separator: " + ")
-
-                                        Text(names)
-                                            .font(Theme.Font.cardCaption)
-                                            .foregroundColor(Color.brand.textSecondary)
-
-                                    } else {
-
-                                        MuscleTags(
-                                            primaryMuscles: exercise.primaryMuscles,
-                                            secondaryMuscles: []
-                                        )
-                                    }
+                                    MuscleTags(
+                                        primaryMuscles: exercise.primaryMuscles,
+                                        secondaryMuscles: exercise.secondaryMuscles
+                                    )
                                 }
 
                                 Spacer()
@@ -142,8 +128,7 @@ struct ExercisesView: View {
                             id: exercise.id,
                             name: name,
                             primaryMuscles: primary,
-                            secondaryMuscles: secondary,
-                            exerciseIds: exercise.exerciseIds
+                            secondaryMuscles: secondary
                         )
 
                         editingExercise = nil
@@ -206,6 +191,63 @@ struct ExercisesView: View {
 
         .task {
             await vm.load()
+        }
+    }
+}
+
+// MARK: - Exercise Card (Private Component)
+
+private struct ExerciseCard<Content: View>: View {
+
+    let content: Content
+    let onTap: (() -> Void)?
+
+    init(
+        onTap: (() -> Void)? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.onTap = onTap
+        self.content = content()
+    }
+
+    var body: some View {
+
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
+            content
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.brand.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md))
+        .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: Theme.Radius.md))
+        .shadow(
+            color: .black.opacity(0.05),
+            radius: 2,
+            x: 0,
+            y: 1
+        )
+        .modifier(CardTapModifier(onTap: onTap))
+    }
+}
+
+// MARK: - Tap modifier that DOES NOT break buttons
+
+private struct CardTapModifier: ViewModifier {
+
+    let onTap: (() -> Void)?
+
+    func body(content: Content) -> some View {
+
+        if let onTap {
+            content
+                .contentShape(Rectangle())
+                .simultaneousGesture(
+                    TapGesture().onEnded {
+                        onTap()
+                    }
+                )
+        } else {
+            content
         }
     }
 }

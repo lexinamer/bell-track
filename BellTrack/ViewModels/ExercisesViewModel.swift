@@ -10,7 +10,7 @@ final class ExercisesViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
 
-    private let firestore = FirestoreService()
+    private let firestore = FirestoreService.shared
 
     // MARK: - Load
 
@@ -56,8 +56,7 @@ final class ExercisesViewModel: ObservableObject {
         id: String? = nil,
         name: String,
         primaryMuscles: [MuscleGroup],
-        secondaryMuscles: [MuscleGroup],
-        exerciseIds: [String]? = nil
+        secondaryMuscles: [MuscleGroup]
     ) async {
         guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
 
@@ -66,8 +65,7 @@ final class ExercisesViewModel: ObservableObject {
                 id: id,
                 name: name,
                 primaryMuscles: primaryMuscles,
-                secondaryMuscles: secondaryMuscles,
-                exerciseIds: exerciseIds
+                secondaryMuscles: secondaryMuscles
             )
 
             if let exerciseId = id {

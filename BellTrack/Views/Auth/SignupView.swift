@@ -14,10 +14,14 @@ struct SignupView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: Theme.Space.md) {
+            ZStack {
+                Color.brand.background
+                    .ignoresSafeArea()
 
-                Spacer()
-                    .frame(height: Theme.Space.mdp)
+                VStack(spacing: Theme.Space.md) {
+
+                    Spacer()
+                        .frame(height: Theme.Space.mdp)
 
                 Text("Create Account")
                     .font(Theme.Font.pageTitle)
@@ -88,8 +92,8 @@ struct SignupView: View {
                 .padding(.horizontal, Theme.Space.lg)
 
                 Spacer()
+                }
             }
-            .background(Color.brand.background)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

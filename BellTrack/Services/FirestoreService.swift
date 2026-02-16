@@ -4,7 +4,11 @@ import FirebaseAuth
 
 final class FirestoreService {
 
+    static let shared = FirestoreService()
+
     private let db = Firestore.firestore()
+
+    private init() {}
 
     private func userRef() throws -> DocumentReference {
         guard let uid = Auth.auth().currentUser?.uid else {
@@ -26,14 +30,12 @@ final class FirestoreService {
         return snap.documents.map { doc in
             let primaryRaw = doc["primaryMuscles"] as? [String] ?? []
             let secondaryRaw = doc["secondaryMuscles"] as? [String] ?? []
-            let exerciseIds = doc["exerciseIds"] as? [String]
 
             return Exercise(
                 id: doc.documentID,
                 name: doc["name"] as? String ?? "",
                 primaryMuscles: primaryRaw.compactMap { MuscleGroup(rawValue: $0) },
-                secondaryMuscles: secondaryRaw.compactMap { MuscleGroup(rawValue: $0) },
-                exerciseIds: exerciseIds
+                secondaryMuscles: secondaryRaw.compactMap { MuscleGroup(rawValue: $0) }
             )
         }
     }
@@ -42,23 +44,18 @@ final class FirestoreService {
         id: String?,
         name: String,
         primaryMuscles: [MuscleGroup],
-        secondaryMuscles: [MuscleGroup],
-        exerciseIds: [String]? = nil
+        secondaryMuscles: [MuscleGroup]
     ) async throws {
         let ref = try userRef()
         let doc = id == nil
             ? ref.collection("exercises").document()
             : ref.collection("exercises").document(id!)
 
-        var data: [String: Any] = [
+        let data: [String: Any] = [
             "name": name,
             "primaryMuscles": primaryMuscles.map { $0.rawValue },
             "secondaryMuscles": secondaryMuscles.map { $0.rawValue }
         ]
-
-        if let exerciseIds = exerciseIds {
-            data["exerciseIds"] = exerciseIds
-        }
 
         try await doc.setData(data)
     }
@@ -106,10 +103,17 @@ final class FirestoreService {
         guard snap.documents.isEmpty else { return }
 
         let defaults: [(name: String, primary: [MuscleGroup], secondary: [MuscleGroup])] = [
-            ("Press", [.shoulders, .triceps], [.core]),
-            ("Clean", [.hamstrings, .glutes, .back], [.quads, .forearms]),
-            ("Squat", [.quads], [.hamstrings, .glutes]),
-            ("Swing", [.hamstrings, .glutes], [.core, .back]),
+            ("Clean", [.hamstrings, .glutes, .back], [.core, .forearms, .quads, .shoulders]),
+            ("Clean to Press", [.shoulders, .glutes], [.triceps, .core, .hamstrings, .back, .forearms]),
+            ("Lunge", [.quads, .glutes], [.hamstrings, .core, .calves]),
+            ("Press", [.shoulders, .triceps], [.core, .forearms, .back]),
+            ("Pushup", [.chest, .triceps], [.shoulders, .core, .glutes]),
+            ("RDL", [.hamstrings, .glutes], [.core, .back, .forearms, .calves]),
+            ("Row", [.back, .biceps], [.core, .forearms, .shoulders]),
+            ("Snatch", [.shoulders, .glutes, .hamstrings], [.core, .back, .forearms, .quads]),
+            ("Squat", [.quads, .glutes], [.core, .hamstrings, .back]),
+            ("Suitcase Carry", [.core], [.forearms, .shoulders, .glutes, .back]),
+            ("Swing", [.hamstrings, .glutes], [.core, .back, .forearms, .shoulders])
         ]
 
         for exercise in defaults {
@@ -219,8 +223,7 @@ final class FirestoreService {
                 startDate: startDate,
                 endDate: endDate,
                 completedDate: completedDate,
-                notes: notes,
-                colorIndex: doc["colorIndex"] as? Int
+                notes: notes
             )
         }
     }
@@ -232,8 +235,7 @@ final class FirestoreService {
         startDate: Date,
         endDate: Date? = nil,
         completedDate: Date? = nil,
-        notes: String? = nil,
-        colorIndex: Int? = nil
+        notes: String? = nil
     ) async throws -> String {
 
         let ref = try userRef()
@@ -256,10 +258,6 @@ final class FirestoreService {
 
         if let notes = notes {
             data["notes"] = notes
-        }
-
-        if let colorIndex = colorIndex {
-            data["colorIndex"] = colorIndex
         }
 
         try await doc.setData(data)

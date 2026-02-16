@@ -215,7 +215,7 @@ struct SettingsView: View {
         let userDoc = db.collection("users").document(uid)
         let batch = db.batch()
 
-        for collection in ["exercises", "blocks", "workouts"] {
+        for collection in ["exercises", "blocks", "workoutTemplates", "workouts"] {
 
             let snap = try await userDoc.collection(collection).getDocuments()
 

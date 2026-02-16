@@ -17,14 +17,7 @@ enum Theme {
         static let lg: CGFloat = 24
         static let xl: CGFloat = 32
     }
-    
-    enum IconSize {
-        static let sm: CGFloat = 16
-        static let md: CGFloat = 24
-        static let lg: CGFloat = 32
-        static let xl: CGFloat = 40
-    }
-    
+
     enum TypeSize {
         static let xs: CGFloat = 10
         static let sm: CGFloat = 13

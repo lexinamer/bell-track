@@ -2,8 +2,8 @@ import SwiftUI
 
 struct BlockFormView: View {
     let block: Block?
-    let blocksVM: BlocksViewModel?
-    let onSave: (String, Date, Date?, String?, Int?, [(name: String, entries: [TemplateEntry])]) -> Void
+    let vm: TrainViewModel?
+    let onSave: (String, Date, Date?, String?, [(name: String, entries: [TemplateEntry])]) -> Void
     let onCancel: () -> Void
 
     @State private var name: String
@@ -20,16 +20,16 @@ struct BlockFormView: View {
     @State private var pendingTemplates: [(name: String, entries: [TemplateEntry])] = []
     @State private var pendingIndexToDelete: Int? = nil
 
-    private let firestore = FirestoreService()
+    private let firestore = FirestoreService.shared
 
     init(
         block: Block? = nil,
-        blocksVM: BlocksViewModel? = nil,
-        onSave: @escaping (String, Date, Date?, String?, Int?, [(name: String, entries: [TemplateEntry])]) -> Void,
+        vm: TrainViewModel? = nil,
+        onSave: @escaping (String, Date, Date?, String?, [(name: String, entries: [TemplateEntry])]) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.block = block
-        self.blocksVM = blocksVM
+        self.vm = vm
         self.onSave = onSave
         self.onCancel = onCancel
 
@@ -41,7 +41,7 @@ struct BlockFormView: View {
     }
 
     private var blockTemplates: [WorkoutTemplate] {
-        guard let blockId = block?.id, let vm = blocksVM else { return [] }
+        guard let blockId = block?.id, let vm = vm else { return [] }
         return vm.templatesForBlock(blockId)
     }
 
@@ -119,7 +119,7 @@ struct BlockFormView: View {
                                                                                 onSave: { templateName, entries in
                                             if let blockId = block?.id {
                                                 Task {
-                                                    await blocksVM?.saveTemplate(
+                                                    await vm?.saveTemplate(
                                                         id: template.id,
                                                         name: templateName,
                                                         blockId: blockId,
@@ -183,7 +183,7 @@ struct BlockFormView: View {
                                                         onSave: { templateName, entries in
                                 if let blockId = block?.id {
                                     Task {
-                                        await blocksVM?.saveTemplate(
+                                        await vm?.saveTemplate(
                                             id: nil,
                                             name: templateName,
                                             blockId: blockId,
@@ -222,7 +222,7 @@ struct BlockFormView: View {
                     Button("Save") {
                         let finalNotes = notes.trimmingCharacters(in: .whitespaces)
                         let finalEndDate: Date? = hasEndDate ? endDate : nil
-                        onSave(name, startDate, finalEndDate, finalNotes.isEmpty ? nil : finalNotes, nil, pendingTemplates)
+                        onSave(name, startDate, finalEndDate, finalNotes.isEmpty ? nil : finalNotes, pendingTemplates)
                     }
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
@@ -234,7 +234,7 @@ struct BlockFormView: View {
                 Button("Cancel", role: .cancel) { templateToDelete = nil }
                 Button("Delete", role: .destructive) {
                     if let template = templateToDelete {
-                        Task { await blocksVM?.deleteTemplate(id: template.id) }
+                        Task { await vm?.deleteTemplate(id: template.id) }
                     }
                     templateToDelete = nil
                 }

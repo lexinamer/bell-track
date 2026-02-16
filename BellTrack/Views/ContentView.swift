@@ -5,31 +5,27 @@ struct ContentView: View {
     @EnvironmentObject var authService: AuthService
 
     var body: some View {
-        if authService.user != nil {
-            TabView {
+        ZStack {
+            Color.brand.background
+                .ignoresSafeArea()
+
+            if authService.user != nil {
+                TabView {
 
                 NavigationStack {
-                    BlocksView()
+                    TrainView()
                 }
                 .tabItem {
-                    Image(systemName: "square.stack.3d.up")
-                    Text("Blocks")
+                    Image(systemName: "figure.strengthtraining.traditional")
+                    Text("Train")
                 }
 
                 NavigationStack {
-                    WorkoutsView()
+                    ExercisesView()
                 }
                 .tabItem {
-                    Image(systemName: "list.bullet")
-                    Text("Workouts")
-                }
-                
-                NavigationStack {
-                    InsightsView()
-                }
-                .tabItem {
-                    Image(systemName: "chart.xyaxis.line")
-                    Text("Insights")
+                    Image(systemName: "dumbbell")
+                    Text("Exercises")
                 }
 
                 NavigationStack {
@@ -39,13 +35,13 @@ struct ContentView: View {
                     Image(systemName: "gear")
                     Text("Settings")
                 }
+                }
+                .task {
+                    try? await FirestoreService.shared.seedDefaultExercisesIfNeeded()
+                }
+            } else {
+                LoginView()
             }
-            .background(Color.brand.background)
-            .task {
-                try? await FirestoreService().seedDefaultExercisesIfNeeded()
-            }
-        } else {
-            LoginView()
         }
     }
 }

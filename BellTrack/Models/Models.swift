@@ -31,11 +31,6 @@ struct Exercise: Identifiable, Codable, Equatable, Hashable {
     var name: String
     var primaryMuscles: [MuscleGroup]
     var secondaryMuscles: [MuscleGroup]
-    var exerciseIds: [String]?  // For multi-exercise combos (formerly complexes)
-
-    var isMultiExercise: Bool {
-        exerciseIds != nil && !(exerciseIds?.isEmpty ?? true)
-    }
 }
 
 // MARK: - Workout Template
@@ -72,7 +67,6 @@ struct Block: Identifiable, Codable, Equatable, Hashable {
     var endDate: Date?
     var completedDate: Date?
     var notes: String?
-    var colorIndex: Int?
 }
 
 // MARK: - Exercise Mode
