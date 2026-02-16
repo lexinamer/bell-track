@@ -82,8 +82,12 @@ struct WorkoutCard: View {
     }
 
     private var exerciseCountText: String {
-        let volumeText = totalVolume > 0 ? " • \(String(format: "%.0f", totalVolume)) lbs" : ""
-        return "\(workout.logs.count) exercise\(workout.logs.count == 1 ? "" : "s")\(volumeText)"
+        return "\(workout.logs.count) exercise\(workout.logs.count == 1 ? "" : "s")"
+    }
+
+    private var volumeText: String {
+        guard totalVolume > 0 else { return "" }
+        return "Volume: \(String(format: "%.0f", totalVolume)) lbs"
     }
 
     // MARK: - View
@@ -133,9 +137,21 @@ struct WorkoutCard: View {
                     .font(Theme.Font.cardTitle)
                     .foregroundColor(Color.brand.textPrimary)
 
-                Text(exerciseCountText)
-                    .font(Theme.Font.cardSecondary)
-                    .foregroundColor(Color.brand.textSecondary)
+                HStack(spacing: Theme.Space.sm) {
+                    if !volumeText.isEmpty {
+                        Text(volumeText)
+                            .font(Theme.Font.cardSecondary)
+                            .foregroundColor(Color.brand.textSecondary)
+
+                        Text("•")
+                            .font(Theme.Font.cardSecondary)
+                            .foregroundColor(Color.brand.textSecondary)
+                    }
+
+                    Text(exerciseCountText)
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(Color.brand.textSecondary)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())

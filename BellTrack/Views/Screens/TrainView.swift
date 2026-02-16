@@ -11,6 +11,8 @@ struct TrainView: View {
     @State private var editingBlock: Block?
     @State private var blockToDelete: Block?
     @State private var workoutToDelete: Workout?
+    @State private var showingProgramSelector = false
+    @State private var showingFilter = false
 
     // MARK: - Stats
 
@@ -30,35 +32,42 @@ struct TrainView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Space.xl) {
-                // Block filter chips
-                blockFilterSection
-
+            VStack(alignment: .leading, spacing: Theme.Space.lg) {
                 // Show content only if a block is selected
-                if vm.selectedBlockId != nil {
-                    // Unified block info section (date + workouts + goal) with menu
-                    if let block = currentBlock {
-                        blockInfoWithMenu(block: block)
+                if let block = currentBlock {
+                    // 1. Program Selector
+                    ProgramSelector(block: block) {
+                        showingProgramSelector = true
+                    }
+                    .padding(.horizontal)
+
+                    // 2. Progress Summary Card
+                    if !vm.muscleBalance.isEmpty || vm.volumeTrend != nil {
+                        ProgressSummaryCard(
+                            muscleBalance: vm.muscleBalance,
+                            volumeTrend: vm.volumeTrend
+                        )
+                        .padding(.horizontal)
                     }
 
-                    // Template filter chips
-                    templateFilterSection
+                    // 3. Workouts Header with Filter
+                    workoutsHeader
 
-                    // Workouts grouped by month
+                    // 4. Workouts grouped by month
                     workoutsSection
                 } else if vm.blocks.isEmpty {
                     emptyBlockState
                 }
             }
-            .padding(.vertical)
+            .padding(.vertical, Theme.Space.md)
         }
         .background(Color.brand.background)
         .navigationTitle("Train")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    if vm.activeBlock != nil {
+                if vm.activeBlock != nil {
+                    Menu {
                         ForEach(vm.activeTemplates) { template in
                             Button {
                                 selectedTemplate = template
@@ -66,17 +75,9 @@ struct TrainView: View {
                                 Text(template.name)
                             }
                         }
-                    }
-
-                    Divider()
-
-                    Button {
-                        showingNewBlock = true
                     } label: {
-                        Label("New Block", systemImage: "plus.square")
+                        Image(systemName: "plus")
                     }
-                } label: {
-                    Image(systemName: "plus")
                 }
             }
         }
@@ -171,6 +172,20 @@ struct TrainView: View {
         } message: {
             Text("This will permanently delete this workout.")
         }
+        .sheet(isPresented: $showingProgramSelector) {
+            programSelectorSheet
+        }
+        .sheet(isPresented: $showingFilter) {
+            if let blockId = vm.selectedBlockId {
+                WorkoutFilterSheet(
+                    templates: vm.templatesForBlock(blockId),
+                    selectedTemplateId: vm.selectedTemplateId,
+                    onSelectTemplate: { templateId in
+                        vm.selectTemplate(templateId)
+                    }
+                )
+            }
+        }
         .task {
             await vm.load()
         }
@@ -185,153 +200,6 @@ struct TrainView: View {
         return nil
     }
 
-    // MARK: - Block Info with Menu
-
-    private func blockInfoWithMenu(block: Block) -> some View {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM yyyy"
-
-        return HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                // Date range
-                if let endDate = block.endDate {
-                    let start = formatter.string(from: block.startDate)
-                    let end = formatter.string(from: endDate)
-                    let weekText = weekProgress(for: block)
-                    Text("\(start) – \(end) (\(weekText))")
-                        .font(Theme.Font.cardTitle)
-                        .foregroundColor(Color.brand.textPrimary)
-                } else {
-                    let start = formatter.string(from: block.startDate)
-                    Text("Started \(start)")
-                        .font(Theme.Font.cardTitle)
-                        .foregroundColor(Color.brand.textPrimary)
-                }
-
-                // Workout count
-                Text("\(totalWorkouts) workout\(totalWorkouts == 1 ? "" : "s")")
-                    .font(Theme.Font.cardSecondary)
-                    .foregroundColor(Color.brand.textSecondary)
-
-                // Goal (if exists)
-                if let notes = block.notes, !notes.isEmpty {
-                    Text("Goal: \(notes)")
-                        .font(Theme.Font.cardSecondary)
-                        .foregroundColor(Color.brand.textSecondary)
-                }
-            }
-
-            Spacer()
-
-            Menu {
-                Button {
-                    Task {
-                        await vm.completeBlock(id: block.id)
-                    }
-                } label: {
-                    Label("Complete", systemImage: "checkmark.circle")
-                }
-
-                Button {
-                    editingBlock = block
-                } label: {
-                    Label("Edit", systemImage: "pencil")
-                }
-
-                Button(role: .destructive) {
-                    blockToDelete = block
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(Color.brand.textSecondary)
-                    .frame(width: 32, height: 32)
-            }
-        }
-        .padding(.horizontal)
-    }
-
-    // MARK: - Block Filter Section
-
-    private var blockFilterSection: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Theme.Space.sm) {
-                // Current Block
-                if let activeBlock = vm.activeBlock {
-                    filterChip(
-                        title: activeBlock.name,
-                        isSelected: vm.selectedBlockId == activeBlock.id
-                    ) {
-                        vm.selectBlock(activeBlock.id)
-                    }
-                }
-
-                // Past Blocks (reverse chronological)
-                ForEach(vm.pastBlocks) { block in
-                    let dateString = block.completedDate?.shortDateString ?? ""
-                    filterChip(
-                        title: "\(block.name) (\(dateString))",
-                        isSelected: vm.selectedBlockId == block.id
-                    ) {
-                        vm.selectBlock(block.id)
-                    }
-                }
-            }
-            .padding(.horizontal)
-        }
-    }
-
-    private func weekProgress(for block: Block) -> String {
-        guard let endDate = block.endDate else { return "Ongoing" }
-
-        let calendar = Calendar.current
-        let totalWeeks = calendar.dateComponents([.weekOfYear], from: block.startDate, to: endDate).weekOfYear ?? 0
-        let currentWeek = min(
-            calendar.dateComponents([.weekOfYear], from: block.startDate, to: Date()).weekOfYear ?? 0,
-            totalWeeks
-        ) + 1
-
-        guard totalWeeks > 0 else { return "Ongoing" }
-
-        return "Week \(currentWeek) of \(totalWeeks + 1)"
-    }
-
-
-
-    // MARK: - Template Filter Section
-
-    private var templateFilterSection: some View {
-        Group {
-            if let blockId = vm.selectedBlockId {
-                let templates = vm.templatesForBlock(blockId)
-
-                if !templates.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: Theme.Space.sm) {
-                            filterChip(
-                                title: "All",
-                                isSelected: vm.selectedTemplateId == nil
-                            ) {
-                                vm.selectTemplate(nil)
-                            }
-
-                            ForEach(templates) { template in
-                                filterChip(
-                                    title: template.name,
-                                    isSelected: vm.selectedTemplateId == template.id
-                                ) {
-                                    vm.selectTemplate(template.id)
-                                }
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
-                }
-            }
-        }
-    }
 
     // MARK: - Workouts Section
 
@@ -367,23 +235,6 @@ struct TrainView: View {
         }
     }
 
-    private func filterChip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(Theme.Font.cardSecondary)
-                .padding(.horizontal, Theme.Space.md)
-                .padding(.vertical, Theme.Space.sm)
-                .background(
-                    RoundedRectangle(cornerRadius: Theme.Radius.md)
-                        .fill(isSelected ? Color.brand.primary.opacity(0.15) : Color.brand.surfaceSecondary)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.md)
-                        .stroke(isSelected ? Color.clear : Color.brand.border)
-                )
-                .foregroundColor(isSelected ? Color.brand.primary : Color.brand.textPrimary)
-        }
-    }
 
     // MARK: - Empty States
 
@@ -429,6 +280,146 @@ struct TrainView: View {
                 .padding(.horizontal)
         }
         .padding(.vertical, Theme.Space.xl)
+    }
+
+    // MARK: - Workouts Header
+
+    private var workoutsHeader: some View {
+        HStack {
+            Text("Workouts")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(Color.brand.textPrimary)
+
+            Spacer()
+
+            if let blockId = vm.selectedBlockId, !vm.templatesForBlock(blockId).isEmpty {
+                Button(action: {
+                    showingFilter = true
+                }) {
+                    HStack(spacing: 6) {
+                        if let templateId = vm.selectedTemplateId,
+                           let template = vm.templates.first(where: { $0.id == templateId }) {
+                            Text(template.name)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.brand.primary)
+                        } else {
+                            Text("Filter")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.brand.textSecondary)
+                        }
+
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                            .font(.system(size: 16))
+                            .foregroundColor(Color.brand.textSecondary)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    // MARK: - Program Selector Sheet
+
+    private var programSelectorSheet: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                // Current Block
+                if let activeBlock = vm.activeBlock {
+                    blockSelectorOption(
+                        block: activeBlock,
+                        isSelected: vm.selectedBlockId == activeBlock.id,
+                        isCurrent: true
+                    )
+
+                    if !vm.pastBlocks.isEmpty {
+                        Divider()
+                            .padding(.leading, Theme.Space.md)
+                    }
+                }
+
+                // Past Blocks
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(vm.pastBlocks) { block in
+                            blockSelectorOption(
+                                block: block,
+                                isSelected: vm.selectedBlockId == block.id,
+                                isCurrent: false
+                            )
+
+                            if block.id != vm.pastBlocks.last?.id {
+                                Divider()
+                                    .padding(.leading, Theme.Space.md)
+                            }
+                        }
+                    }
+                }
+            }
+            .background(Color.brand.background)
+            .navigationTitle("Select Program")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        showingProgramSelector = false
+                    }
+                    .foregroundColor(Color.brand.primary)
+                }
+            }
+        }
+    }
+
+    private func blockSelectorOption(block: Block, isSelected: Bool, isCurrent: Bool) -> some View {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM yyyy"
+
+        return Button(action: {
+            vm.selectBlock(block.id)
+            showingProgramSelector = false
+        }) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: Theme.Space.sm) {
+                        Text(block.name)
+                            .font(Theme.Font.cardTitle)
+                            .foregroundColor(Color.brand.textPrimary)
+
+                        if isCurrent {
+                            Text("ACTIVE")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(Color.brand.primary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.brand.primary.opacity(0.15))
+                                .cornerRadius(4)
+                        }
+                    }
+
+                    if let completedDate = block.completedDate {
+                        Text("Completed \(completedDate.shortDateString)")
+                            .font(Theme.Font.cardSecondary)
+                            .foregroundColor(Color.brand.textSecondary)
+                    } else {
+                        let startText = formatter.string(from: block.startDate)
+                        Text("Started \(startText)")
+                            .font(Theme.Font.cardSecondary)
+                            .foregroundColor(Color.brand.textSecondary)
+                    }
+                }
+
+                Spacer()
+
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Color.brand.primary)
+                }
+            }
+            .padding(Theme.Space.md)
+            .background(Color.brand.background)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 
     // MARK: - Binding

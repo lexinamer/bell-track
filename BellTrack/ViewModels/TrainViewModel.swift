@@ -7,6 +7,36 @@ struct MusclePercentStat: Identifiable {
     let percent: Double
 }
 
+enum MuscleCategory: String, CaseIterable {
+    case upper = "Upper"
+    case lower = "Lower"
+    case core = "Core"
+
+    var muscles: [MuscleGroup] {
+        switch self {
+        case .upper:
+            return [.chest, .shoulders, .triceps, .biceps, .forearms, .back]
+        case .lower:
+            return [.quads, .hamstrings, .glutes, .calves]
+        case .core:
+            return [.core]
+        }
+    }
+}
+
+struct MuscleBalanceData: Identifiable {
+    let id = UUID()
+    let category: MuscleCategory
+    let percent: Double
+}
+
+struct VolumeTrend {
+    let currentWeekVolume: Double
+    let previousWeekVolume: Double
+    let percentChange: Double
+    let isPositive: Bool
+}
+
 @MainActor
 final class TrainViewModel: ObservableObject {
 
@@ -23,6 +53,8 @@ final class TrainViewModel: ObservableObject {
     @Published var primaryStats: [MusclePercentStat] = []
     @Published var secondaryStats: [MusclePercentStat] = []
     @Published var balanceScore: Int = 0
+    @Published var muscleBalance: [MuscleBalanceData] = []
+    @Published var volumeTrend: VolumeTrend?
 
     // Filter
     @Published var selectedBlockId: String?
@@ -49,6 +81,8 @@ final class TrainViewModel: ObservableObject {
 
             await autoCompleteExpiredBlocks()
             computeStats()
+            computeMuscleBalance()
+            computeVolumeTrend()
 
             // Set default selected block to current block if not already set
             if selectedBlockId == nil {
@@ -480,6 +514,116 @@ final class TrainViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
             print("❌ Failed to delete workout:", error)
+        }
+    }
+
+    // MARK: - Muscle Balance Computation
+
+    private func computeMuscleBalance() {
+        guard let blockId = selectedBlockId else {
+            muscleBalance = []
+            return
+        }
+
+        var exerciseMap: [String: Exercise] = [:]
+        for exercise in exercises {
+            exerciseMap[exercise.id] = exercise
+        }
+
+        let filteredWorkouts = workouts.filter { $0.blockId == blockId }
+
+        var categorySets: [MuscleCategory: Int] = [:]
+
+        for workout in filteredWorkouts {
+            for log in workout.logs {
+                let sets = log.sets ?? 0
+                guard let exercise = exerciseMap[log.exerciseId] else { continue }
+
+                for category in MuscleCategory.allCases {
+                    if category.muscles.contains(where: { exercise.primaryMuscles.contains($0) }) {
+                        categorySets[category, default: 0] += sets
+                    }
+                }
+            }
+        }
+
+        let totalSets = categorySets.values.reduce(0, +)
+        guard totalSets > 0 else {
+            muscleBalance = []
+            return
+        }
+
+        muscleBalance = MuscleCategory.allCases.map { category in
+            MuscleBalanceData(
+                category: category,
+                percent: Double(categorySets[category] ?? 0) / Double(totalSets)
+            )
+        }
+    }
+
+    // MARK: - Volume Trend Computation
+
+    private func computeVolumeTrend() {
+        guard let blockId = selectedBlockId else {
+            volumeTrend = nil
+            return
+        }
+
+        let calendar = Calendar.current
+        let now = Date()
+
+        // Get start of current week (Sunday)
+        guard let currentWeekStart = calendar.dateInterval(of: .weekOfYear, for: now)?.start else {
+            volumeTrend = nil
+            return
+        }
+
+        // Get start of previous week
+        guard let previousWeekStart = calendar.date(byAdding: .weekOfYear, value: -1, to: currentWeekStart) else {
+            volumeTrend = nil
+            return
+        }
+
+        let filteredWorkouts = workouts.filter { $0.blockId == blockId }
+
+        // Calculate current week volume
+        let currentWeekWorkouts = filteredWorkouts.filter { workout in
+            workout.date >= currentWeekStart && workout.date < now
+        }
+        let currentWeekVolume = calculateVolume(for: currentWeekWorkouts)
+
+        // Calculate previous week volume
+        let previousWeekWorkouts = filteredWorkouts.filter { workout in
+            workout.date >= previousWeekStart && workout.date < currentWeekStart
+        }
+        let previousWeekVolume = calculateVolume(for: previousWeekWorkouts)
+
+        // Calculate percent change
+        let percentChange: Double
+        if previousWeekVolume > 0 {
+            percentChange = ((currentWeekVolume - previousWeekVolume) / previousWeekVolume) * 100
+        } else if currentWeekVolume > 0 {
+            percentChange = 100
+        } else {
+            percentChange = 0
+        }
+
+        volumeTrend = VolumeTrend(
+            currentWeekVolume: currentWeekVolume,
+            previousWeekVolume: previousWeekVolume,
+            percentChange: percentChange,
+            isPositive: percentChange >= 0
+        )
+    }
+
+    private func calculateVolume(for workouts: [Workout]) -> Double {
+        workouts.reduce(0.0) { total, workout in
+            total + workout.logs.reduce(0.0) { logTotal, log in
+                let sets = Double(log.sets ?? 0)
+                let reps = Double(log.reps ?? "0") ?? 0
+                let weight = Double(log.weight ?? "0") ?? 0
+                return logTotal + (sets * reps * weight)
+            }
         }
     }
 }
