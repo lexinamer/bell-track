@@ -72,9 +72,18 @@ struct WorkoutCard: View {
             .reduce(0, +)
     }
 
-    private var exerciseCountText: String {
+    private var totalVolume: Double {
+        workout.logs.reduce(0.0) { total, log in
+            let sets = Double(log.sets ?? 0)
+            let reps = Double(log.reps ?? "0") ?? 0
+            let weight = Double(log.weight ?? "0") ?? 0
+            return total + (sets * reps * weight)
+        }
+    }
 
-        "\(workout.logs.count) exercise\(workout.logs.count == 1 ? "" : "s") • \(totalSets) sets"
+    private var exerciseCountText: String {
+        let volumeText = totalVolume > 0 ? " • \(String(format: "%.0f", totalVolume)) lbs" : ""
+        return "\(workout.logs.count) exercise\(workout.logs.count == 1 ? "" : "s")\(volumeText)"
     }
 
     // MARK: - View
@@ -93,7 +102,7 @@ struct WorkoutCard: View {
                 expandedSection
             }
         }
-        .background(Color.brand.surface)
+        .background(Color.brand.surfaceSecondary)
         .cornerRadius(Theme.Radius.md)
         .shadow(
             color: Color.black.opacity(0.25),
@@ -128,8 +137,15 @@ struct WorkoutCard: View {
                     .font(Theme.Font.cardSecondary)
                     .foregroundColor(Color.brand.textSecondary)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    toggleExpanded()
+                }
+            }
 
-            Spacer()
+            Spacer(minLength: 0)
 
             if onEdit != nil || onDelete != nil {
                 Menu {
@@ -157,13 +173,6 @@ struct WorkoutCard: View {
             }
         }
         .padding(Theme.Space.md)
-        .contentShape(Rectangle())
-        .onTapGesture {
-
-            withAnimation(.easeInOut(duration: 0.2)) {
-                toggleExpanded()
-            }
-        }
     }
 
     // MARK: - Date Badge
@@ -173,11 +182,11 @@ struct WorkoutCard: View {
         VStack(spacing: 2) {
 
             Text(workout.date, format: .dateTime.day())
-                .font(Theme.Font.navigationTitle)
+                .font(.system(size: 20, weight: .bold))
                 .foregroundColor(.white)
 
             Text(workout.date, format: .dateTime.month(.abbreviated))
-                .font(Theme.Font.cardCaption)
+                .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.white)
         }
         .frame(width: 50, height: 50)

@@ -41,11 +41,10 @@ struct WorkoutFormView: View {
     // MARK: - Derived
 
     private var isValid: Bool {
-        // All logs must have valid values
+        // All logs must have valid sets and reps (weight is optional)
         !logs.isEmpty && logs.allSatisfy { log in
             guard let sets = log.sets, sets > 0 else { return false }
             guard let reps = log.reps, !reps.isEmpty else { return false }
-            guard let weight = log.weight, !weight.isEmpty else { return false }
             return true
         }
     }

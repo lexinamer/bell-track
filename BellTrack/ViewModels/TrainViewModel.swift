@@ -26,6 +26,7 @@ final class TrainViewModel: ObservableObject {
 
     // Filter
     @Published var selectedBlockId: String?
+    @Published var selectedTemplateId: String?
 
     private let firestore = FirestoreService.shared
 
@@ -48,6 +49,11 @@ final class TrainViewModel: ObservableObject {
 
             await autoCompleteExpiredBlocks()
             computeStats()
+
+            // Set default selected block to current block if not already set
+            if selectedBlockId == nil {
+                selectedBlockId = activeBlock?.id
+            }
         } catch {
             errorMessage = error.localizedDescription
             print("❌ Failed to load train data:", error)
@@ -283,6 +289,72 @@ final class TrainViewModel: ObservableObject {
         default:
             return .red
         }
+    }
+
+    var balanceScoreText: String {
+        guard !topThreeMuscles.isEmpty else { return "Well Balanced" }
+
+        let top = topThreeMuscles[0]
+
+        // If top muscle is significantly higher than others (>40%), show focus
+        if top.percent > 0.4 {
+            switch top.muscle {
+            case .chest, .shoulders, .triceps, .biceps, .forearms:
+                return "Upper Body Focus"
+            case .quads, .hamstrings, .glutes, .calves:
+                return "Lower Body Focus"
+            case .core:
+                return "Core Focus"
+            case .back:
+                return "Back Focus"
+            }
+        }
+
+        return "Well Balanced"
+    }
+
+    func groupedWorkoutsByMonth(_ workouts: [Workout]) -> [(month: String, workouts: [Workout])] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+
+        let grouped = Dictionary(grouping: workouts) { workout in
+            formatter.string(from: workout.date)
+        }
+
+        return grouped
+            .map { (month: $0.key, workouts: $0.value.sorted { $0.date > $1.date }) }
+            .sorted { first, second in
+                guard let date1 = formatter.date(from: first.month),
+                      let date2 = formatter.date(from: second.month) else {
+                    return first.month > second.month
+                }
+                return date1 > date2
+            }
+    }
+
+    var allBlocks: [Block] {
+        blocks.sorted { $0.startDate > $1.startDate }
+    }
+
+    var pastBlocks: [Block] {
+        blocks
+            .filter { $0.completedDate != nil }
+            .sorted { $0.startDate > $1.startDate }
+    }
+
+    var displayWorkouts: [Workout] {
+        var filtered = filteredWorkouts
+
+        // Filter by template if selected
+        if let templateId = selectedTemplateId {
+            filtered = filtered.filter { $0.name == templates.first(where: { $0.id == templateId })?.name }
+        }
+
+        return filtered
+    }
+
+    func selectTemplate(_ templateId: String?) {
+        selectedTemplateId = templateId
     }
 
     // MARK: - Block Management
