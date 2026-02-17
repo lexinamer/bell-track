@@ -495,4 +495,50 @@ final class TrainViewModel: ObservableObject {
         return (best: bestVolume, last: lastVolume)
     }
 
+    // MARK: - Block-Specific Helpers
+
+    func recentWorkouts(for blockId: String, limit: Int) -> [Workout] {
+        return workouts
+            .filter { $0.blockId == blockId }
+            .sorted { $0.date > $1.date }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    func balanceFocusLabel(for blockId: String) -> String {
+        let filteredWorkouts = workouts.filter { $0.blockId == blockId }
+
+        var uniqueExercises = Set<String>()
+        var categoryScores: [MuscleCategory: Double] = [.upper: 0, .lower: 0, .core: 0]
+
+        for workout in filteredWorkouts {
+            for log in workout.logs {
+                guard !uniqueExercises.contains(log.exerciseId) else { continue }
+                uniqueExercises.insert(log.exerciseId)
+
+                guard let exercise = exerciseMap[log.exerciseId] else { continue }
+
+                for category in MuscleCategory.allCases {
+                    if category.muscles.contains(where: { exercise.primaryMuscles.contains($0) }) {
+                        categoryScores[category, default: 0] += 1.0
+                    }
+                    if category.muscles.contains(where: { exercise.secondaryMuscles.contains($0) }) {
+                        categoryScores[category, default: 0] += 0.5
+                    }
+                }
+            }
+        }
+
+        let upperScore = categoryScores[.upper] ?? 0
+        let lowerScore = categoryScores[.lower] ?? 0
+
+        if lowerScore > upperScore * 2.0 {
+            return "Lower Body Focus"
+        }
+        if upperScore > lowerScore * 2.0 {
+            return "Upper Body Focus"
+        }
+        return "Balanced"
+    }
+
 }

@@ -1,133 +1,79 @@
 import SwiftUI
 
 struct TrainView: View {
-
     @StateObject private var vm = TrainViewModel()
-
-    @State private var selectedWorkout: Workout?
+    @State private var selectedBlock: Block?
     @State private var selectedTemplate: WorkoutTemplate?
     @State private var showingNewBlock = false
-    @State private var editingBlock: Block?
-    @State private var blockToDelete: Block?
-    @State private var workoutToDelete: Workout?
-    @State private var showingBlockSelector = false
-    @State private var showingCompletedBlockSelector = false
-    @State private var currentPage = 0
-    @State private var selectedCompletedBlockId: String?
-
-    // MARK: - View
+    @State private var showingLogWorkout = false
 
     var body: some View {
         ZStack {
             Color.brand.background.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                if vm.isLoading {
-                    VStack(spacing: Theme.Space.lg) {
-                        Spacer()
-                        ProgressView()
-                            .padding()
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity)
-                } else if vm.activeBlocks.isEmpty {
-                    EmptyState.noActiveBlock {
-                        showingNewBlock = true
-                    }
-                } else {
-                    VStack(spacing: 0) {
-                        if isViewingCompletedBlock {
-                            TrainHeader(
-                                blockName: displayedCompletedBlock?.name ?? "",
-                                isCompleted: true,
-                                showCompletedBadge: displayedCompletedBlock?.completedDate != nil,
-                                onTap: {
-                                    showingCompletedBlockSelector = true
-                                }
-                            )
-                        } else {
-                            TrainHeader(
-                                blockName: currentPage < vm.activeBlocks.count ? vm.activeBlocks[currentPage].name : ""
-                            )
-                        }
+            if vm.isLoading {
+                VStack {
+                    Spacer()
+                    ProgressView().padding()
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity)
 
-                        TabView(selection: $currentPage) {
-                            // Active blocks
-                            ForEach(Array(vm.activeBlocks.enumerated()), id: \.element.id) { index, block in
-                                blockPageContent(block: block, isCompleted: false)
-                                    .tag(index)
-                            }
+            } else if vm.activeBlocks.isEmpty && vm.pastBlocks.isEmpty {
+                EmptyState.noActiveBlock { showingNewBlock = true }
 
-                            // Last completed block
-                            if let completedBlock = displayedCompletedBlock {
-                                blockPageContent(block: completedBlock, isCompleted: true)
-                                    .tag(vm.activeBlocks.count)
-                            }
-                        }
-                        .tabViewStyle(.page(indexDisplayMode: .always))
-                        .indexViewStyle(.page(backgroundDisplayMode: .always))
-                        .onChange(of: currentPage) { oldValue, newValue in
-                            if newValue < vm.activeBlocks.count {
-                                vm.selectBlock(vm.activeBlocks[newValue].id)
-                            } else if let completedBlock = displayedCompletedBlock {
-                                vm.selectBlock(completedBlock.id)
-                            }
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+
+                        // Active blocks
+                        activeBlocksSection(vm.activeBlocks)
+
+                        // Completed blocks
+                        if !vm.pastBlocks.isEmpty {
+                            Rectangle()
+                                .fill(Color.brand.textSecondary.opacity(0.4))
+                                .frame(height: 1)
+                                .padding(.vertical, Theme.Space.xxl)
+                            
+                            completedBlocksSection(vm.pastBlocks)
                         }
                     }
+                    .padding(.top, Theme.Space.md)
+                    .padding(.horizontal, Theme.Space.md)
+                    .padding(.bottom, 60)
                 }
             }
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("Train")
+        .navigationBarTitleDisplayMode(.large)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
+            ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button {
-                        showingNewBlock = true
-                    } label: {
-                        Label("New Block", systemImage: "plus")
+                    Button { showingLogWorkout = true } label: {
+                        Label("Log Workout", systemImage: "plus.circle")
                     }
-
-                    Button {
-                        if let block = currentDisplayedBlock {
-                            editingBlock = block
-                        }
-                    } label: {
-                        Label("Edit Block", systemImage: "pencil")
-                    }
-
-                    Button(role: .destructive) {
-                        if let block = currentDisplayedBlock {
-                            blockToDelete = block
-                        }
-                    } label: {
-                        Label("Delete Block", systemImage: "trash")
+                    Button { showingNewBlock = true } label: {
+                        Label("Create New Block", systemImage: "square.stack.3d.up")
                     }
                 } label: {
-                    Image(systemName: "ellipsis")
-                        .foregroundColor(.white)
+                    Image(systemName: "plus").foregroundColor(.white)
                 }
             }
-            
-            ToolbarItem(placement: .topBarTrailing) {
-                if !vm.activeBlocks.isEmpty && !isViewingCompletedBlock {
-                    // Log workout button (only show for active blocks)
-                    Menu {
-                        ForEach(vm.allActiveTemplates) { template in
-                            Button {
-                                selectedTemplate = template
-                            } label: {
-                                Text(template.name)
-                            }
-                        }
-                    } label: {
-                        Text("Log")
-                            .font(Theme.Font.buttonPrimary)
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(.bordered)
-                }
-            }
+        }
+        .navigationDestination(item: $selectedBlock) {
+            BlockDetailView(block: $0, vm: vm)
+        }
+        .fullScreenCover(isPresented: $showingLogWorkout) {
+            WorkoutFormView(
+                workout: nil,
+                template: nil,
+                onSave: {
+                    showingLogWorkout = false
+                    Task { await vm.load() }
+                },
+                onCancel: { showingLogWorkout = false }
+            )
         }
         .fullScreenCover(item: $selectedTemplate) { template in
             WorkoutFormView(
@@ -137,21 +83,7 @@ struct TrainView: View {
                     selectedTemplate = nil
                     Task { await vm.load() }
                 },
-                onCancel: {
-                    selectedTemplate = nil
-                }
-            )
-        }
-        .fullScreenCover(item: $selectedWorkout) { workout in
-            WorkoutFormView(
-                workout: workout,
-                onSave: {
-                    selectedWorkout = nil
-                    Task { await vm.load() }
-                },
-                onCancel: {
-                    selectedWorkout = nil
-                }
+                onCancel: { selectedTemplate = nil }
             )
         }
         .fullScreenCover(isPresented: $showingNewBlock) {
@@ -169,237 +101,151 @@ struct TrainView: View {
                         showingNewBlock = false
                     }
                 },
-                onCancel: {
-                    showingNewBlock = false
-                }
+                onCancel: { showingNewBlock = false }
             )
         }
-        .fullScreenCover(item: $editingBlock) { block in
-            BlockFormView(
-                block: block,
-                vm: vm,
-                onSave: { name, startDate, endDate, pendingTemplates in
-                    Task {
-                        await vm.saveBlock(
-                            id: block.id,
-                            name: name,
-                            startDate: startDate,
-                            endDate: endDate
-                        )
-                        editingBlock = nil
-                    }
-                },
-                onCancel: {
-                    editingBlock = nil
+        .task { await vm.load() }
+    }
+
+    // MARK: Active Blocks
+
+    private func activeBlocksSection(_ blocks: [Block]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(blocks.enumerated()), id: \.element.id) { index, block in
+                activeBlockSection(block)
+                if index < blocks.count - 1 {
+                    Spacer().frame(height: Theme.Space.xl)
                 }
-            )
-        }
-        .alert("Delete Block?", isPresented: deleteBlockBinding) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
-                if let block = blockToDelete {
-                    Task {
-                        await vm.deleteBlock(id: block.id)
-                    }
-                }
-            }
-        } message: {
-            Text("This will permanently delete \"\(blockToDelete?.name ?? "")\".")
-        }
-        .alert("Delete Workout?", isPresented: deleteWorkoutBinding) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
-                if let workout = workoutToDelete {
-                    Task {
-                        await vm.deleteWorkout(id: workout.id)
-                    }
-                }
-            }
-        } message: {
-            Text("This will permanently delete this workout.")
-        }
-        .sheet(isPresented: $showingBlockSelector) {
-            BlockSelectorView(
-                activeBlocks: vm.activeBlocks,
-                pastBlocks: vm.pastBlocks,
-                selectedBlockId: vm.selectedBlockId,
-                onSelect: { block in
-                    vm.selectBlock(block.id)
-                    showingBlockSelector = false
-                },
-                onEdit: { block in
-                    editingBlock = block
-                    showingBlockSelector = false
-                },
-                onComplete: { block in
-                    Task {
-                        await vm.completeBlock(id: block.id)
-                    }
-                    showingBlockSelector = false
-                },
-                onDelete: { block in
-                    blockToDelete = block
-                    showingBlockSelector = false
-                },
-                onDismiss: {
-                    showingBlockSelector = false
-                }
-            )
-        }
-        .sheet(isPresented: $showingCompletedBlockSelector) {
-            BlockSelectorView(
-                activeBlocks: [],
-                pastBlocks: vm.pastBlocks,
-                selectedBlockId: selectedCompletedBlockId,
-                completedBlocksOnly: true,
-                onSelect: { block in
-                    selectedCompletedBlockId = block.id
-                    vm.selectBlock(block.id)
-                    showingCompletedBlockSelector = false
-                },
-                onEdit: { _ in },
-                onDelete: { _ in },
-                onDismiss: {
-                    showingCompletedBlockSelector = false
-                }
-            )
-        }
-        .task {
-            await vm.load()
-            // Set current page to match selected block
-            if let selectedId = vm.selectedBlockId,
-               let index = vm.activeBlocks.firstIndex(where: { $0.id == selectedId }) {
-                currentPage = index
             }
         }
     }
 
-    // MARK: - Computed
+    private func activeBlockSection(_ block: Block) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
 
-    private var currentBlock: Block? {
-        if let selectedId = vm.selectedBlockId {
-            return vm.blocks.first { $0.id == selectedId }
-        }
-        return nil
-    }
+            Button {
+                selectedBlock = block
+            } label: {
+                HStack {
+                    Text(block.name)
+                        .font(Theme.Font.navigationTitle)
+                        .foregroundColor(Color.brand.textPrimary)
 
-    private var displayedCompletedBlock: Block? {
-        if let selectedId = selectedCompletedBlockId {
-            return vm.pastBlocks.first { $0.id == selectedId }
-        }
-        return vm.pastBlocks.first
-    }
+                    Spacer()
 
-    private var isViewingCompletedBlock: Bool {
-        currentPage == vm.activeBlocks.count
-    }
-
-    private var currentDisplayedBlock: Block? {
-        if isViewingCompletedBlock {
-            return displayedCompletedBlock
-        } else if currentPage < vm.activeBlocks.count {
-            return vm.activeBlocks[currentPage]
-        }
-        return nil
-    }
-
-    // MARK: - Block Page Content
-
-    private func blockPageContent(block: Block, isCompleted: Bool) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                BlockInfo(
-                    block: block,
-                    balanceFocusLabel: vm.balanceFocusLabel,
-                    onTap: {
-                        showingBlockSelector = true
-                    }
-                )
-                .padding(.horizontal)
-                .padding(.bottom, Theme.Space.xl)
-
-                TemplateFilterChips(
-                    templates: vm.templatesForBlock(block.id),
-                    selectedTemplateId: vm.selectedTemplateId,
-                    onSelect: { templateId in
-                        vm.selectTemplate(templateId)
-                    }
-                )
-                .padding(.bottom, Theme.Space.lg)
-
-                workoutsSection
-            }
-            .padding(.vertical, Theme.Space.md)
-        }
-    }
-
-
-    // MARK: - Workouts Section
-
-    private var workoutsSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.md) {
-            let groupedWorkouts = vm.groupedWorkoutsByMonth(vm.displayWorkouts)
-
-            if groupedWorkouts.isEmpty {
-                VStack(spacing: Theme.Space.md) {
-                    Text("No workouts yet")
-                        .font(Theme.Font.cardTitle)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Color.brand.textSecondary)
-                        .padding(.horizontal)
                 }
-                .padding(.vertical, Theme.Space.xl)
-            } else {
-                ForEach(groupedWorkouts, id: \.month) { group in
-                    VStack(alignment: .leading, spacing: Theme.Space.md) {
-//                        Text(group.month)
-//                            .font(Theme.Font.cardSecondary)
-//                            .foregroundColor(Color.brand.textSecondary)
-//                            .padding(.horizontal)
+            }
+            .buttonStyle(.plain)
 
-                        ForEach(group.workouts) { workout in
-                            WorkoutCard(
-                                workout: workout,
-                                exercises: vm.exercises,
-                                badgeColor: badgeColorForWorkout(workout),
-                                onEdit: { selectedWorkout = workout },
-                                onDelete: { workoutToDelete = workout }
-                            )
-                            .padding(.horizontal)
-                        }
+            Text("\(weekProgress(for: block)) • \(vm.balanceFocusLabel(for: block.id))")
+                .font(Theme.Font.cardCaption)
+                .foregroundColor(Color.brand.textSecondary)
+
+            let workouts = vm.recentWorkouts(for: block.id, limit: 3)
+
+            if workouts.isEmpty {
+                Text("No workouts yet")
+                    .font(Theme.Font.cardSecondary)
+                    .foregroundColor(Color.brand.textSecondary)
+                    .padding(.top, Theme.Space.md)
+            } else {
+                VStack(spacing: Theme.Space.sm) {
+                    ForEach(workouts) { workout in
+                        WorkoutCard(
+                            workout: workout,
+                            exercises: vm.exercises,
+                            badgeColor: badgeColor(for: workout, blockId: block.id)
+                        )
                     }
                 }
+                .padding(.top, Theme.Space.md)
             }
         }
     }
 
-    private func badgeColorForWorkout(_ workout: Workout) -> Color {
-        guard let blockId = vm.selectedBlockId,
-              let workoutName = workout.name else {
-            return Color(hex: "27272a")
+    // MARK: Completed Blocks (Card Style)
+
+    private func completedBlocksSection(_ blocks: [Block]) -> some View {
+        VStack(spacing: Theme.Space.md) {
+            ForEach(blocks) { block in
+                completedBlockCard(block)
+            }
         }
+    }
 
+    private func completedBlockCard(_ block: Block) -> some View {
+        Button {
+            selectedBlock = block
+        } label: {
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
+
+                HStack {
+                    Text(block.name)
+                        .font(Theme.Font.sectionTitle)
+                        .foregroundColor(Color.brand.textPrimary)
+
+                    Spacer()
+
+                    Text("COMPLETED")
+                        .font(Theme.Font.cardBadge)
+                        .foregroundColor(Color.brand.textPrimary.opacity(0.85))
+                        .padding(.horizontal, Theme.Space.sm)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(Color.brand.primary.opacity(0.25))
+                        )
+                 }
+
+                Text("\(blockSubtitle(for: block)) • \(vm.balanceFocusLabel(for: block.id))")
+                    .font(Theme.Font.cardCaption)
+                    .foregroundColor(Color.brand.textSecondary)
+            }
+            .padding(Theme.Space.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.brand.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md))
+            .opacity(0.9)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: Helpers
+
+    private func weekProgress(for block: Block) -> String {
+        guard let endDate = block.endDate else { return "Ongoing" }
+        let cal = Calendar.current
+        let total = cal.dateComponents([.weekOfYear], from: block.startDate, to: endDate).weekOfYear ?? 0
+        let current = min(cal.dateComponents([.weekOfYear], from: block.startDate, to: Date()).weekOfYear ?? 0, total) + 1
+        guard total > 0 else { return "Ongoing" }
+        return "Week \(current) of \(total + 1)"
+    }
+
+    private func badgeColor(for workout: Workout, blockId: String) -> Color {
+        guard let name = workout.name else { return Color(hex: "27272a") }
         let templates = vm.templatesForBlock(blockId)
-
-        if let index = templates.firstIndex(where: { $0.name == workoutName }) {
+        if let index = templates.firstIndex(where: { $0.name == name }) {
             return TemplateFilterChips.templateColor(for: index)
         }
-
         return Color(hex: "27272a")
     }
-
-    // MARK: - Binding
-
-    private var deleteBlockBinding: Binding<Bool> {
-        Binding(
-            get: { blockToDelete != nil },
-            set: { if !$0 { blockToDelete = nil } }
-        )
+    
+    private func blockSubtitle(for block: Block) -> String {
+        if let completedDate = block.completedDate {
+            return dateRangeString(from: block.startDate, to: completedDate)
+        } else {
+            return weekProgress(for: block)
+        }
     }
 
-    private var deleteWorkoutBinding: Binding<Bool> {
-        Binding(
-            get: { workoutToDelete != nil },
-            set: { if !$0 { workoutToDelete = nil } }
-        )
+    private func dateRangeString(from start: Date, to end: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+
+        return "\(formatter.string(from: start)) – \(formatter.string(from: end))"
     }
+
 }

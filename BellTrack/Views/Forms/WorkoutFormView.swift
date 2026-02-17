@@ -16,7 +16,6 @@ struct WorkoutFormView: View {
     @State private var blocks: [Block] = []
     @State private var templates: [WorkoutTemplate] = []
     @State private var workouts: [Workout] = []
-    @State private var showingTemplateSelector = false
 
     private let firestore = FirestoreService.shared
 
@@ -31,7 +30,6 @@ struct WorkoutFormView: View {
         self.workout = workout
         self.onSave = onSave
         self.onCancel = onCancel
-
         _date = State(initialValue: workout?.date ?? Date())
         _blockId = State(initialValue: workout?.blockId ?? template?.blockId)
         _logs = State(initialValue: workout?.logs ?? [])
@@ -41,23 +39,17 @@ struct WorkoutFormView: View {
     // MARK: - Derived
 
     private var isValid: Bool {
-        // All logs must have valid sets and reps (weight is optional)
-        !logs.isEmpty && logs.allSatisfy { log in
-            guard let sets = log.sets, sets > 0 else { return false }
-            guard let reps = log.reps, !reps.isEmpty else { return false }
+        !logs.isEmpty && logs.allSatisfy {
+            guard let sets = $0.sets, sets > 0 else { return false }
+            guard let reps = $0.reps, !reps.isEmpty else { return false }
             return true
         }
     }
 
     private var templateOptions: [(template: WorkoutTemplate, blockName: String)] {
-        let activeBlocks = blocks.filter {
-            $0.completedDate == nil && $0.startDate <= Date()
-        }
-
+        let activeBlocks = blocks.filter { $0.completedDate == nil && $0.startDate <= Date() }
         return templates.compactMap { template in
-            guard let block = activeBlocks.first(where: { $0.id == template.blockId }) else {
-                return nil
-            }
+            guard let block = activeBlocks.first(where: { $0.id == template.blockId }) else { return nil }
             return (template, block.name)
         }
     }
@@ -67,16 +59,13 @@ struct WorkoutFormView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.brand.background
-                    .ignoresSafeArea()
-
+                Color.brand.background.ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: Theme.Space.lg) {
 
-                        // MARK: - Header Section
-
+                        // Header card
                         VStack(spacing: 0) {
-                            // Template Name (if editing, show template name; if new, show selector)
+                            // Template selector
                             if workout != nil {
                                 HStack {
                                     Text("Template")
@@ -89,8 +78,21 @@ struct WorkoutFormView: View {
                                 .padding(.vertical, Theme.Space.smp)
                                 .background(Color.brand.surface)
                             } else {
-                                Button {
-                                    showingTemplateSelector = true
+                                Menu {
+                                    ForEach(templateOptions, id: \.template.id) { item in
+                                        Button {
+                                            selectedTemplate = item.template
+                                            blockId = item.template.blockId
+                                            loadTemplate(item.template)
+                                        } label: {
+                                            VStack(alignment: .leading) {
+                                                Text(item.template.name)
+                                                Text(item.blockName)
+                                                    .font(.caption)
+                                                    .foregroundColor(Color.brand.textSecondary)
+                                            }
+                                        }
+                                    }
                                 } label: {
                                     HStack {
                                         Text("Template")
@@ -103,8 +105,8 @@ struct WorkoutFormView: View {
                                             Text("Select...")
                                                 .foregroundColor(Color.brand.primary)
                                         }
-                                        Image(systemName: "chevron.right")
-                                            .font(.system(size: 14))
+                                        Image(systemName: "chevron.up.chevron.down")
+                                            .font(.system(size: 12, weight: .semibold))
                                             .foregroundColor(Color.brand.textSecondary)
                                     }
                                     .padding(.horizontal, Theme.Space.md)
@@ -112,15 +114,15 @@ struct WorkoutFormView: View {
                                     .background(Color.brand.surface)
                                 }
                             }
+                            Divider().padding(.leading, Theme.Space.md)
 
-                            Divider()
-                                .padding(.leading, Theme.Space.md)
-
-                            // Date Picker
+                            // Date picker
                             HStack {
                                 Text("Date")
                                     .foregroundColor(Color.brand.textPrimary)
+
                                 Spacer()
+
                                 DatePicker("", selection: $date, displayedComponents: .date)
                                     .labelsHidden()
                             }
@@ -131,8 +133,7 @@ struct WorkoutFormView: View {
                         .cornerRadius(Theme.Radius.md)
                         .padding(.horizontal)
 
-                        // MARK: - Exercises Section
-
+                        // Exercise cards
                         if !logs.isEmpty {
                             VStack(spacing: Theme.Space.md) {
                                 ForEach($logs) { $log in
@@ -154,7 +155,6 @@ struct WorkoutFormView: View {
                         dismiss()
                     }
                 }
-
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         Task {
@@ -168,24 +168,9 @@ struct WorkoutFormView: View {
             }
             .task {
                 await loadReferenceData()
-                // If a template was passed in via init, load it after reference data is loaded
                 if let template = selectedTemplate, logs.isEmpty {
                     loadTemplate(template)
                 }
-            }
-            .sheet(isPresented: $showingTemplateSelector) {
-                TemplateSelectorSheet(
-                    templates: templateOptions,
-                    onSelect: { template in
-                        selectedTemplate = template
-                        blockId = template.blockId
-                        loadTemplate(template)
-                        showingTemplateSelector = false
-                    },
-                    onCancel: {
-                        showingTemplateSelector = false
-                    }
-                )
             }
         }
     }
@@ -198,123 +183,89 @@ struct WorkoutFormView: View {
 
         return VStack(spacing: Theme.Space.md) {
 
-            // Exercise name header
             HStack {
                 Text(log.exerciseName.wrappedValue)
                     .font(Theme.Font.cardTitle)
-                    .fontWeight(.semibold)
                     .foregroundColor(Color.brand.textPrimary)
-
                 Spacer()
             }
 
-            // Sets
-            VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                Text("Sets")
-                    .font(Theme.Font.cardSecondary)
-                    .fontWeight(.medium)
-                    .foregroundColor(Color.brand.textSecondary)
+            inputField("Sets", placeholder: "5", value: log.sets, keyboard: .numberPad)
 
-                TextField("5", value: log.sets, format: .number)
-                    .keyboardType(.numberPad)
-                    .padding(Theme.Space.sm)
-                    .background(Color.brand.background)
-                    .foregroundColor(Color.brand.textPrimary)
-                    .cornerRadius(Theme.Radius.sm)
-            }
-
-            // Reps or Time
-            VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                Text(mode == .reps ? "Reps" : "Time (sec)")
-                    .font(Theme.Font.cardSecondary)
-                    .fontWeight(.medium)
-                    .foregroundColor(Color.brand.textSecondary)
-
-                TextField(mode == .reps ? "8" : "30", text: Binding(
+            inputField(
+                mode == .reps ? "Reps" : "Time (sec)",
+                placeholder: mode == .reps ? "8" : "30",
+                text: Binding(
                     get: { log.reps.wrappedValue ?? "" },
                     set: { log.reps.wrappedValue = $0.isEmpty ? nil : $0 }
-                ))
-                .keyboardType(mode == .reps ? .numberPad : .decimalPad)
-                .padding(Theme.Space.sm)
-                .background(Color.brand.background)
-                .foregroundColor(Color.brand.textPrimary)
-                .cornerRadius(Theme.Radius.sm)
-            }
+                ),
+                keyboard: mode == .reps ? .numberPad : .decimalPad
+            )
 
-            // Weight with Double toggle
-            VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                HStack {
-                    Text("Weight (kg)")
-                        .font(Theme.Font.cardSecondary)
-                        .fontWeight(.medium)
-                        .foregroundColor(Color.brand.textSecondary)
-
-                    Spacer()
-
-                    Button {
-                        log.isDouble.wrappedValue.toggle()
-                    } label: {
-                        Text("Doubles")
-                            .font(Theme.Font.cardCaption)
-                            .padding(.horizontal, Theme.Space.sm)
-                            .padding(.vertical, 4)
-                            .background(log.isDouble.wrappedValue ? Color.brand.primary.opacity(0.15) : Color(.systemGray5))
-                            .foregroundColor(log.isDouble.wrappedValue ? Color.brand.primary : Color.brand.textSecondary)
-                            .cornerRadius(12)
-                    }
-                }
-
-                HStack(spacing: 4) {
-                    if log.isDouble.wrappedValue {
-                        Text("2×")
-                            .font(Theme.Font.cardSecondary)
-                            .foregroundColor(Color.brand.textPrimary)
-                    }
-
-                    TextField("12", text: Binding(
-                        get: { log.weight.wrappedValue ?? "" },
-                        set: { log.weight.wrappedValue = $0.isEmpty ? nil : $0 }
-                    ))
-                    .keyboardType(.decimalPad)
-                    .padding(Theme.Space.sm)
-                    .background(Color.brand.background)
-                    .foregroundColor(Color.brand.textPrimary)
-                    .cornerRadius(Theme.Radius.sm)
-                }
-            }
-
-            // Notes (optional)
-            VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                Text("Notes")
-                    .font(Theme.Font.cardSecondary)
-                    .fontWeight(.medium)
-                    .foregroundColor(Color.brand.textSecondary)
-
-                TextField("Medium band, pause at top, etc.", text: Binding(
-                    get: { log.note.wrappedValue ?? "" },
-                    set: { log.note.wrappedValue = $0.isEmpty ? nil : $0 }
-                ))
-                .padding(Theme.Space.sm)
-                .background(Color.brand.background)
-                .foregroundColor(Color.brand.textPrimary)
-                .cornerRadius(Theme.Radius.sm)
-            }
+            inputField(
+                "Weight (kg)",
+                placeholder: "12",
+                text: Binding(
+                    get: { log.weight.wrappedValue ?? "" },
+                    set: { log.weight.wrappedValue = $0.isEmpty ? nil : $0 }
+                ),
+                keyboard: .decimalPad
+            )
         }
         .padding(Theme.Space.md)
         .background(Color.brand.surface)
         .cornerRadius(Theme.Radius.md)
     }
 
-    // MARK: - Helpers
+    // MARK: - input helpers
+
+    private func inputField(
+        _ title: String,
+        placeholder: String,
+        value: Binding<Int?>,
+        keyboard: UIKeyboardType
+    ) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.sm) {
+            Text(title)
+                .font(Theme.Font.cardSecondary)
+                .foregroundColor(Color.brand.textSecondary)
+
+            TextField(placeholder, value: value, format: .number)
+                .keyboardType(keyboard)
+                .padding(Theme.Space.sm)
+                .background(Color.brand.background)
+                .cornerRadius(Theme.Radius.sm)
+        }
+    }
+
+    private func inputField(
+        _ title: String,
+        placeholder: String,
+        text: Binding<String>,
+        keyboard: UIKeyboardType
+    ) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.sm) {
+            Text(title)
+                .font(Theme.Font.cardSecondary)
+                .foregroundColor(Color.brand.textSecondary)
+
+            TextField(placeholder, text: text)
+                .keyboardType(keyboard)
+                .padding(Theme.Space.sm)
+                .background(Color.brand.background)
+                .cornerRadius(Theme.Radius.sm)
+        }
+    }
+
+    // MARK: - Data
 
     private func loadTemplate(_ template: WorkoutTemplate) {
-        logs = template.entries.map { entry in
-            let recent = mostRecentLog(exerciseId: entry.exerciseId)
-
+        logs = template.entries.map {
+            let recent = mostRecentLog(exerciseId: $0.exerciseId)
             return WorkoutLog(
                 id: UUID().uuidString,
-                exerciseId: entry.exerciseId,
-                exerciseName: entry.exerciseName,
+                exerciseId: $0.exerciseId,
+                exerciseName: $0.exerciseName,
                 sets: recent?.sets,
                 reps: recent?.reps,
                 weight: recent?.weight,
@@ -324,11 +275,9 @@ struct WorkoutFormView: View {
     }
 
     private func save() async {
-        let workoutName = selectedTemplate?.name ?? workout?.name
-
         try? await firestore.saveWorkout(
             id: workout?.id,
-            name: workoutName,
+            name: selectedTemplate?.name ?? workout?.name,
             date: date,
             blockId: blockId,
             logs: logs
@@ -336,14 +285,11 @@ struct WorkoutFormView: View {
     }
 
     private func mostRecentLog(exerciseId: String) -> WorkoutLog? {
-        for workout in workouts.sorted(by: { $0.date > $1.date }) {
-            if let log = workout.logs.first(where: {
-                $0.exerciseId == exerciseId
-            }) {
-                return log
-            }
-        }
-        return nil
+        workouts.sorted(by: { $0.date > $1.date })
+            .first { workout in
+                workout.logs.contains { $0.exerciseId == exerciseId }
+            }?
+            .logs.first { $0.exerciseId == exerciseId }
     }
 
     private func loadReferenceData() async {
@@ -352,81 +298,8 @@ struct WorkoutFormView: View {
         templates = (try? await firestore.fetchWorkoutTemplates()) ?? []
         workouts = (try? await firestore.fetchWorkouts()) ?? []
 
-        // If editing, try to match template by name
-        if let workout = workout, let workoutName = workout.name {
-            selectedTemplate = templates.first { $0.name == workoutName }
-        }
-    }
-}
-
-// MARK: - Template Selector Sheet
-
-private struct TemplateSelectorSheet: View {
-
-    let templates: [(template: WorkoutTemplate, blockName: String)]
-    let onSelect: (WorkoutTemplate) -> Void
-    let onCancel: () -> Void
-
-    var body: some View {
-
-        NavigationStack {
-            ZStack {
-                Color.brand.background
-                    .ignoresSafeArea()
-
-                if templates.isEmpty {
-                    emptyState
-                } else {
-                    List {
-                        ForEach(templates, id: \.template.id) { item in
-                            Button {
-                                onSelect(item.template)
-                            } label: {
-                                VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                                    Text(item.template.name)
-                                        .font(Theme.Font.cardTitle)
-                                        .foregroundColor(Color.brand.textPrimary)
-
-                                    Text(item.blockName)
-                                        .font(Theme.Font.cardCaption)
-                                        .foregroundColor(Color.brand.textSecondary)
-                                }
-                                .padding(.vertical, Theme.Space.xs)
-                            }
-                            .listRowBackground(Color.brand.surface)
-                        }
-                    }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
-                }
-            }
-            .navigationTitle("Select Template")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        onCancel()
-                    }
-                }
-            }
-        }
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: Theme.Space.md) {
-            Image(systemName: "list.clipboard")
-                .font(.system(size: 44))
-                .foregroundColor(Color.brand.textSecondary)
-
-            Text("No templates available")
-                .font(Theme.Font.emptyStateTitle)
-                .foregroundColor(Color.brand.textPrimary)
-
-            Text("Create templates in your active blocks first.")
-                .font(Theme.Font.emptyStateDescription)
-                .foregroundColor(Color.brand.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Theme.Space.xl)
+        if let workout = workout, let name = workout.name {
+            selectedTemplate = templates.first { $0.name == name }
         }
     }
 }

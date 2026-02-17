@@ -1,80 +1,48 @@
 import SwiftUI
 
 struct ExercisesView: View {
-
+    
     @StateObject private var vm = ExercisesViewModel()
-
     @State private var selectedExercise: Exercise?
     @State private var editingExercise: Exercise?
     @State private var showingNewExerciseForm = false
     @State private var exerciseToDelete: Exercise?
-
+    
     var body: some View {
-
         ZStack {
-
-            Color.brand.background
-                .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                LargeTitleHeader(title: "Exercises")
-
-                if vm.isLoading && vm.exercises.isEmpty {
-
-                    ProgressView()
-
-                } else {
-
-                    List {
-
+            Color.brand.background.ignoresSafeArea()
+            
+            if vm.isLoading && vm.exercises.isEmpty {
+                ProgressView()
+            } else {
+                List {
                     ForEach(vm.exercises) { exercise in
-
                         ExerciseCard(onTap: {
-
                             selectedExercise = exercise
-
                         }) {
-
                             HStack(alignment: .top, spacing: Theme.Space.md) {
-
-                                VStack(
-                                    alignment: .leading,
-                                    spacing: Theme.Space.xs
-                                ) {
-
+                                VStack(alignment: .leading, spacing: Theme.Space.xs) {
                                     Text(exercise.name)
                                         .font(Theme.Font.cardTitle)
-
                                     MuscleTags(
                                         primaryMuscles: exercise.primaryMuscles,
                                         secondaryMuscles: exercise.secondaryMuscles
                                     )
                                 }
-
                                 Spacer()
-
                                 Menu {
-
                                     Button {
-
                                         editingExercise = exercise
-
                                     } label: {
-
                                         Label("Edit", systemImage: "pencil")
                                     }
-
                                     Button(role: .destructive) {
-
                                         exerciseToDelete = exercise
-
                                     } label: {
-
                                         Label("Delete", systemImage: "trash")
                                     }
-
+                                    
                                 } label: {
-
                                     Image(systemName: "ellipsis")
                                         .font(.system(size: 16, weight: .semibold))
                                         .foregroundColor(Color.brand.textSecondary)
@@ -89,27 +57,21 @@ struct ExercisesView: View {
                         .padding(.horizontal)
                         .padding(.vertical, Theme.Space.sm)
                     }
-                    }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-
-        // MARK: Navigation
-
+        .task {
+            await vm.load()
+        }
+        .navigationTitle("Exercises")
+        .navigationBarTitleDisplayMode(.large)
         .navigationDestination(item: $selectedExercise) {
             ExerciseDetailView(exercise: $0)
         }
-
-        // MARK: Toolbar
-
         .toolbar {
-
             ToolbarItem(placement: .topBarTrailing) {
-
                 Button {
                     showingNewExerciseForm = true
                 } label: {
@@ -117,17 +79,13 @@ struct ExercisesView: View {
                 }
             }
         }
-
-        // MARK: Forms
-
+        
+        // Edit form
         .fullScreenCover(item: $editingExercise) { exercise in
-
             ExerciseFormView(
                 exercise: exercise,
                 onSave: { name, primary, secondary, mode in
-
                     Task {
-
                         await vm.saveExercise(
                             id: exercise.id,
                             name: name,
@@ -135,7 +93,6 @@ struct ExercisesView: View {
                             secondaryMuscles: secondary,
                             mode: mode
                         )
-
                         editingExercise = nil
                     }
                 },
@@ -144,14 +101,12 @@ struct ExercisesView: View {
                 }
             )
         }
-
+        
+        // New form
         .fullScreenCover(isPresented: $showingNewExerciseForm) {
-
             ExerciseFormView(
                 onSave: { name, primary, secondary, mode in
-
                     Task {
-
                         await vm.saveExercise(
                             id: nil,
                             name: name,
@@ -159,7 +114,6 @@ struct ExercisesView: View {
                             secondaryMuscles: secondary,
                             mode: mode
                         )
-
                         showingNewExerciseForm = false
                     }
                 },
@@ -168,56 +122,40 @@ struct ExercisesView: View {
                 }
             )
         }
-
-        // MARK: Delete Alert
-
-        .alert("Delete Exercise?", isPresented: .init(
-            get: { exerciseToDelete != nil },
-            set: { if !$0 { exerciseToDelete = nil } }
-        )) {
-
+        
+        // Delete alert
+        .alert(
+            "Delete Exercise?",
+            isPresented: .init(
+                get: { exerciseToDelete != nil },
+                set: { if !$0 { exerciseToDelete = nil } }
+            )
+        ) {
             Button("Cancel", role: .cancel) {}
-
             Button("Delete", role: .destructive) {
-
                 if let exercise = exerciseToDelete {
-
                     Task {
                         await vm.deleteExercise(id: exercise.id)
                     }
                 }
-
                 exerciseToDelete = nil
             }
-
         } message: {
-
             Text("This will permanently delete \"\(exerciseToDelete?.name ?? "")\".")
-        }
-
-        .task {
-            await vm.load()
         }
     }
 }
 
-// MARK: - Exercise Card (Private Component)
+// MARK: - Exercise Card
 
 private struct ExerciseCard<Content: View>: View {
-
     let content: Content
     let onTap: (() -> Void)?
-
-    init(
-        onTap: (() -> Void)? = nil,
-        @ViewBuilder content: () -> Content
-    ) {
+    init(onTap: (() -> Void)? = nil, @ViewBuilder content: () -> Content) {
         self.onTap = onTap
         self.content = content()
     }
-
     var body: some View {
-
         VStack(alignment: .leading, spacing: Theme.Space.md) {
             content
         }
@@ -226,31 +164,21 @@ private struct ExerciseCard<Content: View>: View {
         .background(Color.brand.surface)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md))
         .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: Theme.Radius.md))
-        .shadow(
-            color: .black.opacity(0.05),
-            radius: 2,
-            x: 0,
-            y: 1
-        )
+        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
         .modifier(CardTapModifier(onTap: onTap))
     }
 }
 
-// MARK: - Tap modifier that DOES NOT break buttons
+// MARK: - Tap modifier
 
 private struct CardTapModifier: ViewModifier {
-
     let onTap: (() -> Void)?
-
     func body(content: Content) -> some View {
-
         if let onTap {
             content
                 .contentShape(Rectangle())
                 .simultaneousGesture(
-                    TapGesture().onEnded {
-                        onTap()
-                    }
+                    TapGesture().onEnded { onTap() }
                 )
         } else {
             content

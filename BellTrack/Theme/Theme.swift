@@ -17,11 +17,12 @@ enum Theme {
         static let mdp: CGFloat = 20
         static let lg: CGFloat = 24
         static let xl: CGFloat = 32
+        static let xxl: CGFloat = 40
     }
 
     enum TypeSize {
         static let xs: CGFloat = 10
-        static let sm: CGFloat = 13
+        static let sm: CGFloat = 14
         static let md: CGFloat = 16
         static let lg: CGFloat = 18
         static let xl: CGFloat = 20
@@ -34,11 +35,14 @@ enum Theme {
         static let pageTitle = SwiftUI.Font.system(size: TypeSize.xxxl, weight: .bold)
         static let navigationTitle = SwiftUI.Font.system(size: TypeSize.lg, weight: .semibold)
         static let sectionTitle = SwiftUI.Font.system(size: TypeSize.md, weight: .bold)
+        static let blockTitle = SwiftUI.Font.system(size: TypeSize.xl, weight: .semibold)
+        static let sectionLabel = SwiftUI.Font.system(size: TypeSize.sm, weight: .medium)
 
         // Cards
         static let cardTitle = SwiftUI.Font.system(size: TypeSize.md, weight: .medium)
         static let cardSecondary = SwiftUI.Font.system(size: TypeSize.md, weight: .regular)
         static let cardCaption = SwiftUI.Font.system(size: TypeSize.sm, weight: .regular)
+        static let cardBadge = SwiftUI.Font.system(size: TypeSize.xs, weight: .medium)
 
         // Forms
         static let formLabel = SwiftUI.Font.system(size: TypeSize.md, weight: .medium)
