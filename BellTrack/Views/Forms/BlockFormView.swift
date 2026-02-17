@@ -46,6 +46,26 @@ struct BlockFormView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // Mark as Complete button (only in edit mode for active blocks)
+                if let block = block, block.completedDate == nil {
+                    Section {
+                        Button {
+                            Task {
+                                await vm?.completeBlock(id: block.id)
+                                onCancel()
+                            }
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Label("Mark as Complete", systemImage: "checkmark.circle")
+                                    .font(Theme.Font.buttonPrimary)
+                                Spacer()
+                            }
+                        }
+                        .foregroundColor(Color.brand.primary)
+                    }
+                }
+
                 Section {
                     TextField("Block name", text: $name)
                         .autocorrectionDisabled()

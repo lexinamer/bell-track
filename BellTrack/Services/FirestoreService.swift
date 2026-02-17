@@ -30,12 +30,15 @@ final class FirestoreService {
         return snap.documents.map { doc in
             let primaryRaw = doc["primaryMuscles"] as? [String] ?? []
             let secondaryRaw = doc["secondaryMuscles"] as? [String] ?? []
+            let modeString = doc["mode"] as? String ?? "reps"
+            let mode = ExerciseMode(rawValue: modeString) ?? .reps
 
             return Exercise(
                 id: doc.documentID,
                 name: doc["name"] as? String ?? "",
                 primaryMuscles: primaryRaw.compactMap { MuscleGroup(rawValue: $0) },
-                secondaryMuscles: secondaryRaw.compactMap { MuscleGroup(rawValue: $0) }
+                secondaryMuscles: secondaryRaw.compactMap { MuscleGroup(rawValue: $0) },
+                mode: mode
             )
         }
     }
@@ -44,7 +47,8 @@ final class FirestoreService {
         id: String?,
         name: String,
         primaryMuscles: [MuscleGroup],
-        secondaryMuscles: [MuscleGroup]
+        secondaryMuscles: [MuscleGroup],
+        mode: ExerciseMode
     ) async throws {
         let ref = try userRef()
         let doc = id == nil
@@ -54,7 +58,8 @@ final class FirestoreService {
         let data: [String: Any] = [
             "name": name,
             "primaryMuscles": primaryMuscles.map { $0.rawValue },
-            "secondaryMuscles": secondaryMuscles.map { $0.rawValue }
+            "secondaryMuscles": secondaryMuscles.map { $0.rawValue },
+            "mode": mode.rawValue
         ]
 
         try await doc.setData(data)
@@ -102,18 +107,20 @@ final class FirestoreService {
         let snap = try await ref.collection("exercises").limit(to: 1).getDocuments()
         guard snap.documents.isEmpty else { return }
 
-        let defaults: [(name: String, primary: [MuscleGroup], secondary: [MuscleGroup])] = [
-            ("Clean", [.glutes, .hamstrings], [.core, .forearms]),
-            ("Clean to Press", [.glutes, .shoulders, .hamstrings],  [.core, .forearms, .triceps]),
-            ("Lunge", [.quads, .glutes], [.hamstrings, .core, .calves]),
-            ("Press", [.shoulders], [.triceps, .core, .forearms, .back]),
-            ("Pushup", [.chest], [.triceps, .shoulders, .core, .glutes]),
-            ("RDL", [.hamstrings, .glutes], [.core, .back, .forearms]),
-            ("Row", [.back], [.biceps, .core, .forearms, .shoulders]),
-            ("Snatch", [.glutes, .hamstrings, .shoulders], [.core, .back, .forearms, .quads]),
-            ("Squat", [.quads, .glutes], [.core, .hamstrings, .back]),
-            ("Suitcase Carry", [.core], [.forearms, .shoulders, .glutes, .back]),
-            ("Swing", [.glutes, .hamstrings], [.core, .back, .forearms, .shoulders])
+        let defaults: [(name: String, primary: [MuscleGroup], secondary: [MuscleGroup], mode: ExerciseMode)] = [
+            ("Clean", [.glutes, .hamstrings], [.core, .forearms], .reps),
+            ("Clean to Press", [.glutes, .shoulders, .hamstrings],  [.core, .forearms, .triceps], .reps),
+            ("Farmer Carry", [.forearms, .core], [.shoulders, .glutes, .back], .time),
+            ("Front Squat", [.quads, .glutes], [.core, .hamstrings, .back], .reps),
+            ("Goblet Squat", [.quads, .glutes], [.core, .hamstrings, .back, .shoulders], .reps),
+            ("Lunge", [.quads, .glutes], [.hamstrings, .core, .calves], .reps),
+            ("Press", [.shoulders], [.triceps, .core, .forearms, .back], .reps),
+            ("Pushup", [.chest], [.triceps, .shoulders, .core, .glutes], .reps),
+            ("RDL", [.hamstrings, .glutes], [.core, .back, .forearms], .reps),
+            ("Row", [.back], [.biceps, .core, .forearms, .shoulders], .reps),
+            ("Snatch", [.glutes, .hamstrings, .shoulders], [.core, .back, .forearms, .quads], .reps),
+            ("Suitcase Carry", [.core, .forearms], [.shoulders, .glutes, .back], .time),
+            ("Swing", [.glutes, .hamstrings], [.core, .back, .forearms, .shoulders], .reps)
         ]
 
         for exercise in defaults {
@@ -122,6 +129,7 @@ final class FirestoreService {
                 "name": exercise.name,
                 "primaryMuscles": exercise.primary.map { $0.rawValue },
                 "secondaryMuscles": exercise.secondary.map { $0.rawValue },
+                "mode": exercise.mode.rawValue
             ])
         }
     }
@@ -297,14 +305,10 @@ final class FirestoreService {
                     let exerciseName = log["exerciseName"] as? String
                 else { return nil }
 
-                let modeString = log["mode"] as? String ?? "reps"
-                let mode = ExerciseMode(rawValue: modeString) ?? .reps
-
                 return WorkoutLog(
                     id: id,
                     exerciseId: exerciseId,
                     exerciseName: exerciseName,
-                    mode: mode,
                     sets: log["sets"] as? Int,
                     reps: log["reps"] as? String,
                     weight: log["weight"] as? String,
@@ -341,7 +345,6 @@ final class FirestoreService {
                 "id": $0.id,
                 "exerciseId": $0.exerciseId,
                 "exerciseName": $0.exerciseName,
-                "mode": $0.mode.rawValue,
                 "sets": $0.sets as Any,
                 "reps": $0.reps as Any,
                 "weight": $0.weight as Any,

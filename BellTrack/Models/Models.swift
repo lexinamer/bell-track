@@ -31,6 +31,7 @@ struct Exercise: Identifiable, Codable, Equatable, Hashable {
     var name: String
     var primaryMuscles: [MuscleGroup]
     var secondaryMuscles: [MuscleGroup]
+    var mode: ExerciseMode  // How this exercise is tracked (reps or time)
 }
 
 // MARK: - Workout Template
@@ -82,7 +83,6 @@ struct WorkoutLog: Identifiable, Codable, Equatable {
 
     var exerciseId: String
     var exerciseName: String
-    var mode: ExerciseMode  // reps or time (set at logging time)
 
     var sets: Int?
     var reps: String?  // Can be number (reps mode) or time string (time mode)
@@ -94,7 +94,6 @@ struct WorkoutLog: Identifiable, Codable, Equatable {
         id: String,
         exerciseId: String,
         exerciseName: String,
-        mode: ExerciseMode = .reps,
         sets: Int? = nil,
         reps: String? = nil,
         weight: String? = nil,
@@ -104,7 +103,6 @@ struct WorkoutLog: Identifiable, Codable, Equatable {
         self.id = id
         self.exerciseId = exerciseId
         self.exerciseName = exerciseName
-        self.mode = mode
         self.sets = sets
         self.reps = reps
         self.weight = weight

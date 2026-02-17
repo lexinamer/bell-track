@@ -16,13 +16,16 @@ struct ExercisesView: View {
             Color.brand.background
                 .ignoresSafeArea()
 
-            if vm.isLoading && vm.exercises.isEmpty {
+            VStack(spacing: 0) {
+                LargeTitleHeader(title: "Exercises")
 
-                ProgressView()
+                if vm.isLoading && vm.exercises.isEmpty {
 
-            } else {
+                    ProgressView()
 
-                List {
+                } else {
+
+                    List {
 
                     ForEach(vm.exercises) { exercise in
 
@@ -86,13 +89,14 @@ struct ExercisesView: View {
                         .padding(.horizontal)
                         .padding(.vertical, Theme.Space.sm)
                     }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
             }
         }
-        .navigationTitle("Exercises")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
 
         // MARK: Navigation
 
@@ -120,7 +124,7 @@ struct ExercisesView: View {
 
             ExerciseFormView(
                 exercise: exercise,
-                onSave: { name, primary, secondary in
+                onSave: { name, primary, secondary, mode in
 
                     Task {
 
@@ -128,7 +132,8 @@ struct ExercisesView: View {
                             id: exercise.id,
                             name: name,
                             primaryMuscles: primary,
-                            secondaryMuscles: secondary
+                            secondaryMuscles: secondary,
+                            mode: mode
                         )
 
                         editingExercise = nil
@@ -143,7 +148,7 @@ struct ExercisesView: View {
         .fullScreenCover(isPresented: $showingNewExerciseForm) {
 
             ExerciseFormView(
-                onSave: { name, primary, secondary in
+                onSave: { name, primary, secondary, mode in
 
                     Task {
 
@@ -151,7 +156,8 @@ struct ExercisesView: View {
                             id: nil,
                             name: name,
                             primaryMuscles: primary,
-                            secondaryMuscles: secondary
+                            secondaryMuscles: secondary,
+                            mode: mode
                         )
 
                         showingNewExerciseForm = false

@@ -193,8 +193,10 @@ struct WorkoutFormView: View {
     // MARK: - Exercise Card
 
     private func exerciseCard(log: Binding<WorkoutLog>) -> some View {
+        let exercise = exercises.first(where: { $0.id == log.exerciseId.wrappedValue })
+        let mode = exercise?.mode ?? .reps
 
-        VStack(spacing: Theme.Space.md) {
+        return VStack(spacing: Theme.Space.md) {
 
             // Exercise name header
             HStack {
@@ -223,32 +225,16 @@ struct WorkoutFormView: View {
 
             // Reps or Time
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                HStack {
-                    Text(log.mode.wrappedValue == .reps ? "Reps" : "Time (sec)")
-                        .font(Theme.Font.cardSecondary)
-                        .fontWeight(.medium)
-                        .foregroundColor(Color.brand.textSecondary)
+                Text(mode == .reps ? "Reps" : "Time (sec)")
+                    .font(Theme.Font.cardSecondary)
+                    .fontWeight(.medium)
+                    .foregroundColor(Color.brand.textSecondary)
 
-                    Spacer()
-
-                    Button {
-                        log.mode.wrappedValue = log.mode.wrappedValue == .reps ? .time : .reps
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.left.arrow.right")
-                                .font(.system(size: 12))
-                            Text(log.mode.wrappedValue == .reps ? "Time" : "Reps")
-                                .font(Theme.Font.cardCaption)
-                        }
-                        .foregroundColor(Color.brand.primary)
-                    }
-                }
-
-                TextField(log.mode.wrappedValue == .reps ? "8" : "30", text: Binding(
+                TextField(mode == .reps ? "8" : "30", text: Binding(
                     get: { log.reps.wrappedValue ?? "" },
                     set: { log.reps.wrappedValue = $0.isEmpty ? nil : $0 }
                 ))
-                .keyboardType(log.mode.wrappedValue == .reps ? .numberPad : .decimalPad)
+                .keyboardType(mode == .reps ? .numberPad : .decimalPad)
                 .padding(Theme.Space.sm)
                 .background(Color.brand.background)
                 .foregroundColor(Color.brand.textPrimary)
@@ -258,7 +244,7 @@ struct WorkoutFormView: View {
             // Weight with Double toggle
             VStack(alignment: .leading, spacing: Theme.Space.sm) {
                 HStack {
-                    Text(log.isDouble.wrappedValue ? "Weight (2× kg)" : "Weight (kg)")
+                    Text("Weight (kg)")
                         .font(Theme.Font.cardSecondary)
                         .fontWeight(.medium)
                         .foregroundColor(Color.brand.textSecondary)
@@ -268,25 +254,33 @@ struct WorkoutFormView: View {
                     Button {
                         log.isDouble.wrappedValue.toggle()
                     } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.left.arrow.right")
-                                .font(.system(size: 12))
-                            Text(log.isDouble.wrappedValue ? "Single" : "Doubles")
-                                .font(Theme.Font.cardCaption)
-                        }
-                        .foregroundColor(Color.brand.primary)
+                        Text("Doubles")
+                            .font(Theme.Font.cardCaption)
+                            .padding(.horizontal, Theme.Space.sm)
+                            .padding(.vertical, 4)
+                            .background(log.isDouble.wrappedValue ? Color.brand.primary.opacity(0.15) : Color(.systemGray5))
+                            .foregroundColor(log.isDouble.wrappedValue ? Color.brand.primary : Color.brand.textSecondary)
+                            .cornerRadius(12)
                     }
                 }
 
-                TextField("12", text: Binding(
-                    get: { log.weight.wrappedValue ?? "" },
-                    set: { log.weight.wrappedValue = $0.isEmpty ? nil : $0 }
-                ))
-                .keyboardType(.decimalPad)
-                .padding(Theme.Space.sm)
-                .background(Color.brand.background)
-                .foregroundColor(Color.brand.textPrimary)
-                .cornerRadius(Theme.Radius.sm)
+                HStack(spacing: 4) {
+                    if log.isDouble.wrappedValue {
+                        Text("2×")
+                            .font(Theme.Font.cardSecondary)
+                            .foregroundColor(Color.brand.textPrimary)
+                    }
+
+                    TextField("12", text: Binding(
+                        get: { log.weight.wrappedValue ?? "" },
+                        set: { log.weight.wrappedValue = $0.isEmpty ? nil : $0 }
+                    ))
+                    .keyboardType(.decimalPad)
+                    .padding(Theme.Space.sm)
+                    .background(Color.brand.background)
+                    .foregroundColor(Color.brand.textPrimary)
+                    .cornerRadius(Theme.Radius.sm)
+                }
             }
 
             // Notes (optional)
@@ -321,7 +315,6 @@ struct WorkoutFormView: View {
                 id: UUID().uuidString,
                 exerciseId: entry.exerciseId,
                 exerciseName: entry.exerciseName,
-                mode: recent?.mode ?? .reps,
                 sets: recent?.sets,
                 reps: recent?.reps,
                 weight: recent?.weight,

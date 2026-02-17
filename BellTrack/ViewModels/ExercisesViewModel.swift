@@ -56,7 +56,8 @@ final class ExercisesViewModel: ObservableObject {
         id: String? = nil,
         name: String,
         primaryMuscles: [MuscleGroup],
-        secondaryMuscles: [MuscleGroup]
+        secondaryMuscles: [MuscleGroup],
+        mode: ExerciseMode
     ) async {
         guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
 
@@ -65,7 +66,8 @@ final class ExercisesViewModel: ObservableObject {
                 id: id,
                 name: name,
                 primaryMuscles: primaryMuscles,
-                secondaryMuscles: secondaryMuscles
+                secondaryMuscles: secondaryMuscles,
+                mode: mode
             )
 
             if let exerciseId = id {

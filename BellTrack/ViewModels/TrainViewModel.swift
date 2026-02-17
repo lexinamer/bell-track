@@ -9,11 +9,11 @@ enum MuscleCategory: String, CaseIterable {
     var muscles: [MuscleGroup] {
         switch self {
         case .upper:
-            return [.chest, .shoulders, .triceps, .biceps, .forearms]
+            return [.chest, .back, .shoulders, .triceps, .biceps, .forearms]
         case .lower:
             return [.quads, .hamstrings, .glutes, .calves]
         case .core:
-            return [.core, .back]
+            return [.core]
         }
     }
 }
@@ -21,7 +21,7 @@ enum MuscleCategory: String, CaseIterable {
 struct MuscleBalanceData: Identifiable {
     let id = UUID()
     let category: MuscleCategory
-    let percent: Double
+    let score: Double
 }
 
 @MainActor
@@ -106,16 +106,19 @@ final class TrainViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Active Block
+    // MARK: - Active Blocks
 
-    var activeBlock: Block? {
+    var activeBlocks: [Block] {
         blocks
             .filter {
                 $0.completedDate == nil &&
                 $0.startDate <= Date()
             }
             .sorted { $0.startDate > $1.startDate }
-            .first
+    }
+
+    var activeBlock: Block? {
+        activeBlocks.first
     }
 
     var activeBlockWorkouts: [Workout] {
@@ -129,6 +132,13 @@ final class TrainViewModel: ObservableObject {
         guard let block = activeBlock else { return [] }
         return templates
             .filter { $0.blockId == block.id }
+            .sorted { $0.name < $1.name }
+    }
+
+    var allActiveTemplates: [WorkoutTemplate] {
+        let activeBlockIds = Set(activeBlocks.map { $0.id })
+        return templates
+            .filter { activeBlockIds.contains($0.blockId) }
             .sorted { $0.name < $1.name }
     }
 
@@ -183,9 +193,13 @@ final class TrainViewModel: ObservableObject {
                 let baseWeight = Double(log.weight ?? "0") ?? 0
                 let weight = log.isDouble ? baseWeight * 2 : baseWeight
 
+                // Look up exercise mode from exercise map
+                let exercise = exerciseMap[log.exerciseId]
+                let mode = exercise?.mode ?? .reps
+
                 // Only count rep-based weighted exercises for real volume
                 // Exclude time-based exercises (they skew the metric)
-                if weight > 0 && reps > 0 && log.mode != .time {
+                if weight > 0 && reps > 0 && mode != .time {
                     return logTotal + (sets * reps * weight)
                 } else {
                     return logTotal
@@ -378,73 +392,65 @@ final class TrainViewModel: ObservableObject {
 
         let filteredWorkouts = workouts.filter { $0.blockId == blockId }
 
-        var categoryVolume: [MuscleCategory: Double] = [:]
+        // Track unique exercises to avoid counting duplicates
+        var uniqueExercises = Set<String>()
+        var categoryScores: [MuscleCategory: Double] = [
+            .upper: 0,
+            .lower: 0,
+            .core: 0
+        ]
 
         for workout in filteredWorkouts {
             for log in workout.logs {
-                let sets = Double(log.sets ?? 0)
-                let reps = Double(log.reps ?? "0") ?? 0
-                let baseWeight = Double(log.weight ?? "0") ?? 0
-                let weight = log.isDouble ? baseWeight * 2 : baseWeight
-
-                // Calculate volume based on exercise type
-                let volume: Double
-                if weight > 0 {
-                    // Weighted exercise: use sets × reps × weight
-                    volume = sets * reps * weight
-                } else if reps > 0 {
-                    // Bodyweight exercise (reps-based): use sets × reps as unit of work
-                    volume = sets * reps
-                } else {
-                    // Time-based exercise with no weight: use sets × time as unit of work
-                    volume = sets * reps  // reps field contains time for time-based exercises
-                }
+                // Only count each unique exercise once per block
+                guard !uniqueExercises.contains(log.exerciseId) else { continue }
+                uniqueExercises.insert(log.exerciseId)
 
                 guard let exercise = exerciseMap[log.exerciseId] else { continue }
 
+                // Add scores based on primary and secondary muscles
                 for category in MuscleCategory.allCases {
+                    // Primary muscles contribute +1.0
                     if category.muscles.contains(where: { exercise.primaryMuscles.contains($0) }) {
-                        categoryVolume[category, default: 0] += volume
+                        categoryScores[category, default: 0] += 1.0
+                    }
+
+                    // Secondary muscles contribute +0.5
+                    if category.muscles.contains(where: { exercise.secondaryMuscles.contains($0) }) {
+                        categoryScores[category, default: 0] += 0.5
                     }
                 }
             }
         }
 
-        let totalVolume = categoryVolume.values.reduce(0, +)
-        guard totalVolume > 0 else {
-            muscleBalance = []
-            return
-        }
-
         muscleBalance = MuscleCategory.allCases.map { category in
             MuscleBalanceData(
                 category: category,
-                percent: categoryVolume[category] ?? 0 / totalVolume
+                score: categoryScores[category] ?? 0
             )
         }
     }
 
     var balanceFocusLabel: String {
-        guard !muscleBalance.isEmpty else { return "Well Balanced" }
+        guard !muscleBalance.isEmpty else { return "Balanced" }
 
-        // Find the category with the highest volume percentage
-        guard let dominant = muscleBalance.max(by: { $0.percent < $1.percent }) else {
-            return "Well Balanced"
+        let upperScore = muscleBalance.first(where: { $0.category == .upper })?.score ?? 0
+        let lowerScore = muscleBalance.first(where: { $0.category == .lower })?.score ?? 0
+
+        // Ignore core when determining Upper vs Lower dominance (core is supplemental)
+
+        // If lowerScore > upperScore × 2.0 → "Lower Body Focus"
+        if lowerScore > upperScore * 2.0 {
+            return "Lower Body Focus"
         }
 
-        // If the dominant category is significantly higher (>45%), show focus
-        if dominant.percent > 0.45 {
-            switch dominant.category {
-            case .upper:
-                return "Upper Body Focus"
-            case .lower:
-                return "Lower Body Focus"
-            case .core:
-                return "Core and Back Focus"
-            }
+        // Else if upperScore > lowerScore × 2.0 → "Upper Body Focus"
+        if upperScore > lowerScore * 2.0 {
+            return "Upper Body Focus"
         }
 
-        return "Well Balanced"
+        // Otherwise balanced
+        return "Balanced"
     }
 
     // MARK: - Template Volume Stats
@@ -470,8 +476,12 @@ final class TrainViewModel: ObservableObject {
                 let baseWeight = Double(log.weight ?? "0") ?? 0
                 let weight = log.isDouble ? baseWeight * 2 : baseWeight
 
+                // Look up exercise mode from exercise map
+                let exercise = exerciseMap[log.exerciseId]
+                let mode = exercise?.mode ?? .reps
+
                 // Only count rep-based weighted exercises for real volume
-                if weight > 0 && reps > 0 && log.mode != .time {
+                if weight > 0 && reps > 0 && mode != .time {
                     return total + (sets * reps * weight)
                 } else {
                     return total

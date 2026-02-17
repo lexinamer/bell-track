@@ -2,16 +2,17 @@ import SwiftUI
 
 struct ExerciseFormView: View {
     let exercise: Exercise?
-    let onSave: (String, [MuscleGroup], [MuscleGroup]) -> Void
+    let onSave: (String, [MuscleGroup], [MuscleGroup], ExerciseMode) -> Void
     let onCancel: () -> Void
 
     @State private var nameInput: String
     @State private var primaryMuscles: [MuscleGroup]
     @State private var secondaryMuscles: [MuscleGroup]
+    @State private var mode: ExerciseMode
 
     init(
         exercise: Exercise? = nil,
-        onSave: @escaping (String, [MuscleGroup], [MuscleGroup]) -> Void,
+        onSave: @escaping (String, [MuscleGroup], [MuscleGroup], ExerciseMode) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.exercise = exercise
@@ -20,6 +21,7 @@ struct ExerciseFormView: View {
         self._nameInput = State(initialValue: exercise?.name ?? "")
         self._primaryMuscles = State(initialValue: exercise?.primaryMuscles ?? [])
         self._secondaryMuscles = State(initialValue: exercise?.secondaryMuscles ?? [])
+        self._mode = State(initialValue: exercise?.mode ?? .reps)
     }
 
     var body: some View {
@@ -28,6 +30,14 @@ struct ExerciseFormView: View {
                 Section {
                     TextField("Exercise name", text: $nameInput)
                         .autocorrectionDisabled()
+                }
+
+                Section("Tracking Mode") {
+                    Picker("Mode", selection: $mode) {
+                        Text("Reps").tag(ExerciseMode.reps)
+                        Text("Time").tag(ExerciseMode.time)
+                    }
+                    .pickerStyle(.segmented)
                 }
 
                 Section("Primary Muscles") {
@@ -55,7 +65,7 @@ struct ExerciseFormView: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        onSave(nameInput, primaryMuscles, secondaryMuscles)
+                        onSave(nameInput, primaryMuscles, secondaryMuscles, mode)
                     }
                     .disabled(
                         nameInput.trimmingCharacters(in: .whitespaces).isEmpty ||

@@ -19,10 +19,13 @@ struct SettingsView: View {
     @State private var deleteErrorMessage: String?
 
     var body: some View {
-        List {
+        VStack(spacing: 0) {
+            LargeTitleHeader(title: "Settings")
 
-            // MARK: - App
-            Section("App") {
+            List {
+
+                // MARK: - App
+                Section("App") {
 
                 NavigationLink {
                     ExercisesView()
@@ -88,11 +91,18 @@ struct SettingsView: View {
 
             }
 
+            }
+            .scrollContentBackground(.hidden)
+            .background(Color.brand.background)
         }
-        .scrollContentBackground(.hidden)
-        .background(Color.brand.background)
-        .navigationTitle("Settings")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                // Empty spacer to maintain consistent layout with other tabs
+                Color.clear.frame(width: 44, height: 44)
+            }
+        }
 
         // MARK: - Delete Flow
 

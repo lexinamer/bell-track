@@ -82,9 +82,13 @@ struct WorkoutCard: View {
             let baseWeight = Double(log.weight ?? "0") ?? 0
             let weight = log.isDouble ? baseWeight * 2 : baseWeight
 
+            // Look up exercise mode
+            let exercise = exercises.first(where: { $0.id == log.exerciseId })
+            let mode = exercise?.mode ?? .reps
+
             // Only count rep-based weighted exercises for real volume
             // Exclude time-based exercises (they skew the metric)
-            if weight > 0 && reps > 0 && log.mode != .time {
+            if weight > 0 && reps > 0 && mode != .time {
                 return total + (sets * reps * weight)
             } else {
                 return total
@@ -95,7 +99,7 @@ struct WorkoutCard: View {
     private var metadataText: String {
         let volumeValue = Int(totalVolume.rounded())
         let repCount = workout.logs.reduce(0) { total, log in
-            total + (Int(log.reps ?? "0") ?? 0)
+            total + ((Int(log.reps ?? "0") ?? 0) * (log.sets ?? 0))
         }
 
         if volumeValue > 0 {
@@ -193,12 +197,12 @@ struct WorkoutCard: View {
 
     private var dateBadge: some View {
         VStack(spacing: 2) {
-            Text(workout.date, format: .dateTime.day())
-                .font(Theme.Font.navigationTitle)
-                .foregroundColor(.white)
-
             Text(workout.date, format: .dateTime.month(.abbreviated))
                 .font(Theme.Font.cardCaption)
+                .foregroundColor(.white)
+
+            Text(workout.date, format: .dateTime.day())
+                .font(Theme.Font.navigationTitle)
                 .foregroundColor(.white)
         }
         .frame(width: 44, height: 44)
@@ -223,39 +227,39 @@ struct WorkoutCard: View {
     }
 
     private func exerciseRow(_ log: WorkoutLog) -> some View {
-        Group {
-            if let exercise = exercises.first(where: { $0.id == log.exerciseId }) {
-                NavigationLink(destination: ExerciseDetailView(exercise: exercise)) {
-                    exerciseRowContent(log)
-                }
-                .buttonStyle(.plain)
-            } else {
-                exerciseRowContent(log)
-            }
-        }
+        exerciseRowContent(log)
     }
 
     private func exerciseRowContent(_ log: WorkoutLog) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Space.xs) {
+        let exercise = exercises.first(where: { $0.id == log.exerciseId })
+        let mode = exercise?.mode ?? .reps
 
-            Text(log.exerciseName)
-                .font(Theme.Font.cardTitle)
-                .foregroundColor(Color.brand.textPrimary)
+        return VStack(alignment: .leading, spacing: Theme.Space.xs) {
+            HStack(spacing: Theme.Space.md) {
+                // Exercise name
+                Text(log.exerciseName)
+                    .font(Theme.Font.cardTitle)
+                    .foregroundColor(Color.brand.textPrimary)
+                    .frame(minWidth: 120, alignment: .leading)
 
-            HStack(spacing: Theme.Space.sm) {
-                if let sets = log.sets, sets > 0 {
-                    detailChip(text: "\(sets) sets")
+                // Sets × Reps or Sets × Time
+                if let sets = log.sets, sets > 0, let reps = log.reps, !reps.isEmpty {
+                    let repsDisplay = mode == .time ? ":\(reps)" : reps
+                    Text("\(sets)×\(repsDisplay)")
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(Color.brand.textSecondary)
+                        .frame(minWidth: 50, alignment: .leading)
                 }
 
-                if let reps = log.reps, !reps.isEmpty {
-                    let label = log.mode == .time ? "sec" : "reps"
-                    detailChip(text: "\(reps) \(label)")
-                }
-
+                // Weight
                 if let weight = log.weight, !weight.isEmpty {
                     let displayWeight = log.isDouble ? "2×\(weight)kg" : "\(weight)kg"
-                    detailChip(text: displayWeight)
+                    Text(displayWeight)
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(Color.brand.textSecondary)
                 }
+
+                Spacer()
             }
 
             if let note = log.note, !note.isEmpty {
@@ -265,10 +269,6 @@ struct WorkoutCard: View {
                     .padding(.top, Theme.Space.xs)
             }
         }
-        .padding(Theme.Space.sm)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.brand.background)
-        .cornerRadius(Theme.Radius.sm)
     }
 
     private func detailChip(text: String) -> some View {
