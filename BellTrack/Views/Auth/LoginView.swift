@@ -32,7 +32,7 @@ struct LoginView: View {
 
                     Text("BELL TRACK")
                         .font(Theme.Font.pageTitle)
-                        .foregroundColor(Color.brand.primary)
+                        .foregroundColor(.white)
                         .kerning(2.8)
                 }
 
