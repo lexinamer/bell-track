@@ -3,14 +3,13 @@ import SwiftUI
 struct BlockFormView: View {
     let block: Block?
     let vm: TrainViewModel?
-    let onSave: (String, Date, Date?, String?, [(name: String, entries: [TemplateEntry])]) -> Void
+    let onSave: (String, Date, Date?, [(name: String, entries: [TemplateEntry])]) -> Void
     let onCancel: () -> Void
 
     @State private var name: String
     @State private var startDate: Date
     @State private var hasEndDate: Bool
     @State private var endDate: Date
-    @State private var notes: String
 
     // Template management state
     @State private var exercises: [Exercise] = []
@@ -25,7 +24,7 @@ struct BlockFormView: View {
     init(
         block: Block? = nil,
         vm: TrainViewModel? = nil,
-        onSave: @escaping (String, Date, Date?, String?, [(name: String, entries: [TemplateEntry])]) -> Void,
+        onSave: @escaping (String, Date, Date?, [(name: String, entries: [TemplateEntry])]) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.block = block
@@ -37,7 +36,6 @@ struct BlockFormView: View {
         self._startDate = State(initialValue: block?.startDate ?? Date())
         self._hasEndDate = State(initialValue: block?.endDate != nil)
         self._endDate = State(initialValue: block?.endDate ?? Calendar.current.date(byAdding: .weekOfYear, value: 4, to: Date())!)
-        self._notes = State(initialValue: block?.notes ?? "")
     }
 
     private var blockTemplates: [WorkoutTemplate] {
@@ -96,11 +94,6 @@ struct BlockFormView: View {
                             .labelsHidden()
                         }
                     }
-                }
-
-                Section("Goal") {
-                    TextEditor(text: $notes)
-                        .frame(minHeight: 80)
                 }
 
                 // Templates section
@@ -220,9 +213,8 @@ struct BlockFormView: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        let finalNotes = notes.trimmingCharacters(in: .whitespaces)
                         let finalEndDate: Date? = hasEndDate ? endDate : nil
-                        onSave(name, startDate, finalEndDate, finalNotes.isEmpty ? nil : finalNotes, pendingTemplates)
+                        onSave(name, startDate, finalEndDate, pendingTemplates)
                     }
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }

@@ -66,7 +66,6 @@ struct Block: Identifiable, Codable, Equatable, Hashable {
     var startDate: Date
     var endDate: Date?
     var completedDate: Date?
-    var notes: String?
 }
 
 // MARK: - Exercise Mode
@@ -128,7 +127,7 @@ struct Workout: Identifiable, Codable, Equatable {
 
 struct ExerciseDetailStats {
     let totalWorkouts: Int
-    let totalSets: Int
+    let totalReps: Int
     let heaviestWeight: String?
     let mostSets: Int?
     let mostReps: String?

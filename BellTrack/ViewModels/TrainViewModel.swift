@@ -1,12 +1,6 @@
 import SwiftUI
 import Combine
 
-struct MusclePercentStat: Identifiable {
-    let id = UUID()
-    let muscle: MuscleGroup
-    let percent: Double
-}
-
 enum MuscleCategory: String, CaseIterable {
     case upper = "Upper"
     case lower = "Lower"
@@ -15,11 +9,11 @@ enum MuscleCategory: String, CaseIterable {
     var muscles: [MuscleGroup] {
         switch self {
         case .upper:
-            return [.chest, .shoulders, .triceps, .biceps, .forearms, .back]
+            return [.chest, .shoulders, .triceps, .biceps, .forearms]
         case .lower:
             return [.quads, .hamstrings, .glutes, .calves]
         case .core:
-            return [.core]
+            return [.core, .back]
         }
     }
 }
@@ -28,13 +22,6 @@ struct MuscleBalanceData: Identifiable {
     let id = UUID()
     let category: MuscleCategory
     let percent: Double
-}
-
-struct VolumeTrend {
-    let currentWeekVolume: Double
-    let previousWeekVolume: Double
-    let percentChange: Double
-    let isPositive: Bool
 }
 
 @MainActor
@@ -50,17 +37,14 @@ final class TrainViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     // Insights
-    @Published var primaryStats: [MusclePercentStat] = []
-    @Published var secondaryStats: [MusclePercentStat] = []
-    @Published var balanceScore: Int = 0
     @Published var muscleBalance: [MuscleBalanceData] = []
-    @Published var volumeTrend: VolumeTrend?
 
     // Filter
     @Published var selectedBlockId: String?
     @Published var selectedTemplateId: String?
 
     private let firestore = FirestoreService.shared
+    private var exerciseMap: [String: Exercise] = [:]
 
     // MARK: - Load
 
@@ -79,14 +63,19 @@ final class TrainViewModel: ObservableObject {
             templates = try await fetchedTemplates
             exercises = try await fetchedExercises
 
+            // Build exercise map once
+            exerciseMap = Dictionary(uniqueKeysWithValues: exercises.map { ($0.id, $0) })
+
             await autoCompleteExpiredBlocks()
-            computeStats()
-            computeMuscleBalance()
-            computeVolumeTrend()
 
             // Set default selected block to current block if not already set
             if selectedBlockId == nil {
                 selectedBlockId = activeBlock?.id
+            }
+
+            // Compute stats in background
+            Task {
+                computeMuscleBalance()
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -191,165 +180,25 @@ final class TrainViewModel: ObservableObject {
             total + workout.logs.reduce(0.0) { logTotal, log in
                 let sets = Double(log.sets ?? 0)
                 let reps = Double(log.reps ?? "0") ?? 0
-                let weight = Double(log.weight ?? "0") ?? 0
-                return logTotal + (sets * reps * weight)
+                let baseWeight = Double(log.weight ?? "0") ?? 0
+                let weight = log.isDouble ? baseWeight * 2 : baseWeight
+
+                // Only count rep-based weighted exercises for real volume
+                // Exclude time-based exercises (they skew the metric)
+                if weight > 0 && reps > 0 && log.mode != .time {
+                    return logTotal + (sets * reps * weight)
+                } else {
+                    return logTotal
+                }
             }
         }
     }
 
     // MARK: - Insights
 
-    private func computeStats() {
-        var exerciseMap: [String: Exercise] = [:]
-        for exercise in exercises {
-            exerciseMap[exercise.id] = exercise
-        }
-
-        // Filter workouts for active blocks only
-        let activeBlockIds = Set(filteredBlocks.map(\.id))
-        let filteredWorkouts = workouts.filter {
-            guard let blockId = $0.blockId else { return false }
-            return activeBlockIds.contains(blockId)
-        }
-
-        var primarySets: [MuscleGroup: Int] = [:]
-        var secondarySets: [MuscleGroup: Int] = [:]
-
-        for workout in filteredWorkouts {
-            for log in workout.logs {
-                let sets = log.sets ?? 0
-
-                guard let exercise = exerciseMap[log.exerciseId] else {
-                    continue
-                }
-
-                for muscle in exercise.primaryMuscles {
-                    primarySets[muscle, default: 0] += sets
-                }
-
-                for muscle in exercise.secondaryMuscles {
-                    secondarySets[muscle, default: 0] += sets
-                }
-            }
-        }
-
-        let totalPrimary = primarySets.values.reduce(0, +)
-        let totalSecondary = secondarySets.values.reduce(0, +)
-
-        primaryStats = MuscleGroup.allCases
-            .map { muscle in
-                MusclePercentStat(
-                    muscle: muscle,
-                    percent: totalPrimary > 0
-                        ? Double(primarySets[muscle] ?? 0) / Double(totalPrimary)
-                        : 0
-                )
-            }
-            .filter { $0.percent > 0 }
-            .sorted { $0.percent > $1.percent }
-
-        secondaryStats = MuscleGroup.allCases
-            .map { muscle in
-                MusclePercentStat(
-                    muscle: muscle,
-                    percent: totalSecondary > 0
-                        ? Double(secondarySets[muscle] ?? 0) / Double(totalSecondary)
-                        : 0
-                )
-            }
-            .filter { $0.percent > 0 }
-            .sorted { $0.percent > $1.percent }
-
-        // Calculate balance score (0-100)
-        balanceScore = calculateBalanceScore(
-            primarySets: primarySets,
-            secondarySets: secondarySets
-        )
-    }
-
-    private func calculateBalanceScore(
-        primarySets: [MuscleGroup: Int],
-        secondarySets: [MuscleGroup: Int]
-    ) -> Int {
-        // Simple balance score: lower variance = better balance
-        // Calculate coefficient of variation for primary muscles
-        let primaryValues = Array(primarySets.values.map { Double($0) })
-        guard !primaryValues.isEmpty else { return 100 }
-
-        let mean = primaryValues.reduce(0, +) / Double(primaryValues.count)
-        guard mean > 0 else { return 100 }
-
-        let variance = primaryValues.reduce(0.0) { $0 + pow($1 - mean, 2) } / Double(primaryValues.count)
-        let stdDev = sqrt(variance)
-        let cv = stdDev / mean
-
-        // Convert CV to 0-100 score (lower CV = higher score)
-        // CV of 0 = perfect balance (100), CV of 1.0 = poor balance (0)
-        let score = max(0, min(100, Int((1.0 - cv) * 100)))
-        return score
-    }
-
-    var topThreeMuscles: [MusclePercentStat] {
-        let primaryMuscles = Set(primaryStats.map(\.muscle))
-        let secondaryMuscles = Set(secondaryStats.map(\.muscle))
-        let allMuscles = primaryMuscles.union(secondaryMuscles)
-
-        let combined = allMuscles.compactMap { muscle -> MusclePercentStat? in
-            let p = primaryStats.first { $0.muscle == muscle }?.percent ?? 0
-            let s = secondaryStats.first { $0.muscle == muscle }?.percent ?? 0
-
-            let primaryValue = p * 0.7
-            let secondaryValue = s * 0.3
-            let total = primaryValue + secondaryValue
-
-            guard total > 0 else { return nil }
-
-            return MusclePercentStat(
-                muscle: muscle,
-                percent: total
-            )
-        }
-
-        let sorted = combined.sorted { $0.percent > $1.percent }
-        return Array(sorted.prefix(3))
-    }
-
-    var balanceScoreColor: Color {
-        switch balanceScore {
-        case 80...100:
-            return .green
-        case 60..<80:
-            return .yellow
-        default:
-            return .red
-        }
-    }
-
-    var balanceScoreText: String {
-        guard !topThreeMuscles.isEmpty else { return "Well Balanced" }
-
-        let top = topThreeMuscles[0]
-
-        // If top muscle is significantly higher than others (>40%), show focus
-        if top.percent > 0.4 {
-            switch top.muscle {
-            case .chest, .shoulders, .triceps, .biceps, .forearms:
-                return "Upper Body Focus"
-            case .quads, .hamstrings, .glutes, .calves:
-                return "Lower Body Focus"
-            case .core:
-                return "Core Focus"
-            case .back:
-                return "Back Focus"
-            }
-        }
-
-        return "Well Balanced"
-    }
-
     func groupedWorkoutsByMonth(_ workouts: [Workout]) -> [(month: String, workouts: [Workout])] {
         let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
+        formatter.dateFormat = "MMM yyyy"
 
         let grouped = Dictionary(grouping: workouts) { workout in
             formatter.string(from: workout.date)
@@ -395,6 +244,9 @@ final class TrainViewModel: ObservableObject {
 
     func selectBlock(_ blockId: String?) {
         selectedBlockId = blockId
+        Task {
+            computeMuscleBalance()
+        }
     }
 
     @discardableResult
@@ -403,7 +255,6 @@ final class TrainViewModel: ObservableObject {
         name: String,
         startDate: Date,
         endDate: Date? = nil,
-        notes: String? = nil,
         pendingTemplates: [(name: String, entries: [TemplateEntry])] = []
     ) async -> String? {
         do {
@@ -412,7 +263,7 @@ final class TrainViewModel: ObservableObject {
                 name: name,
                 startDate: startDate,
                 endDate: endDate,
-                notes: notes
+                notes: nil
             )
 
             for template in pendingTemplates {
@@ -525,30 +376,42 @@ final class TrainViewModel: ObservableObject {
             return
         }
 
-        var exerciseMap: [String: Exercise] = [:]
-        for exercise in exercises {
-            exerciseMap[exercise.id] = exercise
-        }
-
         let filteredWorkouts = workouts.filter { $0.blockId == blockId }
 
-        var categorySets: [MuscleCategory: Int] = [:]
+        var categoryVolume: [MuscleCategory: Double] = [:]
 
         for workout in filteredWorkouts {
             for log in workout.logs {
-                let sets = log.sets ?? 0
+                let sets = Double(log.sets ?? 0)
+                let reps = Double(log.reps ?? "0") ?? 0
+                let baseWeight = Double(log.weight ?? "0") ?? 0
+                let weight = log.isDouble ? baseWeight * 2 : baseWeight
+
+                // Calculate volume based on exercise type
+                let volume: Double
+                if weight > 0 {
+                    // Weighted exercise: use sets × reps × weight
+                    volume = sets * reps * weight
+                } else if reps > 0 {
+                    // Bodyweight exercise (reps-based): use sets × reps as unit of work
+                    volume = sets * reps
+                } else {
+                    // Time-based exercise with no weight: use sets × time as unit of work
+                    volume = sets * reps  // reps field contains time for time-based exercises
+                }
+
                 guard let exercise = exerciseMap[log.exerciseId] else { continue }
 
                 for category in MuscleCategory.allCases {
                     if category.muscles.contains(where: { exercise.primaryMuscles.contains($0) }) {
-                        categorySets[category, default: 0] += sets
+                        categoryVolume[category, default: 0] += volume
                     }
                 }
             }
         }
 
-        let totalSets = categorySets.values.reduce(0, +)
-        guard totalSets > 0 else {
+        let totalVolume = categoryVolume.values.reduce(0, +)
+        guard totalVolume > 0 else {
             muscleBalance = []
             return
         }
@@ -556,74 +419,70 @@ final class TrainViewModel: ObservableObject {
         muscleBalance = MuscleCategory.allCases.map { category in
             MuscleBalanceData(
                 category: category,
-                percent: Double(categorySets[category] ?? 0) / Double(totalSets)
+                percent: categoryVolume[category] ?? 0 / totalVolume
             )
         }
     }
 
-    // MARK: - Volume Trend Computation
+    var balanceFocusLabel: String {
+        guard !muscleBalance.isEmpty else { return "Well Balanced" }
 
-    private func computeVolumeTrend() {
-        guard let blockId = selectedBlockId else {
-            volumeTrend = nil
-            return
+        // Find the category with the highest volume percentage
+        guard let dominant = muscleBalance.max(by: { $0.percent < $1.percent }) else {
+            return "Well Balanced"
         }
 
-        let calendar = Calendar.current
-        let now = Date()
-
-        // Get start of current week (Sunday)
-        guard let currentWeekStart = calendar.dateInterval(of: .weekOfYear, for: now)?.start else {
-            volumeTrend = nil
-            return
-        }
-
-        // Get start of previous week
-        guard let previousWeekStart = calendar.date(byAdding: .weekOfYear, value: -1, to: currentWeekStart) else {
-            volumeTrend = nil
-            return
-        }
-
-        let filteredWorkouts = workouts.filter { $0.blockId == blockId }
-
-        // Calculate current week volume
-        let currentWeekWorkouts = filteredWorkouts.filter { workout in
-            workout.date >= currentWeekStart && workout.date < now
-        }
-        let currentWeekVolume = calculateVolume(for: currentWeekWorkouts)
-
-        // Calculate previous week volume
-        let previousWeekWorkouts = filteredWorkouts.filter { workout in
-            workout.date >= previousWeekStart && workout.date < currentWeekStart
-        }
-        let previousWeekVolume = calculateVolume(for: previousWeekWorkouts)
-
-        // Calculate percent change
-        let percentChange: Double
-        if previousWeekVolume > 0 {
-            percentChange = ((currentWeekVolume - previousWeekVolume) / previousWeekVolume) * 100
-        } else if currentWeekVolume > 0 {
-            percentChange = 100
-        } else {
-            percentChange = 0
-        }
-
-        volumeTrend = VolumeTrend(
-            currentWeekVolume: currentWeekVolume,
-            previousWeekVolume: previousWeekVolume,
-            percentChange: percentChange,
-            isPositive: percentChange >= 0
-        )
-    }
-
-    private func calculateVolume(for workouts: [Workout]) -> Double {
-        workouts.reduce(0.0) { total, workout in
-            total + workout.logs.reduce(0.0) { logTotal, log in
-                let sets = Double(log.sets ?? 0)
-                let reps = Double(log.reps ?? "0") ?? 0
-                let weight = Double(log.weight ?? "0") ?? 0
-                return logTotal + (sets * reps * weight)
+        // If the dominant category is significantly higher (>45%), show focus
+        if dominant.percent > 0.45 {
+            switch dominant.category {
+            case .upper:
+                return "Upper Body Focus"
+            case .lower:
+                return "Lower Body Focus"
+            case .core:
+                return "Core and Back Focus"
             }
         }
+
+        return "Well Balanced"
     }
+
+    // MARK: - Template Volume Stats
+
+    func templateVolumeStats(templateId: String) -> (best: Int, last: Int)? {
+        guard let blockId = selectedBlockId else { return nil }
+
+        // Get template name
+        guard let template = templates.first(where: { $0.id == templateId }) else { return nil }
+
+        // Get all workouts for this template in the current block
+        let templateWorkouts = workouts
+            .filter { $0.blockId == blockId && $0.name == template.name }
+            .sorted { $0.date > $1.date } // Most recent first
+
+        guard !templateWorkouts.isEmpty else { return nil }
+
+        // Calculate volume for each workout
+        let volumes = templateWorkouts.map { workout in
+            workout.logs.reduce(0.0) { total, log in
+                let sets = Double(log.sets ?? 0)
+                let reps = Double(log.reps ?? "0") ?? 0
+                let baseWeight = Double(log.weight ?? "0") ?? 0
+                let weight = log.isDouble ? baseWeight * 2 : baseWeight
+
+                // Only count rep-based weighted exercises for real volume
+                if weight > 0 && reps > 0 && log.mode != .time {
+                    return total + (sets * reps * weight)
+                } else {
+                    return total
+                }
+            }
+        }
+
+        let bestVolume = Int(volumes.max() ?? 0)
+        let lastVolume = Int(volumes.first ?? 0)
+
+        return (best: bestVolume, last: lastVolume)
+    }
+
 }

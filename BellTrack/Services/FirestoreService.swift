@@ -103,17 +103,17 @@ final class FirestoreService {
         guard snap.documents.isEmpty else { return }
 
         let defaults: [(name: String, primary: [MuscleGroup], secondary: [MuscleGroup])] = [
-            ("Clean", [.hamstrings, .glutes, .back], [.core, .forearms, .quads, .shoulders]),
-            ("Clean to Press", [.shoulders, .glutes], [.triceps, .core, .hamstrings, .back, .forearms]),
+            ("Clean", [.glutes, .hamstrings], [.core, .forearms]),
+            ("Clean to Press", [.glutes, .shoulders, .hamstrings],  [.core, .forearms, .triceps]),
             ("Lunge", [.quads, .glutes], [.hamstrings, .core, .calves]),
-            ("Press", [.shoulders, .triceps], [.core, .forearms, .back]),
-            ("Pushup", [.chest, .triceps], [.shoulders, .core, .glutes]),
-            ("RDL", [.hamstrings, .glutes], [.core, .back, .forearms, .calves]),
-            ("Row", [.back, .biceps], [.core, .forearms, .shoulders]),
-            ("Snatch", [.shoulders, .glutes, .hamstrings], [.core, .back, .forearms, .quads]),
+            ("Press", [.shoulders], [.triceps, .core, .forearms, .back]),
+            ("Pushup", [.chest], [.triceps, .shoulders, .core, .glutes]),
+            ("RDL", [.hamstrings, .glutes], [.core, .back, .forearms]),
+            ("Row", [.back], [.biceps, .core, .forearms, .shoulders]),
+            ("Snatch", [.glutes, .hamstrings, .shoulders], [.core, .back, .forearms, .quads]),
             ("Squat", [.quads, .glutes], [.core, .hamstrings, .back]),
             ("Suitcase Carry", [.core], [.forearms, .shoulders, .glutes, .back]),
-            ("Swing", [.hamstrings, .glutes], [.core, .back, .forearms, .shoulders])
+            ("Swing", [.glutes, .hamstrings], [.core, .back, .forearms, .shoulders])
         ]
 
         for exercise in defaults {
@@ -207,7 +207,7 @@ final class FirestoreService {
             .order(by: "startDate", descending: true)
             .getDocuments()
 
-        return snap.documents.compactMap { doc in
+        return snap.documents.compactMap { doc -> Block? in
             guard
                 let name = doc["name"] as? String,
                 let startDate = (doc["startDate"] as? Timestamp)?.dateValue()
@@ -215,15 +215,13 @@ final class FirestoreService {
 
             let endDate = (doc["endDate"] as? Timestamp)?.dateValue()
             let completedDate = (doc["completedDate"] as? Timestamp)?.dateValue()
-            let notes = doc["notes"] as? String
 
             return Block(
                 id: doc.documentID,
                 name: name,
                 startDate: startDate,
                 endDate: endDate,
-                completedDate: completedDate,
-                notes: notes
+                completedDate: completedDate
             )
         }
     }

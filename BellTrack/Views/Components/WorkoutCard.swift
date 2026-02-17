@@ -3,6 +3,7 @@ import SwiftUI
 struct WorkoutCard: View {
 
     let workout: Workout
+    let exercises: [Exercise]
 
     // Optional external expansion control
     private let externalExpanded: Binding<Bool>?
@@ -21,12 +22,14 @@ struct WorkoutCard: View {
 
     init(
         workout: Workout,
+        exercises: [Exercise] = [],
         isExpanded: Binding<Bool>? = nil,
         badgeColor: Color? = nil,
         onEdit: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil
     ) {
         self.workout = workout
+        self.exercises = exercises
         self.externalExpanded = isExpanded
         self.externalBadgeColor = badgeColor
         self.onEdit = onEdit
@@ -51,7 +54,7 @@ struct WorkoutCard: View {
     // MARK: - Derived
 
     private var badgeColor: Color {
-        externalBadgeColor ?? Color.brand.blockColor
+        externalBadgeColor ?? Color.brand.primary
     }
 
     private var title: String {
@@ -76,18 +79,30 @@ struct WorkoutCard: View {
         workout.logs.reduce(0.0) { total, log in
             let sets = Double(log.sets ?? 0)
             let reps = Double(log.reps ?? "0") ?? 0
-            let weight = Double(log.weight ?? "0") ?? 0
-            return total + (sets * reps * weight)
+            let baseWeight = Double(log.weight ?? "0") ?? 0
+            let weight = log.isDouble ? baseWeight * 2 : baseWeight
+
+            // Only count rep-based weighted exercises for real volume
+            // Exclude time-based exercises (they skew the metric)
+            if weight > 0 && reps > 0 && log.mode != .time {
+                return total + (sets * reps * weight)
+            } else {
+                return total
+            }
         }
     }
 
-    private var exerciseCountText: String {
-        return "\(workout.logs.count) exercise\(workout.logs.count == 1 ? "" : "s")"
-    }
+    private var metadataText: String {
+        let volumeValue = Int(totalVolume.rounded())
+        let repCount = workout.logs.reduce(0) { total, log in
+            total + (Int(log.reps ?? "0") ?? 0)
+        }
 
-    private var volumeText: String {
-        guard totalVolume > 0 else { return "" }
-        return "Volume: \(String(format: "%.0f", totalVolume)) lbs"
+        if volumeValue > 0 {
+            return "\(volumeValue) kg • \(repCount) reps"
+        } else {
+            return "\(repCount) reps"
+        }
     }
 
     // MARK: - View
@@ -106,14 +121,8 @@ struct WorkoutCard: View {
                 expandedSection
             }
         }
-        .background(Color.brand.surfaceSecondary)
+        .background(Color.brand.surface)
         .cornerRadius(Theme.Radius.md)
-        .shadow(
-            color: Color.black.opacity(0.25),
-            radius: 8,
-            x: 0,
-            y: 2
-        )
         .contentShape(Rectangle())
     }
 
@@ -137,21 +146,10 @@ struct WorkoutCard: View {
                     .font(Theme.Font.cardTitle)
                     .foregroundColor(Color.brand.textPrimary)
 
-                HStack(spacing: Theme.Space.sm) {
-                    if !volumeText.isEmpty {
-                        Text(volumeText)
-                            .font(Theme.Font.cardSecondary)
-                            .foregroundColor(Color.brand.textSecondary)
-
-                        Text("•")
-                            .font(Theme.Font.cardSecondary)
-                            .foregroundColor(Color.brand.textSecondary)
-                    }
-
-                    Text(exerciseCountText)
-                        .font(Theme.Font.cardSecondary)
-                        .foregroundColor(Color.brand.textSecondary)
-                }
+                Text(metadataText)
+                    .font(Theme.Font.cardSecondary)
+                    .foregroundColor(Color.brand.textSecondary)
+                    .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
@@ -194,18 +192,16 @@ struct WorkoutCard: View {
     // MARK: - Date Badge
 
     private var dateBadge: some View {
-
         VStack(spacing: 2) {
-
             Text(workout.date, format: .dateTime.day())
-                .font(.system(size: 20, weight: .bold))
+                .font(Theme.Font.navigationTitle)
                 .foregroundColor(.white)
 
             Text(workout.date, format: .dateTime.month(.abbreviated))
-                .font(.system(size: 11, weight: .medium))
+                .font(Theme.Font.cardCaption)
                 .foregroundColor(.white)
         }
-        .frame(width: 50, height: 50)
+        .frame(width: 44, height: 44)
         .background(badgeColor)
         .cornerRadius(Theme.Radius.sm)
     }
@@ -227,7 +223,19 @@ struct WorkoutCard: View {
     }
 
     private func exerciseRow(_ log: WorkoutLog) -> some View {
+        Group {
+            if let exercise = exercises.first(where: { $0.id == log.exerciseId }) {
+                NavigationLink(destination: ExerciseDetailView(exercise: exercise)) {
+                    exerciseRowContent(log)
+                }
+                .buttonStyle(.plain)
+            } else {
+                exerciseRowContent(log)
+            }
+        }
+    }
 
+    private func exerciseRowContent(_ log: WorkoutLog) -> some View {
         VStack(alignment: .leading, spacing: Theme.Space.xs) {
 
             Text(log.exerciseName)

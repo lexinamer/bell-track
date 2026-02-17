@@ -136,8 +136,8 @@ struct ExerciseDetailView: View {
                 )
 
                 statCard(
-                    value: "\(stats.totalSets)",
-                    label: "Total Sets"
+                    value: "\(stats.totalReps)",
+                    label: "Total Reps"
                 )
             }
         }
@@ -318,7 +318,7 @@ struct ExerciseDetailView: View {
 
         return ExerciseDetailStats(
             totalWorkouts: workouts.count,
-            totalSets: logs.compactMap { $0.sets }.reduce(0,+),
+            totalReps: reps.reduce(0, +),
             heaviestWeight: weights.max().map { "\($0)" },
             mostSets: logs.compactMap { $0.sets }.max(),
             mostReps: reps.max().map { "\($0)" },

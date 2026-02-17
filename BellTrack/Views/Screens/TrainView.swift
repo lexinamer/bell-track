@@ -11,8 +11,7 @@ struct TrainView: View {
     @State private var editingBlock: Block?
     @State private var blockToDelete: Block?
     @State private var workoutToDelete: Workout?
-    @State private var showingProgramSelector = false
-    @State private var showingFilter = false
+    @State private var showingBlockSelector = false
 
     // MARK: - Stats
 
@@ -32,28 +31,27 @@ struct TrainView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Space.lg) {
+            VStack(alignment: .leading, spacing: 0) {
                 // Show content only if a block is selected
-                if let block = currentBlock {
-                    // 1. Program Selector
-                    ProgramSelector(block: block) {
-                        showingProgramSelector = true
+                if vm.isLoading {
+                    VStack(spacing: Theme.Space.lg) {
+                        Spacer()
+                        ProgressView()
+                            .padding()
+                        Spacer()
                     }
-                    .padding(.horizontal)
-
-                    // 2. Progress Summary Card
-                    if !vm.muscleBalance.isEmpty || vm.volumeTrend != nil {
-                        ProgressSummaryCard(
-                            muscleBalance: vm.muscleBalance,
-                            volumeTrend: vm.volumeTrend
-                        )
+                    .frame(maxWidth: .infinity)
+                } else if let block = currentBlock {
+                    // 1. Block Selector with Muscle Balance
+                    blockSelector(block: block)
                         .padding(.horizontal)
-                    }
+                        .padding(.bottom, Theme.Space.xl)
 
-                    // 3. Workouts Header with Filter
-                    workoutsHeader
+                    // 2. Template Filter Chips
+                    templateFilterChips(blockId: block.id)
+                        .padding(.bottom, Theme.Space.lg)
 
-                    // 4. Workouts grouped by month
+                    // 3. Workouts grouped by month
                     workoutsSection
                 } else if vm.blocks.isEmpty {
                     emptyBlockState
@@ -62,7 +60,7 @@ struct TrainView: View {
             .padding(.vertical, Theme.Space.md)
         }
         .background(Color.brand.background)
-        .navigationTitle("Train")
+        .navigationTitle(currentBlock?.name ?? "")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -77,6 +75,20 @@ struct TrainView: View {
                         }
                     } label: {
                         Image(systemName: "plus")
+                    }
+                }
+            }
+        }
+        .toolbarTitleMenu {
+            ForEach(vm.blocks) { block in
+                Button {
+                    vm.selectBlock(block.id)
+                } label: {
+                    HStack {
+                        Text(block.name)
+                        if block.id == vm.selectedBlockId {
+                            Image(systemName: "checkmark")
+                        }
                     }
                 }
             }
@@ -109,14 +121,13 @@ struct TrainView: View {
         .fullScreenCover(isPresented: $showingNewBlock) {
             BlockFormView(
                 vm: vm,
-                onSave: { name, start, endDate, notes, pendingTemplates in
+                onSave: { name, start, endDate, pendingTemplates in
                     Task {
                         await vm.saveBlock(
                             id: nil,
                             name: name,
                             startDate: start,
                             endDate: endDate,
-                            notes: notes,
                             pendingTemplates: pendingTemplates
                         )
                         showingNewBlock = false
@@ -131,14 +142,13 @@ struct TrainView: View {
             BlockFormView(
                 block: block,
                 vm: vm,
-                onSave: { name, startDate, endDate, notes, pendingTemplates in
+                onSave: { name, startDate, endDate, pendingTemplates in
                     Task {
                         await vm.saveBlock(
                             id: block.id,
                             name: name,
                             startDate: startDate,
-                            endDate: endDate,
-                            notes: notes
+                            endDate: endDate
                         )
                         editingBlock = nil
                     }
@@ -172,19 +182,8 @@ struct TrainView: View {
         } message: {
             Text("This will permanently delete this workout.")
         }
-        .sheet(isPresented: $showingProgramSelector) {
-            programSelectorSheet
-        }
-        .sheet(isPresented: $showingFilter) {
-            if let blockId = vm.selectedBlockId {
-                WorkoutFilterSheet(
-                    templates: vm.templatesForBlock(blockId),
-                    selectedTemplateId: vm.selectedTemplateId,
-                    onSelectTemplate: { templateId in
-                        vm.selectTemplate(templateId)
-                    }
-                )
-            }
+        .sheet(isPresented: $showingBlockSelector) {
+            blockSelectorSheet
         }
         .task {
             await vm.load()
@@ -220,6 +219,8 @@ struct TrainView: View {
                         ForEach(group.workouts) { workout in
                             WorkoutCard(
                                 workout: workout,
+                                exercises: vm.exercises,
+                                badgeColor: badgeColorForWorkout(workout),
                                 onEdit: {
                                     selectedWorkout = workout
                                 },
@@ -235,6 +236,21 @@ struct TrainView: View {
         }
     }
 
+    private func badgeColorForWorkout(_ workout: Workout) -> Color {
+        guard let blockId = vm.selectedBlockId,
+              let workoutName = workout.name else {
+            return Color(hex: "27272a")
+        }
+
+        let templates = vm.templatesForBlock(blockId)
+
+        if let index = templates.firstIndex(where: { $0.name == workoutName }) {
+            return templateColor(index: index)
+        }
+
+        return Color(hex: "27272a")
+    }
+
 
     // MARK: - Empty States
 
@@ -243,7 +259,7 @@ struct TrainView: View {
             Spacer()
 
             Image(systemName: "square.stack.3d.up")
-                .font(.system(size: 44))
+                .font(Theme.Font.pageTitle)
                 .foregroundColor(Color.brand.textSecondary)
 
             Text("No active block")
@@ -282,45 +298,66 @@ struct TrainView: View {
         .padding(.vertical, Theme.Space.xl)
     }
 
-    // MARK: - Workouts Header
+    // MARK: - Template Filter Chips
 
-    private var workoutsHeader: some View {
-        HStack {
-            Text("Workouts")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(Color.brand.textPrimary)
+    private func templateFilterChips(blockId: String) -> some View {
+        let templates = vm.templatesForBlock(blockId)
 
-            Spacer()
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Theme.Space.sm) {
+                // Template chips
+                ForEach(Array(templates.enumerated()), id: \.element.id) { index, template in
+                    let isSelected = vm.selectedTemplateId == template.id
 
-            if let blockId = vm.selectedBlockId, !vm.templatesForBlock(blockId).isEmpty {
-                Button(action: {
-                    showingFilter = true
-                }) {
-                    HStack(spacing: 6) {
-                        if let templateId = vm.selectedTemplateId,
-                           let template = vm.templates.first(where: { $0.id == templateId }) {
-                            Text(template.name)
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Color.brand.primary)
-                        } else {
-                            Text("Filter")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(Color.brand.textSecondary)
+                    filterChip(
+                        title: template.name,
+                        isSelected: isSelected,
+                        color: templateColor(index: index),
+                        action: {
+                            if isSelected {
+                                vm.selectTemplate(nil) // deselect → show all
+                            } else {
+                                vm.selectTemplate(template.id) // select template
+                            }
                         }
-
-                        Image(systemName: "line.3.horizontal.decrease.circle")
-                            .font(.system(size: 16))
-                            .foregroundColor(Color.brand.textSecondary)
-                    }
+                    )
                 }
+
             }
+            .padding(.horizontal)
         }
-        .padding(.horizontal)
     }
 
-    // MARK: - Program Selector Sheet
+    private func filterChip(title: String, isSelected: Bool, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(Theme.Font.cardTitle)
+                .foregroundColor(.white)
+                .padding(.horizontal, Theme.Space.lg)
+                .padding(.vertical, 12)
+                .background(color)
+                .cornerRadius(Theme.Radius.lg)
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.lg)
+                        .inset(by: 0.5)
+                        .stroke(.white.opacity(0.8), lineWidth: isSelected ? 1.5 : 0)
+                )
+        }
+    }
 
-    private var programSelectorSheet: some View {
+    private func templateColor(index: Int) -> Color {
+        let colors = [
+            Color(hex: "A64DFF"),
+            Color(hex: "962EFF"),
+            Color(hex: "8000FF"),
+            Color(hex: "6900D1")
+        ]
+        return colors[index % colors.count]
+    }
+
+    // MARK: - Block Selector Sheet
+
+    private var blockSelectorSheet: some View {
         NavigationView {
             VStack(spacing: 0) {
                 // Current Block
@@ -331,10 +368,7 @@ struct TrainView: View {
                         isCurrent: true
                     )
 
-                    if !vm.pastBlocks.isEmpty {
-                        Divider()
-                            .padding(.leading, Theme.Space.md)
-                    }
+                    Divider()
                 }
 
                 // Past Blocks
@@ -347,23 +381,20 @@ struct TrainView: View {
                                 isCurrent: false
                             )
 
-                            if block.id != vm.pastBlocks.last?.id {
-                                Divider()
-                                    .padding(.leading, Theme.Space.md)
-                            }
+                            Divider()
                         }
                     }
                 }
             }
             .background(Color.brand.background)
-            .navigationTitle("Select Program")
+            .navigationTitle("Select Block")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
-                        showingProgramSelector = false
+                        showingBlockSelector = false
                     }
-                    .foregroundColor(Color.brand.primary)
+                    .foregroundColor(Color.brand.textPrimary)
                 }
             }
         }
@@ -373,55 +404,167 @@ struct TrainView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM yyyy"
 
-        return Button(action: {
-            vm.selectBlock(block.id)
-            showingProgramSelector = false
-        }) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: Theme.Space.sm) {
-                        Text(block.name)
-                            .font(Theme.Font.cardTitle)
-                            .foregroundColor(Color.brand.textPrimary)
+        return HStack(spacing: 0) {
+            Button(action: {
+                vm.selectBlock(block.id)
+                showingBlockSelector = false
+            }) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: Theme.Space.sm) {
+                            Text(block.name)
+                                .font(Theme.Font.cardTitle)
+                                .foregroundColor(Color.brand.textPrimary)
 
-                        if isCurrent {
-                            Text("ACTIVE")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(Color.brand.primary)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.brand.primary.opacity(0.15))
-                                .cornerRadius(4)
+                            if isCurrent {
+                                Text("ACTIVE")
+                                    .font(Theme.Font.statLabel)
+                                    .foregroundColor(Color.brand.primary)
+                                    .padding(.horizontal, Theme.Space.sm)
+                                    .padding(.vertical, 2)
+                                    .background(Color.brand.primary.opacity(0.15))
+                                    .cornerRadius(Theme.Radius.xs)
+                            }
+                        }
+
+                        if let completedDate = block.completedDate {
+                            Text("Completed \(completedDate.shortDateString)")
+                                .font(Theme.Font.cardSecondary)
+                                .foregroundColor(Color.brand.textSecondary)
+                        } else {
+                            let startText = formatter.string(from: block.startDate)
+                            Text("Started \(startText)")
+                                .font(Theme.Font.cardSecondary)
+                                .foregroundColor(Color.brand.textSecondary)
                         }
                     }
 
-                    if let completedDate = block.completedDate {
-                        Text("Completed \(completedDate.shortDateString)")
-                            .font(Theme.Font.cardSecondary)
-                            .foregroundColor(Color.brand.textSecondary)
-                    } else {
-                        let startText = formatter.string(from: block.startDate)
-                        Text("Started \(startText)")
-                            .font(Theme.Font.cardSecondary)
-                            .foregroundColor(Color.brand.textSecondary)
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            Menu {
+                Button {
+                    editingBlock = block
+                    showingBlockSelector = false
+                } label: {
+                    Label("Edit Block", systemImage: "pencil")
+                }
+
+                if block.completedDate == nil {
+                    Button {
+                        Task {
+                            await vm.completeBlock(id: block.id)
+                        }
+                        showingBlockSelector = false
+                    } label: {
+                        Label("Complete Block", systemImage: "checkmark.circle")
                     }
+                }
+
+                Button(role: .destructive) {
+                    blockToDelete = block
+                    showingBlockSelector = false
+                } label: {
+                    Label("Delete Block", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 16))
+                    .foregroundColor(Color.brand.textSecondary)
+                    .frame(width: 44, height: 44)
+            }
+        }
+        .padding(.horizontal, Theme.Space.md)
+        .padding(.vertical, Theme.Space.sm)
+        .background(Color.brand.background)
+    }
+
+    // MARK: - Volume Summary
+
+    private func volumeSummary(best: Int, last: Int) -> some View {
+        HStack(spacing: Theme.Space.lg) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Best")
+                    .font(Theme.Font.cardCaption)
+                    .foregroundColor(Color.brand.textSecondary)
+                Text("\(best) kg")
+                    .font(Theme.Font.cardTitle)
+                    .foregroundColor(Color.brand.textPrimary)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Last")
+                    .font(Theme.Font.cardCaption)
+                    .foregroundColor(Color.brand.textSecondary)
+                Text("\(last) kg")
+                    .font(Theme.Font.cardTitle)
+                    .foregroundColor(Color.brand.textPrimary)
+            }
+
+            Spacer()
+        }
+    }
+
+    // MARK: - Block Selector
+
+    private func blockSelector(block: Block) -> some View {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "MMM d"
+
+        let dateRangeText: String = {
+            if let endDate = block.endDate {
+                let end = dateFormatter.string(from: endDate)
+                return "Ends \(end)"
+            } else {
+                let start = dateFormatter.string(from: block.startDate)
+                return "Started \(start)"
+            }
+        }()
+
+        let weekProgressText: String = {
+            guard let endDate = block.endDate else { return "Ongoing" }
+
+            let calendar = Calendar.current
+            let totalWeeks = calendar.dateComponents([.weekOfYear], from: block.startDate, to: endDate).weekOfYear ?? 0
+            let currentWeek = min(
+                calendar.dateComponents([.weekOfYear], from: block.startDate, to: Date()).weekOfYear ?? 0,
+                totalWeeks
+            ) + 1
+
+            guard totalWeeks > 0 else { return "Ongoing" }
+
+            return "Week \(currentWeek) of \(totalWeeks + 1)"
+        }()
+
+        return Button(action: {
+            showingBlockSelector = true
+        }) {
+            HStack(alignment: .top, spacing: Theme.Space.md) {
+                VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                    Text("\(weekProgressText) • \(dateRangeText)")
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(Color.brand.textSecondary)
+
+                    Text(vm.balanceFocusLabel)
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(Color.brand.textSecondary)
                 }
 
                 Spacer()
 
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Color.brand.primary)
-                }
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 16))
+                    .foregroundColor(Color.brand.textSecondary)
+                    .frame(width: 32, height: 32)
             }
-            .padding(Theme.Space.md)
-            .background(Color.brand.background)
             .contentShape(Rectangle())
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(.plain)
     }
-
+    
     // MARK: - Binding
 
     private var deleteBlockBinding: Binding<Bool> {
