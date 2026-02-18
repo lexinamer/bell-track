@@ -109,7 +109,7 @@ struct BlockFormView: View {
                                     WorkoutTemplateFormView(
                                         template: template,
                                         exercises: exercises,
-                                                                                onSave: { templateName, entries in
+                                        onSave: { templateName, entries in
                                             if let blockId = block?.id {
                                                 Task {
                                                     await vm?.saveTemplate(
@@ -216,7 +216,7 @@ struct BlockFormView: View {
                         let finalEndDate: Date? = hasEndDate ? endDate : nil
                         onSave(name, startDate, finalEndDate, pendingTemplates)
                     }
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(!canSave)
                 }
             }
             .alert("Delete Template?", isPresented: .init(
@@ -286,4 +286,15 @@ struct BlockFormView: View {
                 .lineLimit(1)
         }
     }
+
+    // MARK: - Save
+    private var canSave: Bool {
+        let hasName = !name.trimmingCharacters(in: .whitespaces).isEmpty
+        let hasTemplate = block == nil
+            ? !pendingTemplates.isEmpty
+            : !blockTemplates.isEmpty
+
+        return hasName && hasTemplate
+    }
+
 }

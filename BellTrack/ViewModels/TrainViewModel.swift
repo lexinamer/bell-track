@@ -498,6 +498,12 @@ final class TrainViewModel: ObservableObject {
     // MARK: - Block-Specific Helpers
 
     func blockIndex(for blockId: String) -> Int {
+        // Use stored colorIndex if available (stable across deletions)
+        if let block = blocks.first(where: { $0.id == blockId }),
+           let colorIndex = block.colorIndex {
+            return colorIndex
+        }
+        // Fallback for old blocks without colorIndex: sort by startDate
         let allSorted = (activeBlocks + pastBlocks).sorted { $0.startDate < $1.startDate }
         return allSorted.firstIndex(where: { $0.id == blockId }) ?? 0
     }

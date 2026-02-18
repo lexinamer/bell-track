@@ -6,6 +6,8 @@ struct TrainView: View {
     @State private var selectedTemplate: WorkoutTemplate?
     @State private var showingNewBlock = false
     @State private var showingLogWorkout = false
+    @State private var editingWorkout: Workout?
+    @State private var workoutToDelete: Workout?
 
     var body: some View {
         ZStack {
@@ -103,6 +105,29 @@ struct TrainView: View {
                 onCancel: { showingNewBlock = false }
             )
         }
+        .fullScreenCover(item: $editingWorkout) { workout in
+            WorkoutFormView(
+                workout: workout,
+                onSave: {
+                    editingWorkout = nil
+                    Task { await vm.load() }
+                },
+                onCancel: { editingWorkout = nil }
+            )
+        }
+        .alert("Delete Workout?", isPresented: Binding(
+            get: { workoutToDelete != nil },
+            set: { if !$0 { workoutToDelete = nil } }
+        )) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                if let w = workoutToDelete {
+                    Task { await vm.deleteWorkout(id: w.id) }
+                }
+            }
+        } message: {
+            Text("This will permanently delete this workout.")
+        }
         .task { await vm.load() }
     }
 
@@ -160,7 +185,9 @@ struct TrainView: View {
                                 blockIndex: vm.blockIndex(for: block.id),
                                 templateIndex: vm.templatesForBlock(block.id)
                                     .firstIndex(where: { $0.name == workout.name }) ?? 0
-                            )
+                            ),
+                            onEdit: { editingWorkout = workout },
+                            onDelete: { workoutToDelete = workout }
                         )
                     }
                 }

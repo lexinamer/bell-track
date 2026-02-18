@@ -229,7 +229,8 @@ final class FirestoreService {
                 name: name,
                 startDate: startDate,
                 endDate: endDate,
-                completedDate: completedDate
+                completedDate: completedDate,
+                colorIndex: doc["colorIndex"] as? Int
             )
         }
     }
@@ -249,10 +250,21 @@ final class FirestoreService {
             ? ref.collection("blocks").document()
             : ref.collection("blocks").document(id!)
 
+        // Assign a stable colorIndex to new blocks only
+        var assignedColorIndex: Int? = nil
+        if id == nil {
+            let existingSnap = try await ref.collection("blocks").getDocuments()
+            assignedColorIndex = existingSnap.documents.count
+        }
+
         var data: [String: Any] = [
             "name": name,
             "startDate": startDate
         ]
+
+        if let colorIndex = assignedColorIndex {
+            data["colorIndex"] = colorIndex
+        }
 
         if let endDate = endDate {
             data["endDate"] = endDate

@@ -43,12 +43,17 @@ private struct FilterChip: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(Theme.Font.cardSecondary)
+                .font(.caption)
                 .foregroundColor(.white)
-                .padding(.horizontal, Theme.Space.md)
-                .padding(.vertical, 8)
-                .background(isSelected ? color : Color.brand.surface)
+                .padding(.horizontal, Theme.Space.sm)
+                .padding(.vertical, 6)
+                .background(color)
                 .cornerRadius(Theme.Radius.md)
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.md)
+                        .inset(by: 0.75)
+                        .stroke(.white, lineWidth: isSelected ? 1.5 : 0)
+                )
         }
     }
 }

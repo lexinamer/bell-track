@@ -211,6 +211,16 @@ struct WorkoutFormView: View {
                 ),
                 keyboard: .decimalPad
             )
+
+            inputField(
+                "Notes",
+                placeholder: "e.g. felt heavy, adjust grip next time",
+                text: Binding(
+                    get: { log.note.wrappedValue ?? "" },
+                    set: { log.note.wrappedValue = $0.isEmpty ? nil : $0 }
+                ),
+                keyboard: .default
+            )
         }
         .padding(Theme.Space.md)
         .background(Color.brand.surface)
