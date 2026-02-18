@@ -16,16 +16,43 @@ struct BlockDetailView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    
                     // Block metadata (static)
                     VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                        Text("\(weekProgressText) • \(dateRangeText)")
-                            .font(Theme.Font.cardSecondary)
-                            .foregroundColor(Color.brand.textSecondary)
+                        HStack {
+                            Text(dateRangeText)
+                                .font(Theme.Font.cardSecondary)
+                                .foregroundColor(Color.brand.textSecondary)
+                        
+                            // Log workout button
+//                            Spacer()
+//
+//                            if block.completedDate == nil {
+//                                Menu {
+//                                    ForEach(vm.templatesForBlock(block.id)) { template in
+//                                        Button {
+//                                            selectedTemplate = template
+//                                        } label: {
+//                                            Text(template.name)
+//                                        }
+//                                    }
+//                                } label: {
+//                                    Text("Log")
+//                                        .font(Theme.Font.buttonPrimary)
+//                                        .foregroundColor(Color.brand.textPrimary)
+//                                        .padding(.horizontal, Theme.Space.md)
+//                                        .padding(.vertical, 6)
+//                                        .background(Color.brand.surface)
+//                                        .clipShape(Capsule())
+//                                }
+//                            }
+                        }
 
                         Text(vm.balanceFocusLabel(for: block.id))
                             .font(Theme.Font.cardSecondary)
                             .foregroundColor(Color.brand.textSecondary)
                     }
+
                     .padding(.horizontal)
                     .padding(.bottom, Theme.Space.xl)
 
@@ -75,26 +102,6 @@ struct BlockDetailView: View {
                 } label: {
                     Image(systemName: "ellipsis")
                         .foregroundColor(.white)
-                }
-            }
-
-            // Log button (if active block)
-            if block.completedDate == nil {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        ForEach(vm.templatesForBlock(block.id)) { template in
-                            Button {
-                                selectedTemplate = template
-                            } label: {
-                                Text(template.name)
-                            }
-                        }
-                    } label: {
-                        Text("Log")
-                            .font(Theme.Font.buttonPrimary)
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(.bordered)
                 }
             }
         }
@@ -173,18 +180,33 @@ struct BlockDetailView: View {
     }
 
     // MARK: - Computed Properties
-
+    
     private var dateRangeText: String {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "MMM d"
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
 
-        if let endDate = block.endDate {
-            let end = dateFormatter.string(from: endDate)
-            return "Ends \(end)"
-        } else {
-            let start = dateFormatter.string(from: block.startDate)
-            return "Started \(start)"
+        let start = formatter.string(from: block.startDate)
+
+        // Completed
+        if let completed = block.completedDate {
+            let end = formatter.string(from: completed)
+            return "\(start) – \(end)"
         }
+
+        // Active with end date
+        if let endDate = block.endDate {
+            let end = formatter.string(from: endDate)
+            return "\(weekProgressText) • Ends \(end)"
+        }
+
+        // Active ongoing (no end date)
+        return "\(currentWeekOnlyText) • Started \(start)"
+    }
+    
+    private var currentWeekOnlyText: String {
+        let calendar = Calendar.current
+        let week = calendar.dateComponents([.weekOfYear], from: block.startDate, to: Date()).weekOfYear ?? 0
+        return "Week \(max(week + 1, 1))"
     }
 
     private var weekProgressText: String {

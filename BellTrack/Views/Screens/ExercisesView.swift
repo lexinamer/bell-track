@@ -24,7 +24,7 @@ struct ExercisesView: View {
                                 VStack(alignment: .leading, spacing: Theme.Space.xs) {
                                     Text(exercise.name)
                                         .font(Theme.Font.cardTitle)
-                                    MuscleTags(
+                                    ExerciseChips(
                                         primaryMuscles: exercise.primaryMuscles,
                                         secondaryMuscles: exercise.secondaryMuscles
                                     )
@@ -75,7 +75,7 @@ struct ExercisesView: View {
                 Button {
                     showingNewExerciseForm = true
                 } label: {
-                    Image(systemName: "plus")
+                    Image(systemName: "plus").foregroundColor(.white)
                 }
             }
         }

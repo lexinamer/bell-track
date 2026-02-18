@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct MuscleTags: View {
+struct ExerciseChips: View {
 
     let primaryMuscles: [MuscleGroup]
     let secondaryMuscles: [MuscleGroup]
@@ -26,8 +26,8 @@ struct MuscleTags: View {
                         .padding(.vertical, tagPadding.vertical)
                         .background(
                             item.isPrimary
-                            ? Color.brand.primary
-                            : Color.brand.primary.opacity(0.55)
+                            ? Color.brand.secondary
+                            : Color.brand.secondary.opacity(0.55)
                         )
                         .foregroundColor(.white)
                         .cornerRadius(cornerRadius)
