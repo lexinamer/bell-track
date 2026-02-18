@@ -31,7 +31,7 @@ struct BlockDetailView: View {
                                 .font(Theme.Font.cardSecondary)
                                 .foregroundColor(Color.brand.textSecondary)
 
-                            Text(vm.balanceFocusLabel(for: block.id))
+                            Text("\(vm.workouts.filter { $0.blockId == block.id }.count) Workouts (\(vm.balanceFocusLabel(for: block.id)))")
                                 .font(Theme.Font.cardSecondary)
                                 .foregroundColor(Color.brand.textSecondary)
                         }

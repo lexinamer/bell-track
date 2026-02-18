@@ -145,7 +145,9 @@ struct TrainView: View {
     }
 
     private func activeBlockSection(_ block: Block) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Space.xs) {
+        let workoutCount = vm.workouts.filter { $0.blockId == block.id }.count
+
+        return VStack(alignment: .leading, spacing: Theme.Space.xs) {
 
             Button {
                 selectedBlock = block
@@ -165,7 +167,7 @@ struct TrainView: View {
             }
             .buttonStyle(.plain)
 
-            Text("\(weekProgress(for: block)) • \(vm.balanceFocusLabel(for: block.id))")
+            Text("\(weekProgress(for: block)) • \(workoutCount) Workouts")
                 .font(Theme.Font.cardCaption)
                 .foregroundColor(Color.brand.textSecondary)
 
@@ -176,7 +178,7 @@ struct TrainView: View {
                     .font(Theme.Font.cardSecondary)
                     .foregroundColor(Color.brand.textSecondary)
                     .padding(.top, Theme.Space.md)
-                
+
                 Button { showingLogWorkout = true } label: {
                     HStack(spacing: Theme.Space.sm) {
                         Image(systemName: "plus")
@@ -186,7 +188,7 @@ struct TrainView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .padding(.top, Theme.Space.sm)
-                
+
             } else {
                 VStack(spacing: Theme.Space.sm) {
                     ForEach(workouts) { workout in
@@ -248,7 +250,7 @@ struct TrainView: View {
                             )
                     }
 
-                    Text("\(blockSubtitle(for: block)) • \(vm.balanceFocusLabel(for: block.id))")
+                    Text("\(blockSubtitle(for: block)) • \(vm.workouts.filter { $0.blockId == block.id }.count) Workouts")
                         .font(Theme.Font.cardCaption)
                         .foregroundColor(Color.brand.textSecondary)
                 }

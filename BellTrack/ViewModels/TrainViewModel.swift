@@ -258,9 +258,6 @@ final class TrainViewModel: ObservableObject {
 
     func selectBlock(_ blockId: String?) {
         selectedBlockId = blockId
-        Task {
-            computeMuscleBalance()
-        }
     }
 
     @discardableResult
@@ -432,25 +429,25 @@ final class TrainViewModel: ObservableObject {
     }
 
     var balanceFocusLabel: String {
-        guard !muscleBalance.isEmpty else { return "Balanced" }
+        guard !muscleBalance.isEmpty else { return "full body focused" }
 
         let upperScore = muscleBalance.first(where: { $0.category == .upper })?.score ?? 0
         let lowerScore = muscleBalance.first(where: { $0.category == .lower })?.score ?? 0
 
         // Ignore core when determining Upper vs Lower dominance (core is supplemental)
 
-        // If lowerScore > upperScore × 2.0 → "Lower Body Focus"
+        // If lowerScore > upperScore × 2.0 → "Lower"
         if lowerScore > upperScore * 2.0 {
-            return "Lower Body Focus"
+            return "lower body focused"
         }
 
-        // Else if upperScore > lowerScore × 2.0 → "Upper Body Focus"
+        // Else if upperScore > lowerScore × 2.0 → "Upper"
         if upperScore > lowerScore * 2.0 {
-            return "Upper Body Focus"
+            return "upper body focused"
         }
 
         // Otherwise balanced
-        return "Balanced"
+        return "full body focused"
     }
 
     // MARK: - Template Volume Stats
@@ -544,12 +541,12 @@ final class TrainViewModel: ObservableObject {
         let lowerScore = categoryScores[.lower] ?? 0
 
         if lowerScore > upperScore * 2.0 {
-            return "Lower Body Focus"
+            return "lower body focused"
         }
         if upperScore > lowerScore * 2.0 {
-            return "Upper Body Focus"
+            return "upper body focused"
         }
-        return "Balanced"
+        return "full body focused"
     }
 
 }
