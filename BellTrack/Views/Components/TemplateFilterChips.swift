@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TemplateFilterChips: View {
+    let blockIndex: Int
     let templates: [WorkoutTemplate]
     let selectedTemplateId: String?
     let onSelect: (String?) -> Void
@@ -14,7 +15,10 @@ struct TemplateFilterChips: View {
                     FilterChip(
                         title: template.name,
                         isSelected: isSelected,
-                        color: templateColor(index: index),
+                        color: BlockColorPalette.templateColor(
+                            blockIndex: blockIndex,
+                            templateIndex: index
+                        ),
                         action: {
                             if isSelected {
                                 onSelect(nil)
@@ -27,16 +31,6 @@ struct TemplateFilterChips: View {
             }
             .padding(.horizontal)
         }
-    }
-
-    private func templateColor(index: Int) -> Color {
-        let colors = [
-            Color(hex: "A64DFF"),
-            Color(hex: "962EFF"),
-            Color(hex: "8000FF"),
-            Color(hex: "6900D1")
-        ]
-        return colors[index % colors.count]
     }
 }
 
@@ -53,25 +47,8 @@ private struct FilterChip: View {
                 .foregroundColor(.white)
                 .padding(.horizontal, Theme.Space.md)
                 .padding(.vertical, 8)
-                .background(color)
+                .background(isSelected ? color : Color.brand.surface)
                 .cornerRadius(Theme.Radius.md)
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.md)
-                        .inset(by: 0.5)
-                        .stroke(.white.opacity(0.8), lineWidth: isSelected ? 1.5 : 0)
-                )
         }
-    }
-}
-
-extension TemplateFilterChips {
-    static func templateColor(for index: Int) -> Color {
-        let colors = [
-            Color(hex: "A64DFF"),
-            Color(hex: "962EFF"),
-            Color(hex: "8000FF"),
-            Color(hex: "6900D1")
-        ]
-        return colors[index % colors.count]
     }
 }

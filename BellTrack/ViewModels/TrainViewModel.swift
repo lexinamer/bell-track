@@ -497,6 +497,11 @@ final class TrainViewModel: ObservableObject {
 
     // MARK: - Block-Specific Helpers
 
+    func blockIndex(for blockId: String) -> Int {
+        let allSorted = (activeBlocks + pastBlocks).sorted { $0.startDate < $1.startDate }
+        return allSorted.firstIndex(where: { $0.id == blockId }) ?? 0
+    }
+
     func recentWorkouts(for blockId: String, limit: Int) -> [Workout] {
         return workouts
             .filter { $0.blockId == blockId }

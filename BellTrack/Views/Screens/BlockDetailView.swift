@@ -5,7 +5,8 @@ struct BlockDetailView: View {
     @ObservedObject var vm: TrainViewModel
 
     @State private var selectedWorkout: Workout?
-    @State private var selectedTemplate: WorkoutTemplate?
+    @State private var loggingTemplate: WorkoutTemplate?   // triggers WorkoutFormView
+    @State private var filterTemplateId: String?           // filter chips only
     @State private var editingBlock: Block?
     @State private var blockToDelete: Block?
     @State private var workoutToDelete: Workout?
@@ -25,27 +26,27 @@ struct BlockDetailView: View {
                                 .foregroundColor(Color.brand.textSecondary)
                         
                             // Log workout button
-//                            Spacer()
-//
-//                            if block.completedDate == nil {
-//                                Menu {
-//                                    ForEach(vm.templatesForBlock(block.id)) { template in
-//                                        Button {
-//                                            selectedTemplate = template
-//                                        } label: {
-//                                            Text(template.name)
-//                                        }
-//                                    }
-//                                } label: {
-//                                    Text("Log")
-//                                        .font(Theme.Font.buttonPrimary)
-//                                        .foregroundColor(Color.brand.textPrimary)
-//                                        .padding(.horizontal, Theme.Space.md)
-//                                        .padding(.vertical, 6)
-//                                        .background(Color.brand.surface)
-//                                        .clipShape(Capsule())
-//                                }
-//                            }
+                            Spacer()
+
+                            if block.completedDate == nil {
+                                Menu {
+                                    ForEach(vm.templatesForBlock(block.id)) { template in
+                                        Button {
+                                            loggingTemplate = template
+                                        } label: {
+                                            Text(template.name)
+                                        }
+                                    }
+                                } label: {
+                                    Text("Log")
+                                        .font(Theme.Font.buttonPrimary)
+                                        .foregroundColor(Color.brand.textPrimary)
+                                        .padding(.horizontal, Theme.Space.md)
+                                        .padding(.vertical, 6)
+                                        .background(Color.brand.surface)
+                                        .clipShape(Capsule())
+                                }
+                            }
                         }
 
                         Text(vm.balanceFocusLabel(for: block.id))
@@ -58,10 +59,12 @@ struct BlockDetailView: View {
 
                     // Template filter chips
                     TemplateFilterChips(
+                        blockIndex: vm.blockIndex(for: block.id),
                         templates: vm.templatesForBlock(block.id),
-                        selectedTemplateId: vm.selectedTemplateId,
-                        onSelect: { templateId in
-                            vm.selectTemplate(templateId)
+                        selectedTemplateId: filterTemplateId,
+                        onSelect: { id in
+                            filterTemplateId = id
+                            vm.selectTemplate(id)
                         }
                     )
                     .padding(.bottom, Theme.Space.lg)
@@ -105,16 +108,16 @@ struct BlockDetailView: View {
                 }
             }
         }
-        .fullScreenCover(item: $selectedTemplate) { template in
+        .fullScreenCover(item: $loggingTemplate) { template in
             WorkoutFormView(
                 workout: nil,
                 template: template,
                 onSave: {
-                    selectedTemplate = nil
+                    loggingTemplate = nil
                     Task { await vm.load() }
                 },
                 onCancel: {
-                    selectedTemplate = nil
+                    loggingTemplate = nil
                 }
             )
         }
@@ -257,20 +260,6 @@ struct BlockDetailView: View {
         }
     }
 
-    private func badgeColorForWorkout(_ workout: Workout) -> Color {
-        guard let workoutName = workout.name else {
-            return Color(hex: "27272a")
-        }
-
-        let templates = vm.templatesForBlock(block.id)
-
-        if let index = templates.firstIndex(where: { $0.name == workoutName }) {
-            return TemplateFilterChips.templateColor(for: index)
-        }
-
-        return Color(hex: "27272a")
-    }
-
     // MARK: - Bindings
 
     private var deleteBlockBinding: Binding<Bool> {
@@ -285,5 +274,15 @@ struct BlockDetailView: View {
             get: { workoutToDelete != nil },
             set: { if !$0 { workoutToDelete = nil } }
         )
+    }
+    
+    private func badgeColorForWorkout(_ workout: Workout) -> Color {
+        let templates = vm.templatesForBlock(block.id)
+        let blockIdx = vm.blockIndex(for: block.id)
+
+        guard let index = templates.firstIndex(where: { $0.name == workout.name })
+        else { return BlockColorPalette.blockPrimary(blockIndex: blockIdx) }
+
+        return BlockColorPalette.templateColor(blockIndex: blockIdx, templateIndex: index)
     }
 }

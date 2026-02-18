@@ -32,10 +32,9 @@ struct TrainView: View {
                         // Completed blocks
                         if !vm.pastBlocks.isEmpty {
                             Rectangle()
-                                .fill(Color.brand.textSecondary.opacity(0.4))
+                                .fill(Color.brand.textSecondary.opacity(0.15))
                                 .frame(height: 1)
                                 .padding(.vertical, Theme.Space.xxl)
-                            
                             completedBlocksSection(vm.pastBlocks)
                         }
                     }
@@ -157,7 +156,11 @@ struct TrainView: View {
                         WorkoutCard(
                             workout: workout,
                             exercises: vm.exercises,
-                            badgeColor: badgeColor(for: workout, blockId: block.id)
+                            badgeColor: BlockColorPalette.templateColor(
+                                blockIndex: vm.blockIndex(for: block.id),
+                                templateIndex: vm.templatesForBlock(block.id)
+                                    .firstIndex(where: { $0.name == workout.name }) ?? 0
+                            )
                         )
                     }
                 }
@@ -180,31 +183,38 @@ struct TrainView: View {
         Button {
             selectedBlock = block
         } label: {
-            VStack(alignment: .leading, spacing: Theme.Space.xs) {
+            HStack(spacing: 0) {
+                // Accent bar — TrainView.swift ~line 190. Remove this HStack wrapper to remove the bar.
+                Rectangle()
+                    .fill(BlockColorPalette.blockPrimary(blockIndex: vm.blockIndex(for: block.id)))
+                    .frame(width: 4)
 
-                HStack {
-                    Text(block.name)
-                        .font(Theme.Font.sectionTitle)
-                        .foregroundColor(Color.brand.textPrimary)
+                VStack(alignment: .leading, spacing: Theme.Space.xs) {
 
-                    Spacer()
+                    HStack {
+                        Text(block.name)
+                            .font(Theme.Font.sectionTitle)
+                            .foregroundColor(Color.brand.textPrimary)
 
-                    Text("COMPLETED")
-                        .font(Theme.Font.cardBadge)
-                        .foregroundColor(Color.brand.textPrimary.opacity(0.85))
-                        .padding(.horizontal, Theme.Space.sm)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule()
-                                .fill(Color.brand.primary.opacity(0.25))
-                        )
-                 }
+                        Spacer()
 
-                Text("\(blockSubtitle(for: block)) • \(vm.balanceFocusLabel(for: block.id))")
-                    .font(Theme.Font.cardCaption)
-                    .foregroundColor(Color.brand.textSecondary)
+                        Text("COMPLETED")
+                            .font(Theme.Font.cardBadge)
+                            .foregroundColor(Color.brand.textPrimary.opacity(0.85))
+                            .padding(.horizontal, Theme.Space.sm)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule()
+                                    .fill(Color.brand.textSecondary.opacity(0.2))
+                            )
+                    }
+
+                    Text("\(blockSubtitle(for: block)) • \(vm.balanceFocusLabel(for: block.id))")
+                        .font(Theme.Font.cardCaption)
+                        .foregroundColor(Color.brand.textSecondary)
+                }
+                .padding(Theme.Space.md)
             }
-            .padding(Theme.Space.md)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.brand.surface)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md))
@@ -222,15 +232,6 @@ struct TrainView: View {
         let current = min(cal.dateComponents([.weekOfYear], from: block.startDate, to: Date()).weekOfYear ?? 0, total) + 1
         guard total > 0 else { return "Ongoing" }
         return "Week \(current) of \(total + 1)"
-    }
-
-    private func badgeColor(for workout: Workout, blockId: String) -> Color {
-        guard let name = workout.name else { return Color(hex: "27272a") }
-        let templates = vm.templatesForBlock(blockId)
-        if let index = templates.firstIndex(where: { $0.name == name }) {
-            return TemplateFilterChips.templateColor(for: index)
-        }
-        return Color(hex: "27272a")
     }
     
     private func blockSubtitle(for block: Block) -> String {
