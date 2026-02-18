@@ -202,36 +202,43 @@ struct WorkoutFormView: View {
                 keyboard: mode == .reps ? .numberPad : .decimalPad
             )
 
-            inputField(
-                "Weight (kg)",
-                placeholder: "12",
-                text: Binding(
-                    get: { log.weight.wrappedValue ?? "" },
-                    set: { log.weight.wrappedValue = $0.isEmpty ? nil : $0 }
-                ),
-                keyboard: .decimalPad
-            )
-
-            // Double KB toggle
-            HStack {
-                Text("Double KB")
-                    .font(Theme.Font.cardSecondary)
-                    .foregroundColor(Color.brand.textSecondary)
-                Spacer()
-                Button {
-                    log.isDouble.wrappedValue.toggle()
-                } label: {
-                    Text("2×")
+            // Weight row with 2× pill toggle
+            VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                HStack(spacing: Theme.Space.sm) {
+                    Text("Weight (kg)")
                         .font(Theme.Font.cardSecondary)
-                        .foregroundColor(log.isDouble.wrappedValue ? Color.brand.textPrimary : Color.brand.textSecondary)
-                        .padding(.horizontal, Theme.Space.sm)
-                        .padding(.vertical, 6)
-                        .background(log.isDouble.wrappedValue ? Color.brand.surface : Color.clear)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                                .stroke(Color.brand.textSecondary.opacity(0.4), lineWidth: 1)
-                        )
-                        .cornerRadius(Theme.Radius.sm)
+                        .foregroundColor(Color.brand.textSecondary)
+                    
+                    Spacer()
+                    
+                    Button {
+                        log.isDouble.wrappedValue.toggle()
+                    } label: {
+                        Text("2x")
+                            .font(Theme.Font.cardSecondary)
+                            .foregroundColor(log.isDouble.wrappedValue ? .white : Color.brand.textSecondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(log.isDouble.wrappedValue ? Color.brand.primary : Color.clear)
+                            .clipShape(Capsule())
+                            .overlay(Capsule().stroke(Color.brand.textSecondary.opacity(0.4), lineWidth: 1))
+                    }
+                }
+
+                HStack(spacing: Theme.Space.sm) {
+                    if log.isDouble.wrappedValue {
+                        Text("2x")
+                            .font(Theme.Font.cardSecondary)
+                            .foregroundColor(Color.brand.textSecondary)
+                    }
+                    TextField("12", text: Binding(
+                        get: { log.weight.wrappedValue ?? "" },
+                        set: { log.weight.wrappedValue = $0.isEmpty ? nil : $0 }
+                    ))
+                    .keyboardType(.decimalPad)
+                    .padding(Theme.Space.sm)
+                    .background(Color.brand.background)
+                    .cornerRadius(Theme.Radius.sm)
                 }
             }
 

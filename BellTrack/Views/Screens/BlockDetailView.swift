@@ -25,39 +25,38 @@ struct BlockDetailView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     
                     // Block metadata (static)
-                    VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                        HStack {
+                    HStack(alignment: .center) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text(dateRangeText)
                                 .font(Theme.Font.cardSecondary)
                                 .foregroundColor(Color.brand.textSecondary)
 
-                            // Log workout button
-                            Spacer()
-
-                            if currentBlock.completedDate == nil {
-                                Menu {
-                                    ForEach(vm.templatesForBlock(block.id)) { template in
-                                        Button {
-                                            loggingTemplate = template
-                                        } label: {
-                                            Text(template.name)
-                                        }
-                                    }
-                                } label: {
-                                    Text("Log")
-                                        .font(Theme.Font.buttonPrimary)
-                                        .foregroundColor(Color.brand.textPrimary)
-                                        .padding(.horizontal, Theme.Space.md)
-                                        .padding(.vertical, 6)
-                                        .background(Color.brand.surface)
-                                        .clipShape(Capsule())
-                                }
-                            }
+                            Text(vm.balanceFocusLabel(for: block.id))
+                                .font(Theme.Font.cardSecondary)
+                                .foregroundColor(Color.brand.textSecondary)
                         }
 
-                        Text(vm.balanceFocusLabel(for: block.id))
-                            .font(Theme.Font.cardSecondary)
-                            .foregroundColor(Color.brand.textSecondary)
+                        Spacer()
+
+                        if currentBlock.completedDate == nil {
+                            Menu {
+                                ForEach(vm.templatesForBlock(block.id)) { template in
+                                    Button {
+                                        loggingTemplate = template
+                                    } label: {
+                                        Text(template.name)
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: Theme.Space.sm) {
+                                    Image(systemName: "plus")
+                                    Text("Log")
+                                }
+                                .font(Theme.Font.cardCaption)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.white)
+                        }
                     }
 
                     .padding(.horizontal)
@@ -90,7 +89,7 @@ struct BlockDetailView: View {
                     Button {
                         editingBlock = block
                     } label: {
-                        Label("Edit Block", systemImage: "pencil")
+                        Label("Edit Block", systemImage: "square.and.pencil")
                     }
 
                     if currentBlock.completedDate == nil {
@@ -243,11 +242,11 @@ struct BlockDetailView: View {
             if groupedWorkouts.isEmpty {
                 VStack(spacing: Theme.Space.md) {
                     Text("No workouts yet")
-                        .font(Theme.Font.cardTitle)
+                        .font(Theme.Font.cardSecondary)
                         .foregroundColor(Color.brand.textSecondary)
-                        .padding(.horizontal)
                 }
-                .padding(.vertical, Theme.Space.xl)
+                .padding(.vertical, Theme.Space.md)
+                .padding(.horizontal, Theme.Space.md)
             } else {
                 ForEach(groupedWorkouts, id: \.month) { group in
                     VStack(alignment: .leading, spacing: Theme.Space.md) {
