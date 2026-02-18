@@ -161,6 +161,7 @@ struct TrainView: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(Color.brand.textSecondary)
                 }
+                .padding(.trailing, Theme.Space.md)
             }
             .buttonStyle(.plain)
 

@@ -3,10 +3,16 @@ import SwiftUI
 struct BlockDetailView: View {
     let block: Block
     @ObservedObject var vm: TrainViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    // Live block state — reflects updates (e.g. after completing)
+    private var currentBlock: Block {
+        vm.blocks.first(where: { $0.id == block.id }) ?? block
+    }
 
     @State private var selectedWorkout: Workout?
-    @State private var loggingTemplate: WorkoutTemplate?   // triggers WorkoutFormView
-    @State private var filterTemplateId: String?           // filter chips only
+    @State private var loggingTemplate: WorkoutTemplate?
+    @State private var filterTemplateId: String?
     @State private var editingBlock: Block?
     @State private var blockToDelete: Block?
     @State private var workoutToDelete: Workout?
@@ -24,11 +30,11 @@ struct BlockDetailView: View {
                             Text(dateRangeText)
                                 .font(Theme.Font.cardSecondary)
                                 .foregroundColor(Color.brand.textSecondary)
-                        
+
                             // Log workout button
                             Spacer()
 
-                            if block.completedDate == nil {
+                            if currentBlock.completedDate == nil {
                                 Menu {
                                     ForEach(vm.templatesForBlock(block.id)) { template in
                                         Button {
@@ -87,7 +93,7 @@ struct BlockDetailView: View {
                         Label("Edit Block", systemImage: "pencil")
                     }
 
-                    if block.completedDate == nil {
+                    if currentBlock.completedDate == nil {
                         Button {
                             Task {
                                 await vm.completeBlock(id: block.id)
@@ -159,6 +165,7 @@ struct BlockDetailView: View {
                 if let block = blockToDelete {
                     Task {
                         await vm.deleteBlock(id: block.id)
+                        dismiss()
                     }
                 }
             }
@@ -188,16 +195,16 @@ struct BlockDetailView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
 
-        let start = formatter.string(from: block.startDate)
+        let start = formatter.string(from: currentBlock.startDate)
 
         // Completed
-        if let completed = block.completedDate {
+        if let completed = currentBlock.completedDate {
             let end = formatter.string(from: completed)
             return "\(start) – \(end)"
         }
 
         // Active with end date
-        if let endDate = block.endDate {
+        if let endDate = currentBlock.endDate {
             let end = formatter.string(from: endDate)
             return "\(weekProgressText) • Ends \(end)"
         }
@@ -205,20 +212,20 @@ struct BlockDetailView: View {
         // Active ongoing (no end date)
         return "\(currentWeekOnlyText) • Started \(start)"
     }
-    
+
     private var currentWeekOnlyText: String {
         let calendar = Calendar.current
-        let week = calendar.dateComponents([.weekOfYear], from: block.startDate, to: Date()).weekOfYear ?? 0
+        let week = calendar.dateComponents([.weekOfYear], from: currentBlock.startDate, to: Date()).weekOfYear ?? 0
         return "Week \(max(week + 1, 1))"
     }
 
     private var weekProgressText: String {
-        guard let endDate = block.endDate else { return "Ongoing" }
+        guard let endDate = currentBlock.endDate else { return "Ongoing" }
 
         let calendar = Calendar.current
-        let totalWeeks = calendar.dateComponents([.weekOfYear], from: block.startDate, to: endDate).weekOfYear ?? 0
+        let totalWeeks = calendar.dateComponents([.weekOfYear], from: currentBlock.startDate, to: endDate).weekOfYear ?? 0
         let currentWeek = min(
-            calendar.dateComponents([.weekOfYear], from: block.startDate, to: Date()).weekOfYear ?? 0,
+            calendar.dateComponents([.weekOfYear], from: currentBlock.startDate, to: Date()).weekOfYear ?? 0,
             totalWeeks
         ) + 1
 

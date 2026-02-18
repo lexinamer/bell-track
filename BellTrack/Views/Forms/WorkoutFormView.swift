@@ -212,6 +212,29 @@ struct WorkoutFormView: View {
                 keyboard: .decimalPad
             )
 
+            // Double KB toggle
+            HStack {
+                Text("Double KB")
+                    .font(Theme.Font.cardSecondary)
+                    .foregroundColor(Color.brand.textSecondary)
+                Spacer()
+                Button {
+                    log.isDouble.wrappedValue.toggle()
+                } label: {
+                    Text("2×")
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(log.isDouble.wrappedValue ? Color.brand.textPrimary : Color.brand.textSecondary)
+                        .padding(.horizontal, Theme.Space.sm)
+                        .padding(.vertical, 6)
+                        .background(log.isDouble.wrappedValue ? Color.brand.surface : Color.clear)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.Radius.sm)
+                                .stroke(Color.brand.textSecondary.opacity(0.4), lineWidth: 1)
+                        )
+                        .cornerRadius(Theme.Radius.sm)
+                }
+            }
+
             inputField(
                 "Notes",
                 placeholder: "e.g. felt heavy, adjust grip next time",
