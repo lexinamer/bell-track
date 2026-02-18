@@ -26,12 +26,14 @@ struct BlockDetailView: View {
                     
                     // Block metadata (static)
                     HStack(alignment: .center) {
+                        let workoutCount = vm.workouts.filter { $0.blockId == block.id }.count
+
                         VStack(alignment: .leading, spacing: 2) {
                             Text(dateRangeText)
                                 .font(Theme.Font.cardSecondary)
                                 .foregroundColor(Color.brand.textSecondary)
 
-                            Text("\(vm.workouts.filter { $0.blockId == block.id }.count) Workouts (\(vm.balanceFocusLabel(for: block.id)))")
+                            Text("\(workoutCount) \(workoutCount == 1 ? "workout" : "workouts") (\(vm.balanceFocusLabel(for: block.id)))")
                                 .font(Theme.Font.cardSecondary)
                                 .foregroundColor(Color.brand.textSecondary)
                         }

@@ -145,7 +145,6 @@ struct TrainView: View {
     }
 
     private func activeBlockSection(_ block: Block) -> some View {
-        let workoutCount = vm.workouts.filter { $0.blockId == block.id }.count
 
         return VStack(alignment: .leading, spacing: Theme.Space.xs) {
 
@@ -159,15 +158,21 @@ struct TrainView: View {
 
                     Spacer()
 
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Color.brand.textSecondary)
+                    HStack(spacing: 4) {
+                        Text("Show All")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Color.brand.textSecondary)
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Color.brand.textSecondary)
+                    }
                 }
                 .padding(.trailing, Theme.Space.md)
             }
             .buttonStyle(.plain)
 
-            Text("\(weekProgress(for: block)) • \(workoutCount) Workouts")
+            Text("\(weekProgress(for: block)) • \(workoutCountText(for: block.id))")
                 .font(Theme.Font.cardCaption)
                 .foregroundColor(Color.brand.textSecondary)
 
@@ -250,7 +255,7 @@ struct TrainView: View {
                             )
                     }
 
-                    Text("\(blockSubtitle(for: block)) • \(vm.workouts.filter { $0.blockId == block.id }.count) Workouts")
+                    Text("\(blockSubtitle(for: block)) • \(workoutCountText(for: block.id))")
                         .font(Theme.Font.cardCaption)
                         .foregroundColor(Color.brand.textSecondary)
                 }
@@ -289,5 +294,11 @@ struct TrainView: View {
 
         return "\(formatter.string(from: start)) – \(formatter.string(from: end))"
     }
+    
+    private func workoutCountText(for blockId: String) -> String {
+        let count = vm.workouts.filter { $0.blockId == blockId }.count
+        return "\(count) \(count == 1 ? "workout" : "workouts")"
+    }
+
 
 }

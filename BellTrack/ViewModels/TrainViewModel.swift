@@ -36,9 +36,6 @@ final class TrainViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
 
-    // Insights
-    @Published var muscleBalance: [MuscleBalanceData] = []
-
     // Filter
     @Published var selectedBlockId: String?
     @Published var selectedTemplateId: String?
@@ -73,15 +70,16 @@ final class TrainViewModel: ObservableObject {
                 selectedBlockId = activeBlock?.id
             }
 
-            // Compute stats in background
-            Task {
-                computeMuscleBalance()
-            }
         } catch {
             errorMessage = error.localizedDescription
             print("❌ Failed to load train data:", error)
         }
     }
+    
+    func selectBlock(_ blockId: String?) {
+        selectedBlockId = blockId
+    }
+
 
     // MARK: - Auto-Complete Expired Blocks
 
@@ -256,10 +254,6 @@ final class TrainViewModel: ObservableObject {
 
     // MARK: - Block Management
 
-    func selectBlock(_ blockId: String?) {
-        selectedBlockId = blockId
-    }
-
     @discardableResult
     func saveBlock(
         id: String?,
@@ -378,77 +372,7 @@ final class TrainViewModel: ObservableObject {
             print("❌ Failed to delete workout:", error)
         }
     }
-
-    // MARK: - Muscle Balance Computation
-
-    private func computeMuscleBalance() {
-        guard let blockId = selectedBlockId else {
-            muscleBalance = []
-            return
-        }
-
-        let filteredWorkouts = workouts.filter { $0.blockId == blockId }
-
-        // Track unique exercises to avoid counting duplicates
-        var uniqueExercises = Set<String>()
-        var categoryScores: [MuscleCategory: Double] = [
-            .upper: 0,
-            .lower: 0,
-            .core: 0
-        ]
-
-        for workout in filteredWorkouts {
-            for log in workout.logs {
-                // Only count each unique exercise once per block
-                guard !uniqueExercises.contains(log.exerciseId) else { continue }
-                uniqueExercises.insert(log.exerciseId)
-
-                guard let exercise = exerciseMap[log.exerciseId] else { continue }
-
-                // Add scores based on primary and secondary muscles
-                for category in MuscleCategory.allCases {
-                    // Primary muscles contribute +1.0
-                    if category.muscles.contains(where: { exercise.primaryMuscles.contains($0) }) {
-                        categoryScores[category, default: 0] += 1.0
-                    }
-
-                    // Secondary muscles contribute +0.5
-                    if category.muscles.contains(where: { exercise.secondaryMuscles.contains($0) }) {
-                        categoryScores[category, default: 0] += 0.5
-                    }
-                }
-            }
-        }
-
-        muscleBalance = MuscleCategory.allCases.map { category in
-            MuscleBalanceData(
-                category: category,
-                score: categoryScores[category] ?? 0
-            )
-        }
-    }
-
-    var balanceFocusLabel: String {
-        guard !muscleBalance.isEmpty else { return "full body focused" }
-
-        let upperScore = muscleBalance.first(where: { $0.category == .upper })?.score ?? 0
-        let lowerScore = muscleBalance.first(where: { $0.category == .lower })?.score ?? 0
-
-        // Ignore core when determining Upper vs Lower dominance (core is supplemental)
-
-        // If lowerScore > upperScore × 2.0 → "Lower"
-        if lowerScore > upperScore * 2.0 {
-            return "lower body focused"
-        }
-
-        // Else if upperScore > lowerScore × 2.0 → "Upper"
-        if upperScore > lowerScore * 2.0 {
-            return "upper body focused"
-        }
-
-        // Otherwise balanced
-        return "full body focused"
-    }
+    
 
     // MARK: - Template Volume Stats
 
@@ -541,12 +465,12 @@ final class TrainViewModel: ObservableObject {
         let lowerScore = categoryScores[.lower] ?? 0
 
         if lowerScore > upperScore * 2.0 {
-            return "lower body focused"
+            return "lower body"
         }
         if upperScore > lowerScore * 2.0 {
-            return "upper body focused"
+            return "upper body"
         }
-        return "full body focused"
+        return "full body"
     }
 
 }

@@ -18,18 +18,6 @@ struct SettingsView: View {
 
     var body: some View {
         List {
-            
-            // MARK: - App
-            Section("App") {
-                NavigationLink {
-                    ExercisesView()
-                } label: {
-                    settingsRow(
-                        title: "Exercises",
-                        systemImage: "dumbbell"
-                    )
-                }
-            }
 
             // MARK: - Feedback
             Section("Feedback") {
