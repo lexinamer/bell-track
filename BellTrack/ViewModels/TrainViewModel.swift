@@ -139,6 +139,17 @@ final class TrainViewModel: ObservableObject {
             .filter { activeBlockIds.contains($0.blockId) }
             .sorted { $0.name < $1.name }
     }
+    
+    // MARK: - Planned Blocks
+    var plannedBlocks: [Block] {
+        blocks
+            .filter {
+                $0.completedDate == nil &&
+                $0.startDate > Date()
+            }
+            .sorted { $0.startDate < $1.startDate }
+    }
+
 
     // MARK: - Filtered Data
 

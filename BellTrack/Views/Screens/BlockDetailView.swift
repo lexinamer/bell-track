@@ -232,7 +232,7 @@ struct BlockDetailView: View {
 
         guard totalWeeks > 0 else { return "Ongoing" }
 
-        return "Week \(currentWeek) of \(totalWeeks + 1)"
+        return "Week \(currentWeek) of \(totalWeeks)"
     }
 
     // MARK: - Workouts Section

@@ -7,6 +7,7 @@ struct BlockFormView: View {
     let onCancel: () -> Void
 
     @State private var name: String
+    @State private var goal: String
     @State private var startDate: Date
     @State private var hasEndDate: Bool
     @State private var endDate: Date
@@ -33,6 +34,7 @@ struct BlockFormView: View {
         self.onCancel = onCancel
 
         self._name = State(initialValue: block?.name ?? "")
+        self._goal = State(initialValue: block?.goal ?? "")
         self._startDate = State(initialValue: block?.startDate ?? Date())
         self._hasEndDate = State(initialValue: block?.endDate != nil)
         self._endDate = State(initialValue: block?.endDate ?? Calendar.current.date(byAdding: .weekOfYear, value: 4, to: Date())!)
@@ -49,6 +51,10 @@ struct BlockFormView: View {
                 Section {
                     TextField("Block name", text: $name)
                         .autocorrectionDisabled()
+                    
+                    TextField("Goal (optional)", text: $goal)
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(Color.brand.textPrimary)
 
                     HStack {
                         Text("Start date")

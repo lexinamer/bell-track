@@ -67,6 +67,7 @@ struct Block: Identifiable, Codable, Equatable, Hashable {
     var startDate: Date
     var endDate: Date?
     var completedDate: Date?
+    var goal: String?
     var colorIndex: Int?   // Assigned once at creation, stable across deletions
 }
 
