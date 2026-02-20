@@ -5,6 +5,7 @@ struct TemplateCard: View {
     let template: WorkoutTemplate
     let completionCount: Int
     let volumeDelta: Int?
+    let repsDelta: Int?
     let accentColor: Color
     let onLog: (() -> Void)?
     let onEdit: (() -> Void)?
@@ -15,15 +16,25 @@ struct TemplateCard: View {
     }
 
     private var deltaText: String? {
-        guard let delta = volumeDelta, completionCount >= 2 else { return nil }
-        let abs = Swift.abs(delta)
-        if delta > 0 { return "↑ \(abs) kg" }
-        if delta < 0 { return "↓ \(abs) kg" }
-        return "= same as last"
+        guard completionCount >= 2 else { return nil }
+        if let delta = volumeDelta {
+            let abs = Swift.abs(delta)
+            if delta > 0 { return "↑ \(abs) kg" }
+            if delta < 0 { return "↓ \(abs) kg" }
+            return "= same as last"
+        }
+        if let delta = repsDelta {
+            let abs = Swift.abs(delta)
+            if delta > 0 { return "↑ \(abs) reps" }
+            if delta < 0 { return "↓ \(abs) reps" }
+            return "= same as last"
+        }
+        return nil
     }
 
     private var deltaColor: Color {
-        guard let delta = volumeDelta else { return Color.brand.textSecondary }
+        let delta = volumeDelta ?? repsDelta
+        guard let delta else { return Color.brand.textSecondary }
         if delta > 0 { return Color.brand.success }
         if delta < 0 { return Color.brand.destructive }
         return Color.brand.textSecondary

@@ -40,12 +40,23 @@ struct WorkoutCard: View {
         }
     }
 
+    private var totalReps: Int {
+        workout.logs.reduce(0) { total, log in
+            let sets = log.sets ?? 0
+            let reps = Int(log.reps ?? "0") ?? 0
+            return total + sets * reps
+        }
+    }
+
     private var subtitleText: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
         let dateStr = formatter.string(from: workout.date)
         let vol = Int(totalVolume.rounded())
-        return vol > 0 ? "\(dateStr) · \(vol) kg" : dateStr
+        if vol > 0 { return "\(dateStr) · \(vol) kg" }
+        let reps = totalReps
+        if reps > 0 { return "\(dateStr) · \(reps) reps" }
+        return dateStr
     }
 
     var body: some View {
@@ -116,7 +127,7 @@ struct WorkoutCard: View {
         let exercise = exercises.first(where: { $0.id == log.exerciseId })
         let mode = exercise?.mode ?? .reps
 
-        return HStack(spacing: Theme.Space.md) {
+        return HStack(spacing: 0) {
             Text(log.exerciseName)
                 .font(Theme.Font.sectionTitle)
                 .foregroundColor(Color.brand.textPrimary)
@@ -127,13 +138,14 @@ struct WorkoutCard: View {
                 Text("\(sets)×\(display)")
                     .font(Theme.Font.cardSecondary)
                     .foregroundColor(Color.brand.textSecondary)
-                    .frame(minWidth: 50, alignment: .leading)
+                    .frame(width: 70, alignment: .trailing)
             }
 
             if let weight = log.weight, !weight.isEmpty {
                 Text(log.isDouble ? "2×\(weight)kg" : "\(weight)kg")
                     .font(Theme.Font.cardSecondary)
                     .foregroundColor(Color.brand.textSecondary)
+                    .frame(width: 70, alignment: .trailing)
             }
         }
     }

@@ -241,6 +241,7 @@ struct BlockDetailView: View {
                         template: template,
                         completionCount: completionCount(for: template),
                         volumeDelta: vm.templateVolumeDelta(templateId: template.id, blockId: block.id),
+                        repsDelta: vm.templateRepsDelta(templateId: template.id, blockId: block.id),
                         accentColor: BlockColorPalette.templateColor(
                             blockIndex: blockIndex,
                             templateIndex: templateIndex

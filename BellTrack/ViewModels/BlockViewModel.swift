@@ -141,32 +141,63 @@ extension TrainViewModel {
         }
     }
     
-    // MARK: - Template Volume Stats
-    
-    func templateVolumeStats(templateId: String) -> (best: Int, last: Int)? {
-        guard let blockId = selectedBlockId else { return nil }
+    // MARK: - Template Delta Stats
+
+    func templateVolumeDelta(templateId: String, blockId: String) -> Int? {
         guard let template = templates.first(where: { $0.id == templateId }) else { return nil }
-        
-        let templateWorkouts = workouts
+
+        let sorted = workouts
             .filter { $0.blockId == blockId && $0.name == template.name }
             .sorted { $0.date > $1.date }
-        
-        guard !templateWorkouts.isEmpty else { return nil }
-        
-        let volumes = templateWorkouts.map { workout in
-            workout.logs.reduce(0.0) { total, log in
+
+        guard sorted.count >= 2 else { return nil }
+
+        let calcVolume: (Workout) -> Int = { workout in
+            Int(workout.logs.reduce(0.0) { total, log in
                 let sets = Double(log.sets ?? 0)
                 let reps = Double(log.reps ?? "0") ?? 0
-                let baseWeight = Double(log.weight ?? "0") ?? 0
-                let weight = log.isDouble ? baseWeight * 2 : baseWeight
-                let mode = exerciseMap[log.exerciseId]?.mode ?? .reps
-                return (weight > 0 && reps > 0 && mode != .time)
-                ? total + (sets * reps * weight)
-                : total
+                let base = Double(log.weight ?? "0") ?? 0
+                let weight = log.isDouble ? base * 2 : base
+                let mode = self.exerciseMap[log.exerciseId]?.mode ?? .reps
+                return (weight > 0 && reps > 0 && mode != .time) ? total + sets * reps * weight : total
+            })
+        }
+
+        let last = calcVolume(sorted[0])
+        let prev = calcVolume(sorted[1])
+        guard last > 0 else { return nil }
+        return last - prev
+    }
+
+    func templateRepsDelta(templateId: String, blockId: String) -> Int? {
+        guard let template = templates.first(where: { $0.id == templateId }) else { return nil }
+
+        let sorted = workouts
+            .filter { $0.blockId == blockId && $0.name == template.name }
+            .sorted { $0.date > $1.date }
+
+        guard sorted.count >= 2 else { return nil }
+
+        let calcReps: (Workout) -> Int = { workout in
+            workout.logs.reduce(0) { total, log in
+                let sets = log.sets ?? 0
+                let reps = Int(log.reps ?? "0") ?? 0
+                return total + sets * reps
             }
         }
-        
-        return (best: Int(volumes.max() ?? 0), last: Int(volumes.first ?? 0))
+
+        let last = calcReps(sorted[0])
+        let prev = calcReps(sorted[1])
+        guard last > 0 else { return nil }
+        return last - prev
+    }
+
+    func workoutTotalReps(_ workout: Workout) -> Int {
+        workout.logs.reduce(0) { total, log in
+            let sets = log.sets ?? 0
+            let reps = Int(log.reps ?? "0") ?? 0
+            return total + sets * reps
+        }
     }
     
     // MARK: - Display Helpers
@@ -210,31 +241,5 @@ extension TrainViewModel {
         }
         let allSorted = (activeBlocks + pastBlocks).sorted { $0.startDate < $1.startDate }
         return allSorted.firstIndex(where: { $0.id == blockId }) ?? 0
-    }
-    
-    func templateVolumeDelta(templateId: String, blockId: String) -> Int? {
-        guard let template = templates.first(where: { $0.id == templateId }) else { return nil }
-
-        let sorted = workouts
-            .filter { $0.blockId == blockId && $0.name == template.name }
-            .sorted { $0.date > $1.date }
-
-        guard sorted.count >= 2 else { return nil }
-
-        let calcVolume: (Workout) -> Int = { workout in
-            Int(workout.logs.reduce(0.0) { total, log in
-                let sets = Double(log.sets ?? 0)
-                let reps = Double(log.reps ?? "0") ?? 0
-                let base = Double(log.weight ?? "0") ?? 0
-                let weight = log.isDouble ? base * 2 : base
-                let mode = self.exerciseMap[log.exerciseId]?.mode ?? .reps
-                return (weight > 0 && reps > 0 && mode != .time) ? total + sets * reps * weight : total
-            })
-        }
-
-        let last = calcVolume(sorted[0])
-        let prev = calcVolume(sorted[1])
-        guard last > 0 else { return nil }
-        return last - prev
     }
 }
