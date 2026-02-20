@@ -24,6 +24,13 @@ enum MuscleGroup: String, Codable, CaseIterable {
     }
 }
 
+// MARK: - Exercise Mode
+
+enum ExerciseMode: String, Codable {
+    case reps
+    case time
+}
+
 // MARK: - Exercise
 
 struct Exercise: Identifiable, Codable, Equatable, Hashable {
@@ -31,7 +38,7 @@ struct Exercise: Identifiable, Codable, Equatable, Hashable {
     var name: String
     var primaryMuscles: [MuscleGroup]
     var secondaryMuscles: [MuscleGroup]
-    var mode: ExerciseMode  // How this exercise is tracked (reps or time)
+    var mode: ExerciseMode
 }
 
 // MARK: - Workout Template
@@ -68,48 +75,97 @@ struct Block: Identifiable, Codable, Equatable, Hashable {
     var endDate: Date?
     var completedDate: Date?
     var goal: String?
-    var colorIndex: Int?   // Assigned once at creation, stable across deletions
+    var colorIndex: Int?
 }
 
-// MARK: - Exercise Mode
+// MARK: - LogSet
 
-enum ExerciseMode: String, Codable {
-    case reps
-    case time
+struct LogSet: Identifiable, Codable, Equatable {
+    let id: String
+    var sets: Int?
+    var reps: String?
+    var weight: String?
+    var isDouble: Bool
+
+    init(
+        id: String = UUID().uuidString,
+        sets: Int? = nil,
+        reps: String? = nil,
+        weight: String? = nil,
+        isDouble: Bool = false
+    ) {
+        self.id = id
+        self.sets = sets
+        self.reps = reps
+        self.weight = weight
+        self.isDouble = isDouble
+    }
 }
 
 // MARK: - WorkoutLog
 
 struct WorkoutLog: Identifiable, Codable, Equatable {
     let id: String
-
     var exerciseId: String
     var exerciseName: String
-
-    var sets: Int?
-    var reps: String?  // Can be number (reps mode) or time string (time mode)
-    var weight: String?
-    var isDouble: Bool  // Double toggle: false = "12kg", true = "2×12kg"
+    var sets: [LogSet]
     var note: String?
 
+    /// controls UI mode independently of sets.count
+    var isVarying: Bool
+
     init(
-        id: String,
+        id: String = UUID().uuidString,
         exerciseId: String,
         exerciseName: String,
-        sets: Int? = nil,
-        reps: String? = nil,
-        weight: String? = nil,
-        isDouble: Bool = false,
-        note: String? = nil
+        sets: [LogSet] = [LogSet()],
+        note: String? = nil,
+        isVarying: Bool = false
     ) {
         self.id = id
         self.exerciseId = exerciseId
         self.exerciseName = exerciseName
-        self.sets = sets
-        self.reps = reps
-        self.weight = weight
-        self.isDouble = isDouble
+        self.sets = sets.isEmpty ? [LogSet()] : sets
         self.note = note
+        self.isVarying = isVarying
+    }
+
+    // MARK: - Helpers
+
+    var totalSets: Int {
+        sets.reduce(0) { $0 + ($1.sets ?? 0) }
+    }
+
+    var totalReps: Int {
+        sets.reduce(0) {
+            $0 + (($1.sets ?? 0) * (Int($1.reps ?? "0") ?? 0))
+        }
+    }
+
+    var totalVolume: Double {
+        sets.reduce(0.0) { total, set in
+            let reps = Double(set.reps ?? "0") ?? 0
+            let base = Double(set.weight ?? "0") ?? 0
+            let weight = set.isDouble ? base * 2 : base
+            return total + Double(set.sets ?? 0) * reps * weight
+        }
+    }
+
+    mutating func addRow() {
+        let last = sets.last ?? LogSet()
+        sets.append(
+            LogSet(
+                sets: last.sets,
+                reps: last.reps,
+                weight: last.weight,
+                isDouble: last.isDouble
+            )
+        )
+    }
+
+    mutating func removeRow(at index: Int) {
+        guard sets.count > 1 else { return }
+        sets.remove(at: index)
     }
 }
 
@@ -123,7 +179,7 @@ struct Workout: Identifiable, Codable, Equatable {
     var logs: [WorkoutLog]
 }
 
-// MARK: - Stats (used in Detail view)
+// MARK: - Stats
 
 struct ExerciseDetailStats {
     let totalWorkouts: Int

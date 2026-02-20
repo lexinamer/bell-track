@@ -153,14 +153,7 @@ extension TrainViewModel {
         guard sorted.count >= 2 else { return nil }
 
         let calcVolume: (Workout) -> Int = { workout in
-            Int(workout.logs.reduce(0.0) { total, log in
-                let sets = Double(log.sets ?? 0)
-                let reps = Double(log.reps ?? "0") ?? 0
-                let base = Double(log.weight ?? "0") ?? 0
-                let weight = log.isDouble ? base * 2 : base
-                let mode = self.exerciseMap[log.exerciseId]?.mode ?? .reps
-                return (weight > 0 && reps > 0 && mode != .time) ? total + sets * reps * weight : total
-            })
+            Int(workout.logs.reduce(0.0) { $0 + $1.totalVolume })
         }
 
         let last = calcVolume(sorted[0])
@@ -179,11 +172,7 @@ extension TrainViewModel {
         guard sorted.count >= 2 else { return nil }
 
         let calcReps: (Workout) -> Int = { workout in
-            workout.logs.reduce(0) { total, log in
-                let sets = log.sets ?? 0
-                let reps = Int(log.reps ?? "0") ?? 0
-                return total + sets * reps
-            }
+            workout.logs.reduce(0) { $0 + $1.totalReps }
         }
 
         let last = calcReps(sorted[0])
@@ -193,11 +182,7 @@ extension TrainViewModel {
     }
 
     func workoutTotalReps(_ workout: Workout) -> Int {
-        workout.logs.reduce(0) { total, log in
-            let sets = log.sets ?? 0
-            let reps = Int(log.reps ?? "0") ?? 0
-            return total + sets * reps
-        }
+        workout.logs.reduce(0) { $0 + $1.totalReps }
     }
     
     // MARK: - Display Helpers

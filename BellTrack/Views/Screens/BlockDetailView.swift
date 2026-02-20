@@ -100,7 +100,7 @@ struct BlockDetailView: View {
             )
         }
 
-        .sheet(isPresented: $showingNewTemplate) {
+        .fullScreenCover(isPresented: $showingNewTemplate) {
             NavigationStack {
                 WorkoutTemplateFormView(
                     exercises: vm.exercises,

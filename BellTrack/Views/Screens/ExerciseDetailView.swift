@@ -124,21 +124,18 @@ struct ExerciseDetailView: View {
     }
 
     private func computeStats(workouts: [Workout], logs: [WorkoutLog]) -> ExerciseDetailStats {
-        let weights = logs.compactMap { Double($0.weight ?? "") }
-        let reps = logs.compactMap { Int($0.reps ?? "") }
-
+        let allSets = logs.flatMap { $0.sets }
+        let weights = allSets.compactMap { Double($0.weight ?? "") }
         let heaviest: String? = weights.max().map { w in
-            w.truncatingRemainder(dividingBy: 1) == 0
-                ? "\(Int(w))kg"
-                : "\(w)kg"
+            w.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(w))kg" : "\(w)kg"
         }
 
         return ExerciseDetailStats(
             totalWorkouts: workouts.count,
-            totalReps: reps.reduce(0, +),
+            totalReps: logs.reduce(0) { $0 + $1.totalReps },
             heaviestWeight: heaviest,
-            mostSets: logs.compactMap { $0.sets }.max(),
-            mostReps: reps.max().map { "\($0)" },
+            mostSets: logs.map { $0.sets.count }.max(),
+            mostReps: logs.map { $0.totalReps }.max().map { "\($0)" },
             primaryMuscles: primaryMuscles,
             secondaryMuscles: secondaryMuscles
         )

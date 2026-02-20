@@ -31,12 +31,19 @@ struct WorkoutCard: View {
 
     private var totalVolume: Double {
         workout.logs.reduce(0.0) { total, log in
-            let sets   = Double(log.sets ?? 0)
-            let reps   = Double(log.reps ?? "0") ?? 0
-            let base   = Double(log.weight ?? "0") ?? 0
-            let weight = log.isDouble ? base * 2 : base
-            let mode   = exercises.first(where: { $0.id == log.exerciseId })?.mode ?? .reps
-            return (weight > 0 && reps > 0 && mode != .time) ? total + sets * reps * weight : total
+            let logVolume = log.sets.reduce(0.0) { sum, set in
+                guard
+                    let sets = set.sets,
+                    sets > 0,
+                    let repsString = set.reps,
+                    let reps = Double(repsString),
+                    let weightString = set.weight,
+                    let baseWeight = Double(weightString)
+                else { return sum }
+                let weight = set.isDouble ? baseWeight * 2 : baseWeight
+                return sum + Double(sets) * reps * weight
+            }
+            return total + logVolume
         }
     }
 
@@ -113,35 +120,35 @@ struct WorkoutCard: View {
     }
 
     private func exerciseRow(_ log: WorkoutLog) -> some View {
-        let exercise = exercises.first(where: { $0.id == log.exerciseId })
-        let mode = exercise?.mode ?? .reps
-
-        let setsReps: String = {
-            guard let sets = log.sets, sets > 0, let reps = log.reps, !reps.isEmpty else { return "" }
-            let display = mode == .time ? ":\(reps)" : reps
-            return "\(sets)×\(display)"
-        }()
-
-        let weight: String = {
-            guard let w = log.weight, !w.isEmpty else { return "—" }
-            return log.isDouble ? "2×\(w)kg" : "\(w)kg"
-        }()
-
-        return HStack(spacing: 0) {
-            Text(log.exerciseName)
-                .font(Theme.Font.cardSecondary)
-                .foregroundColor(Color.brand.textPrimary)
-                .frame(maxWidth: 160, alignment: .leading)
-
-            Text(setsReps)
-                .font(Theme.Font.cardSecondary)
-                .foregroundColor(Color.brand.textSecondary)
-                .frame(width: 60, alignment: .leading)
-
-            Text(weight)
-                .font(Theme.Font.cardSecondary)
-                .foregroundColor(Color.brand.textSecondary)
-                .frame(width: 60, alignment: .leading)
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
+            ForEach(Array(log.sets.enumerated()), id: \.element.id) { index, set in
+                let setsReps: String = {
+                    guard let sets = set.sets, sets > 0, let reps = set.reps, !reps.isEmpty else { return "" }
+                    return "\(sets)×\(reps)"
+                }()
+                let weight: String = {
+                    guard let w = set.weight, !w.isEmpty else { return "—" }
+                    return set.isDouble ? "2×\(w)kg" : "\(w)kg"
+                }()
+                HStack(spacing: 0) {
+                    if index == 0 {
+                        Text(log.exerciseName)
+                            .font(Theme.Font.cardSecondary)
+                            .foregroundColor(Color.brand.textPrimary)
+                            .frame(maxWidth: 160, alignment: .leading)
+                    } else {
+                        Spacer().frame(maxWidth: 160)
+                    }
+                    Text(setsReps)
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(Color.brand.textSecondary)
+                        .frame(width: 60, alignment: .leading)
+                    Text(weight)
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(Color.brand.textSecondary)
+                        .frame(width: 60, alignment: .leading)
+                }
+            }
         }
     }
 }

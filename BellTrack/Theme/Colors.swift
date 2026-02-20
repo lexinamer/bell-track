@@ -9,6 +9,7 @@ struct ColorTheme {
     let border = Color("Border")
     let destructive = Color("Destructive")
     let success = Color("Success")
+    let neutral = Color("Neutral")
 }
 
 extension Color {

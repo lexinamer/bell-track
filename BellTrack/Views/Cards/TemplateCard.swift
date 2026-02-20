@@ -21,13 +21,13 @@ struct TemplateCard: View {
             let abs = Swift.abs(delta)
             if delta > 0 { return "↑ \(abs) kg" }
             if delta < 0 { return "↓ \(abs) kg" }
-            return "= same as last"
+            return "→ same as last"
         }
         if let delta = repsDelta {
             let abs = Swift.abs(delta)
             if delta > 0 { return "↑ \(abs) reps" }
             if delta < 0 { return "↓ \(abs) reps" }
-            return "= same as last"
+            return "→ same as last"
         }
         return nil
     }
@@ -37,7 +37,7 @@ struct TemplateCard: View {
         guard let delta else { return Color.brand.textSecondary }
         if delta > 0 { return Color.brand.success }
         if delta < 0 { return Color.brand.destructive }
-        return Color.brand.textSecondary
+        return Color.brand.neutral
     }
 
     var body: some View {

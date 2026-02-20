@@ -280,17 +280,26 @@ final class FirestoreService {
                 guard
                     let id = log["id"] as? String,
                     let exerciseId = log["exerciseId"] as? String,
-                    let exerciseName = log["exerciseName"] as? String
+                    let exerciseName = log["exerciseName"] as? String,
+                    let setsData = log["sets"] as? [[String: Any]]
                 else { return nil }
+
+                let sets = setsData.compactMap { s -> LogSet? in
+                    guard let id = s["id"] as? String else { return nil }
+                    return LogSet(
+                        id: id,
+                        sets: s["sets"] as? Int ?? 1,
+                        reps: s["reps"] as? String,
+                        weight: s["weight"] as? String,
+                        isDouble: s["isDouble"] as? Bool ?? false
+                    )
+                }
 
                 return WorkoutLog(
                     id: id,
                     exerciseId: exerciseId,
                     exerciseName: exerciseName,
-                    sets: log["sets"] as? Int,
-                    reps: log["reps"] as? String,
-                    weight: log["weight"] as? String,
-                    isDouble: log["isDouble"] as? Bool ?? false,
+                    sets: sets,
                     note: log["note"] as? String
                 )
             }
@@ -319,17 +328,22 @@ final class FirestoreService {
 
         var data: [String: Any] = [
             "date": date,
-            "logs": logs.map {
+            "logs": logs.map { log in
                 [
-                    "id": $0.id,
-                    "exerciseId": $0.exerciseId,
-                    "exerciseName": $0.exerciseName,
-                    "sets": $0.sets as Any,
-                    "reps": $0.reps as Any,
-                    "weight": $0.weight as Any,
-                    "isDouble": $0.isDouble,
-                    "note": $0.note as Any
-                ]
+                    "id": log.id,
+                    "exerciseId": log.exerciseId,
+                    "exerciseName": log.exerciseName,
+                    "sets": log.sets.map {
+                        [
+                            "id": $0.id,
+                            "sets": $0.sets as Any,
+                            "reps": $0.reps as Any,
+                            "weight": $0.weight as Any,
+                            "isDouble": $0.isDouble
+                        ] as [String: Any]
+                    },
+                    "note": log.note as Any
+                ] as [String: Any]
             }
         ]
 

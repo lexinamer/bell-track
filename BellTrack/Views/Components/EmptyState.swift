@@ -39,7 +39,7 @@ struct EmptyState: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, Theme.Space.sm)
                         .background(Color.brand.primary)
-                        .foregroundColor(.white)
+                        .foregroundColor(Color.brand.textPrimary)
                         .cornerRadius(Theme.Radius.md)
                 }
                 .padding(.horizontal, Theme.Space.xl)

@@ -39,11 +39,7 @@ struct WorkoutFormView: View {
     // MARK: - Derived
 
     private var isValid: Bool {
-        !logs.isEmpty && logs.allSatisfy {
-            guard let sets = $0.sets, sets > 0 else { return false }
-            guard let reps = $0.reps, !reps.isEmpty else { return false }
-            return true
-        }
+        !logs.isEmpty && logs.allSatisfy { !$0.sets.isEmpty }
     }
 
     private var templateOptions: [(template: WorkoutTemplate, blockName: String)] {
@@ -65,7 +61,6 @@ struct WorkoutFormView: View {
 
                         // Header card
                         VStack(spacing: 0) {
-                            // Template selector
                             if workout != nil {
                                 HStack {
                                     Text("Template")
@@ -116,13 +111,10 @@ struct WorkoutFormView: View {
                             }
                             Divider().padding(.leading, Theme.Space.md)
 
-                            // Date picker
                             HStack {
                                 Text("Date")
                                     .foregroundColor(Color.brand.textPrimary)
-
                                 Spacer()
-
                                 DatePicker("", selection: $date, displayedComponents: .date)
                                     .labelsHidden()
                             }
@@ -133,7 +125,6 @@ struct WorkoutFormView: View {
                         .cornerRadius(Theme.Radius.md)
                         .padding(.horizontal)
 
-                        // Exercise cards
                         if !logs.isEmpty {
                             VStack(spacing: Theme.Space.md) {
                                 ForEach($logs) { $log in
@@ -178,105 +169,175 @@ struct WorkoutFormView: View {
     // MARK: - Exercise Card
 
     private func exerciseCard(log: Binding<WorkoutLog>) -> some View {
-        let exercise = exercises.first(where: { $0.id == log.exerciseId.wrappedValue })
+        let exercise = exercises.first(where: { $0.id == log.wrappedValue.exerciseId })
         let mode = exercise?.mode ?? .reps
 
         return VStack(spacing: Theme.Space.md) {
 
             HStack {
-                Text(log.exerciseName.wrappedValue)
+                Text(log.wrappedValue.exerciseName)
                     .font(Theme.Font.cardTitle)
                     .foregroundColor(Color.brand.textPrimary)
                 Spacer()
             }
 
-            inputField("Sets", placeholder: "5", value: log.sets, keyboard: .numberPad)
+            setRowHeader(mode: mode)
 
-            inputField(
-                mode == .reps ? "Reps" : "Time (sec)",
-                placeholder: mode == .reps ? "8" : "30",
-                text: Binding(
-                    get: { log.reps.wrappedValue ?? "" },
-                    set: { log.reps.wrappedValue = $0.isEmpty ? nil : $0 }
-                ),
-                keyboard: mode == .reps ? .numberPad : .decimalPad
-            )
+            ForEach(Array(log.wrappedValue.sets.enumerated()), id: \.element.id) { index, _ in
 
-            // Weight row with 2× pill toggle
-            VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                HStack(spacing: Theme.Space.sm) {
-                    Text("Weight (kg)")
-                        .font(Theme.Font.cardSecondary)
-                        .foregroundColor(Color.brand.textSecondary)
-                    
-                    Spacer()
-                    
-                    Button {
-                        log.isDouble.wrappedValue.toggle()
-                    } label: {
-                        Text("2x")
-                            .font(Theme.Font.cardSecondary)
-                            .foregroundColor(log.isDouble.wrappedValue ? .white : Color.brand.textSecondary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(log.isDouble.wrappedValue ? Color.brand.primary : Color.clear)
-                            .clipShape(Capsule())
-                            .overlay(Capsule().stroke(Color.brand.textSecondary.opacity(0.4), lineWidth: 1))
+                let setBinding = Binding<LogSet>(
+                    get: {
+                        log.wrappedValue.sets[index]
+                    },
+                    set: { newValue in
+                        var updated = log.wrappedValue
+                        updated.sets[index] = newValue
+                        log.wrappedValue = updated
                     }
-                }
+                )
 
-                HStack(spacing: Theme.Space.sm) {
-                    if log.isDouble.wrappedValue {
-                        Text("2x")
-                            .font(Theme.Font.cardSecondary)
-                            .foregroundColor(Color.brand.textSecondary)
+                setRow(
+                    set: setBinding,
+                    mode: mode,
+                    showDelete: index > 0,
+                    onDelete: {
+                        var updated = log.wrappedValue
+                        updated.sets.remove(at: index)
+                        log.wrappedValue = updated
                     }
-                    TextField("12", text: Binding(
-                        get: { log.weight.wrappedValue ?? "" },
-                        set: { log.weight.wrappedValue = $0.isEmpty ? nil : $0 }
-                    ))
-                    .keyboardType(.decimalPad)
-                    .padding(Theme.Space.sm)
-                    .background(Color.brand.background)
-                    .cornerRadius(Theme.Radius.sm)
-                }
+                )
             }
 
-            inputField(
-                "Notes",
-                placeholder: "e.g. felt heavy, adjust grip next time",
-                text: Binding(
-                    get: { log.note.wrappedValue ?? "" },
-                    set: { log.note.wrappedValue = $0.isEmpty ? nil : $0 }
-                ),
-                keyboard: .default
-            )
+            Button {
+                var updated = log.wrappedValue
+                let last = updated.sets.last ?? LogSet()
+                updated.sets.append(
+                    LogSet(
+                        sets: last.sets,
+                        reps: last.reps,
+                        weight: last.weight,
+                        isDouble: last.isDouble
+                    )
+                )
+                
+                log.wrappedValue = updated
+                
+            } label: {
+                HStack(spacing: Theme.Space.xs) {
+                    Image(systemName: "plus.circle")
+                    Text("Add set group")
+                }
+                .font(Theme.Font.cardCaption)
+                .foregroundColor(Color.brand.primary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+//            inputField(
+//                "Notes",
+//                placeholder: "e.g. felt heavy, adjust grip next time",
+//                text: Binding(
+//                    get: { log.wrappedValue.note ?? "" },
+//                    set: { log.wrappedValue.note = $0.isEmpty ? nil : $0 }
+//                ),
+//                keyboard: .default
+//            )
         }
         .padding(Theme.Space.md)
         .background(Color.brand.surface)
         .cornerRadius(Theme.Radius.md)
     }
 
-    // MARK: - input helpers
+    // MARK: - Rows
 
-    private func inputField(
-        _ title: String,
-        placeholder: String,
-        value: Binding<Int?>,
-        keyboard: UIKeyboardType
-    ) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Space.sm) {
-            Text(title)
-                .font(Theme.Font.cardSecondary)
-                .foregroundColor(Color.brand.textSecondary)
+    private func setRowHeader(mode: ExerciseMode) -> some View {
+        HStack(spacing: Theme.Space.sm) {
+            Text("Sets")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(mode == .reps ? "Reps" : "Sec")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text("Weight (kg)")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Spacer()
+                .frame(width: 24) // ← THIS FIXES ALIGNMENT
+        }
+        .font(Theme.Font.cardCaption)
+        .foregroundColor(Color.brand.textSecondary)
+    }
 
-            TextField(placeholder, value: value, format: .number)
-                .keyboardType(keyboard)
-                .padding(Theme.Space.sm)
+    private func setRow(set: Binding<LogSet>, mode: ExerciseMode, showDelete: Bool, onDelete: @escaping () -> Void) -> some View {
+        HStack(spacing: Theme.Space.sm) {
+
+            TextField("5", text: Binding(
+                get: {
+                    if let sets = set.wrappedValue.sets, sets > 0 {
+                        return "\(sets)"
+                    }
+                    return ""
+                },
+                set: {
+                    set.wrappedValue.sets = Int($0)
+                }
+            ))
+            .keyboardType(.numberPad)
+            .padding(Theme.Space.sm)
+            .background(Color.brand.background)
+            .cornerRadius(Theme.Radius.sm)
+            .frame(maxWidth: .infinity)
+
+            TextField(mode == .reps ? "5" : "30", text: Binding(
+                get: { set.wrappedValue.reps ?? "" },
+                set: { set.wrappedValue.reps = $0.isEmpty ? nil : $0 }
+            ))
+            .keyboardType(.numberPad)
+            .padding(Theme.Space.sm)
+            .background(Color.brand.background)
+            .cornerRadius(Theme.Radius.sm)
+            .frame(maxWidth: .infinity)
+
+            ZStack(alignment: .trailing) {
+                TextField("12", text: Binding(
+                    get: { set.wrappedValue.weight ?? "" },
+                    set: { set.wrappedValue.weight = $0.isEmpty ? nil : $0 }
+                ))
+                .keyboardType(.decimalPad)
+                .padding(.horizontal, Theme.Space.sm)
+                .padding(.vertical, Theme.Space.sm)
+                .padding(.trailing, 44)
                 .background(Color.brand.background)
                 .cornerRadius(Theme.Radius.sm)
+
+                Button {
+                    set.wrappedValue.isDouble.toggle()
+                } label: {
+                    Text("2x")
+                        .font(Theme.Font.statLabel)
+                        .foregroundColor(set.wrappedValue.isDouble ? .white : Color.brand.textSecondary)
+                        .frame(width: 28, height: 24)
+                        .background(set.wrappedValue.isDouble ? Color.brand.primary : Color.brand.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .padding(.trailing, 6)
+            }
+            .frame(maxWidth: .infinity)
+
+            Group {
+                if showDelete {
+                    Button(action: onDelete) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.red.opacity(0.8))
+                    }
+                } else {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.clear)
+                }
+            }
+            .frame(width: 24)
         }
     }
+
+    // MARK: - Input helper
 
     private func inputField(
         _ title: String,
@@ -288,7 +349,6 @@ struct WorkoutFormView: View {
             Text(title)
                 .font(Theme.Font.cardSecondary)
                 .foregroundColor(Color.brand.textSecondary)
-
             TextField(placeholder, text: text)
                 .keyboardType(keyboard)
                 .padding(Theme.Space.sm)
@@ -300,16 +360,13 @@ struct WorkoutFormView: View {
     // MARK: - Data
 
     private func loadTemplate(_ template: WorkoutTemplate) {
-        logs = template.entries.map {
-            let recent = mostRecentLog(exerciseId: $0.exerciseId)
+        logs = template.entries.map { entry in
+            let recent = mostRecentLog(exerciseId: entry.exerciseId)
+            let sets = recent?.sets ?? [LogSet()]
             return WorkoutLog(
-                id: UUID().uuidString,
-                exerciseId: $0.exerciseId,
-                exerciseName: $0.exerciseName,
-                sets: recent?.sets,
-                reps: recent?.reps,
-                weight: recent?.weight,
-                isDouble: recent?.isDouble ?? false
+                exerciseId: entry.exerciseId,
+                exerciseName: entry.exerciseName,
+                sets: sets
             )
         }
     }

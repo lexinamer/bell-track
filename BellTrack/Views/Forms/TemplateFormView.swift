@@ -71,17 +71,19 @@ struct WorkoutTemplateFormView: View {
                         .foregroundColor(.secondary)
                 } else {
                     ForEach(exercises) { exercise in
+                        let isAdded = selectedEntries.contains { $0.exerciseId == exercise.id }
                         Button {
                             addEntry(exerciseId: exercise.id, name: exercise.name)
                         } label: {
                             HStack {
                                 Text(exercise.name)
-                                    .foregroundColor(.primary)
+                                    .foregroundColor(isAdded ? Color.brand.primary : .primary)
                                 Spacer()
-                                Image(systemName: "plus.circle")
-                                    .foregroundColor(Color.brand.primary)
+                                Image(systemName: isAdded ? "checkmark.circle.fill" : "plus.circle")
+                                    .foregroundColor(isAdded ? Color.brand.primary : Color.brand.primary)
                             }
                         }
+                        .disabled(isAdded)
                     }
                 }
             }
@@ -90,6 +92,12 @@ struct WorkoutTemplateFormView: View {
         .navigationTitle(template == nil ? "New Template" : "Edit Template")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") {
+                    onCancel()
+                    dismiss()
+                }
+            }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") {
                     onSave(nameInput, selectedEntries)

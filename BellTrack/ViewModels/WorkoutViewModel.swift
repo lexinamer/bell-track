@@ -99,23 +99,12 @@ extension TrainViewModel {
     func totalSets(for blockId: String?) -> Int {
         let filtered = blockId != nil ? workouts.filter { $0.blockId == blockId } : workouts
         return filtered.reduce(0) { total, workout in
-            total + workout.logs.reduce(0) { $0 + ($1.sets ?? 0) }
+            total + workout.logs.reduce(0) { $0 + $1.totalSets }
         }
     }
 
     func totalVolume(for blockId: String?) -> Double {
         let filtered = blockId != nil ? workouts.filter { $0.blockId == blockId } : workouts
-        return filtered.reduce(0.0) { total, workout in
-            total + workout.logs.reduce(0.0) { logTotal, log in
-                let sets = Double(log.sets ?? 0)
-                let reps = Double(log.reps ?? "0") ?? 0
-                let baseWeight = Double(log.weight ?? "0") ?? 0
-                let weight = log.isDouble ? baseWeight * 2 : baseWeight
-                let mode = exerciseMap[log.exerciseId]?.mode ?? .reps
-                return (weight > 0 && reps > 0 && mode != .time)
-                    ? logTotal + (sets * reps * weight)
-                    : logTotal
-            }
-        }
+        return filtered.reduce(0.0) { $0 + $1.logs.reduce(0.0) { $0 + $1.totalVolume } }
     }
 }
