@@ -9,34 +9,33 @@ struct BlockColorPalette {
     // MARK: Color Families (in assignment order)
 
     static let families: [Family] = [
+        // Pink
+        Family(shades: [
+            Color(hex: "FF006E"),
+            Color(hex: "FF00A8"),
+            Color(hex: "FF2D55")
+        ]),
         
         // PURPLE
         Family(shades: [
-            Color(hex: "6600FF"),
-            Color(hex: "8F00C5"),
-            Color(hex: "C14DFF")
+            Color(hex: "5A00FF"),
+            Color(hex: "A100FF"),
+            Color(hex: "D966FF")
         ]),
         
-        // BLUE
+        // Teal
         Family(shades: [
-            Color(hex: "0064FB"),
-            Color(hex: "00A0C1"),
-            Color(hex: "2EB1E0")
+            Color(hex: "00FFC2"),
+            Color(hex: "00E5FF"),
+            Color(hex: "0066FF")
         ]),
 
-        // GREEN
+        // Lime
         Family(shades: [
-            Color(hex: "299C12"),
-            Color(hex: "85A906"),
-            Color(hex: "5A750D")
-        ]),
-        
-        // RED ORANGE
-        Family(shades: [
-            Color(hex: "CF2900"),
-            Color(hex: "FF6200"),
-            Color(hex: "EF6F58")
-        ]),
+            Color(hex: "AEFF00"),
+            Color(hex: "FFEE00"),
+            Color(hex: "DAF36B")
+        ])
     ]
 
     // MARK: API

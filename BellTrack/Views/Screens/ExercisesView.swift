@@ -3,6 +3,7 @@ import SwiftUI
 struct ExercisesView: View {
     
     @StateObject private var vm = ExercisesViewModel()
+    
     @State private var selectedExercise: Exercise?
     @State private var editingExercise: Exercise?
     @State private var showingNewExerciseForm = false
@@ -14,43 +15,26 @@ struct ExercisesView: View {
             
             if vm.isLoading && vm.exercises.isEmpty {
                 ProgressView()
+
             } else {
                 List {
-                    ForEach(vm.exercises) { exercise in
-                        ExerciseCard(onTap: {
-                            selectedExercise = exercise
-                        }) {
-                            HStack(alignment: .top, spacing: Theme.Space.md) {
-                                VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                                    Text(exercise.name)
-                                        .font(Theme.Font.cardTitle)
-                                    ExerciseChips(
-                                        primaryMuscles: exercise.primaryMuscles,
-                                        secondaryMuscles: exercise.secondaryMuscles
-                                    )
-                                }
-                                Spacer()
-                                Menu {
-                                    Button {
-                                        editingExercise = exercise
-                                    } label: {
-                                        Label("Edit", systemImage: "pencil")
-                                    }
-                                    Button(role: .destructive) {
-                                        exerciseToDelete = exercise
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                    
-                                } label: {
-                                    Image(systemName: "ellipsis")
-                                        .font(.system(size: 16, weight: .semibold))
-                                        .foregroundColor(Color.brand.textSecondary)
-                                        .frame(width: 32, height: 32)
-                                        .contentShape(Rectangle())
-                                }
+                    ForEach(Array(vm.exercises.enumerated()), id: \.element.id) { exerciseIndex, exercise in
+                        ExerciseCard(
+                            exercise: exercise,
+                            accentColor: BlockColorPalette.templateColor(
+                                blockIndex: 0,
+                                templateIndex: exerciseIndex
+                            ),
+                            onTap: {
+                                selectedExercise = exercise
+                            },
+                            onEdit: {
+                                editingExercise = exercise
+                            },
+                            onDelete: {
+                                exerciseToDelete = exercise
                             }
-                        }
+                        )
                         .listRowInsets(EdgeInsets())
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
@@ -67,20 +51,25 @@ struct ExercisesView: View {
         }
         .navigationTitle("Exercises")
         .navigationBarTitleDisplayMode(.large)
+        
+        // Tap → detail
         .navigationDestination(item: $selectedExercise) {
             ExerciseDetailView(exercise: $0)
         }
+        
+        // + button → new exercise
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     showingNewExerciseForm = true
                 } label: {
-                    Image(systemName: "plus").foregroundColor(.white)
+                    Image(systemName: "plus")
+                        .foregroundColor(.white)
                 }
             }
         }
         
-        // Edit form
+        // MARK: - Edit Exercises
         .fullScreenCover(item: $editingExercise) { exercise in
             ExerciseFormView(
                 exercise: exercise,
@@ -102,7 +91,7 @@ struct ExercisesView: View {
             )
         }
         
-        // New form
+        // MARK: - New Exercise
         .fullScreenCover(isPresented: $showingNewExerciseForm) {
             ExerciseFormView(
                 onSave: { name, primary, secondary, mode in
@@ -123,15 +112,17 @@ struct ExercisesView: View {
             )
         }
         
-        // Delete alert
+        // MARK: - Delete Exercises
         .alert(
             "Delete Exercise?",
-            isPresented: .init(
+            isPresented: Binding(
                 get: { exerciseToDelete != nil },
                 set: { if !$0 { exerciseToDelete = nil } }
             )
         ) {
+            
             Button("Cancel", role: .cancel) {}
+            
             Button("Delete", role: .destructive) {
                 if let exercise = exerciseToDelete {
                     Task {
@@ -140,48 +131,9 @@ struct ExercisesView: View {
                 }
                 exerciseToDelete = nil
             }
+            
         } message: {
             Text("This will permanently delete \"\(exerciseToDelete?.name ?? "")\".")
-        }
-    }
-}
-
-// MARK: - Exercise Card
-
-private struct ExerciseCard<Content: View>: View {
-    let content: Content
-    let onTap: (() -> Void)?
-    init(onTap: (() -> Void)? = nil, @ViewBuilder content: () -> Content) {
-        self.onTap = onTap
-        self.content = content()
-    }
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.md) {
-            content
-        }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.brand.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md))
-        .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: Theme.Radius.md))
-        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-        .modifier(CardTapModifier(onTap: onTap))
-    }
-}
-
-// MARK: - Tap modifier
-
-private struct CardTapModifier: ViewModifier {
-    let onTap: (() -> Void)?
-    func body(content: Content) -> some View {
-        if let onTap {
-            content
-                .contentShape(Rectangle())
-                .simultaneousGesture(
-                    TapGesture().onEnded { onTap() }
-                )
-        } else {
-            content
         }
     }
 }

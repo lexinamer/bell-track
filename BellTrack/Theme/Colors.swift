@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ColorTheme {
     let primary = Color("AccentColor")
-    let secondary = Color("AccentColorSecondary")
     let background = Color("Background")
     let surface = Color("Surface")
     let textPrimary = Color("TextPrimary")

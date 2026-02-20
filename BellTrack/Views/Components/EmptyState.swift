@@ -1,20 +1,17 @@
 import SwiftUI
 
 struct EmptyState: View {
-    let icon: String
     let title: String
     let message: String
     let buttonTitle: String?
     let action: (() -> Void)?
 
     init(
-        icon: String,
         title: String,
         message: String,
         buttonTitle: String? = nil,
         action: (() -> Void)? = nil
     ) {
-        self.icon = icon
         self.title = title
         self.message = message
         self.buttonTitle = buttonTitle
@@ -23,11 +20,6 @@ struct EmptyState: View {
 
     var body: some View {
         VStack(spacing: Theme.Space.lg) {
-            Spacer()
-
-            Image(systemName: icon)
-                .font(Theme.Font.pageTitle)
-                .foregroundColor(Color.brand.textSecondary)
 
             Text(title)
                 .font(Theme.Font.emptyStateTitle)
@@ -47,33 +39,42 @@ struct EmptyState: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, Theme.Space.sm)
                         .background(Color.brand.primary)
-                        .foregroundColor(Color.brand.background)
+                        .foregroundColor(.white)
                         .cornerRadius(Theme.Radius.md)
                 }
                 .padding(.horizontal, Theme.Space.xl)
             }
-
-            Spacer()
         }
+        .padding(.horizontal, Theme.Space.md)
     }
 }
 
 extension EmptyState {
+
     static func noActiveBlock(action: @escaping () -> Void) -> EmptyState {
         EmptyState(
-            icon: "square.stack.3d.up",
-            title: "No active block",
-            message: "Create a block to start training",
+            title: "Blocks organize your training",
+            message: "Create a block to add templates and log workouts",
             buttonTitle: "Create Block",
             action: action
         )
     }
 
-    static var noWorkouts: EmptyState {
+    static func noTemplates(action: @escaping () -> Void) -> EmptyState {
         EmptyState(
-            icon: "figure.run",
-            title: "No workouts yet",
-            message: "Log your first workout to get started"
+            title: "Templates define your workouts",
+            message: "Create a template to log workouts and track progress",
+            buttonTitle: "Create Template",
+            action: action
+        )
+    }
+
+    static func noWorkouts(action: @escaping () -> Void) -> EmptyState {
+        EmptyState(
+            title: "Workouts track your progress",
+            message: "Log a workout using a template",
+            buttonTitle: "Log Workout",
+            action: action
         )
     }
 }

@@ -30,8 +30,7 @@ final class FirestoreService {
         return snap.documents.map { doc in
             let primaryRaw = doc["primaryMuscles"] as? [String] ?? []
             let secondaryRaw = doc["secondaryMuscles"] as? [String] ?? []
-            let modeString = doc["mode"] as? String ?? "reps"
-            let mode = ExerciseMode(rawValue: modeString) ?? .reps
+            let mode = ExerciseMode(rawValue: doc["mode"] as? String ?? "reps") ?? .reps
 
             return Exercise(
                 id: doc.documentID,
@@ -55,14 +54,12 @@ final class FirestoreService {
             ? ref.collection("exercises").document()
             : ref.collection("exercises").document(id!)
 
-        let data: [String: Any] = [
+        try await doc.setData([
             "name": name,
             "primaryMuscles": primaryMuscles.map { $0.rawValue },
             "secondaryMuscles": secondaryMuscles.map { $0.rawValue },
             "mode": mode.rawValue
-        ]
-
-        try await doc.setData(data)
+        ])
     }
 
     func deleteExercise(id: String) async throws {
@@ -98,7 +95,6 @@ final class FirestoreService {
         }
     }
 
-
     // MARK: - Default Exercise Seeding
 
     func seedDefaultExercisesIfNeeded() async throws {
@@ -109,18 +105,18 @@ final class FirestoreService {
 
         let defaults: [(name: String, primary: [MuscleGroup], secondary: [MuscleGroup], mode: ExerciseMode)] = [
             ("Clean", [.glutes, .hamstrings], [.core, .forearms], .reps),
-            ("Clean to Press", [.glutes, .shoulders, .hamstrings],  [.core, .forearms, .triceps], .reps),
             ("Farmer Carry", [.forearms, .core], [.shoulders, .glutes, .back], .time),
             ("Front Squat", [.quads, .glutes], [.core, .hamstrings, .back], .reps),
             ("Goblet Squat", [.quads, .glutes], [.core, .hamstrings, .back, .shoulders], .reps),
             ("Lunge", [.quads, .glutes], [.hamstrings, .core, .calves], .reps),
+            ("One Hand Swing", [.glutes, .hamstrings, .shoulders], [.core, .back, .forearms], .reps),
             ("Press", [.shoulders], [.triceps, .core, .forearms, .back], .reps),
             ("Pushup", [.chest], [.triceps, .shoulders, .core, .glutes], .reps),
             ("RDL", [.hamstrings, .glutes], [.core, .back, .forearms], .reps),
             ("Row", [.back], [.biceps, .core, .forearms, .shoulders], .reps),
             ("Snatch", [.glutes, .hamstrings, .shoulders], [.core, .back, .forearms, .quads], .reps),
             ("Suitcase Carry", [.core, .forearms], [.shoulders, .glutes, .back], .time),
-            ("Swing", [.glutes, .hamstrings], [.core, .back, .forearms, .shoulders], .reps)
+            ("Two Hand Swing", [.glutes, .hamstrings], [.core, .back, .forearms, .shoulders], .reps)
         ]
 
         for exercise in defaults {
@@ -158,19 +154,10 @@ final class FirestoreService {
                     let exerciseName = entry["exerciseName"] as? String
                 else { return nil }
 
-                return TemplateEntry(
-                    id: id,
-                    exerciseId: exerciseId,
-                    exerciseName: exerciseName
-                )
+                return TemplateEntry(id: id, exerciseId: exerciseId, exerciseName: exerciseName)
             }
 
-            return WorkoutTemplate(
-                id: doc.documentID,
-                name: name,
-                blockId: blockId,
-                entries: entries
-            )
+            return WorkoutTemplate(id: doc.documentID, name: name, blockId: blockId, entries: entries)
         }
     }
 
@@ -185,18 +172,12 @@ final class FirestoreService {
             ? ref.collection("workoutTemplates").document()
             : ref.collection("workoutTemplates").document(id!)
 
-        let entriesPayload = entries.map {
-            [
-                "id": $0.id,
-                "exerciseId": $0.exerciseId,
-                "exerciseName": $0.exerciseName
-            ] as [String: Any]
-        }
-
         try await doc.setData([
-            "name": name,
             "blockId": blockId,
-            "entries": entriesPayload
+            "name": name,
+            "entries": entries.map {
+                ["id": $0.id, "exerciseId": $0.exerciseId, "exerciseName": $0.exerciseName] as [String: Any]
+            }
         ])
     }
 
@@ -221,15 +202,13 @@ final class FirestoreService {
                 let startDate = (doc["startDate"] as? Timestamp)?.dateValue()
             else { return nil }
 
-            let endDate = (doc["endDate"] as? Timestamp)?.dateValue()
-            let completedDate = (doc["completedDate"] as? Timestamp)?.dateValue()
-
             return Block(
                 id: doc.documentID,
                 name: name,
                 startDate: startDate,
-                endDate: endDate,
-                completedDate: completedDate,
+                endDate: (doc["endDate"] as? Timestamp)?.dateValue(),
+                completedDate: (doc["completedDate"] as? Timestamp)?.dateValue(),
+                goal: doc["goal"] as? String,
                 colorIndex: doc["colorIndex"] as? Int
             )
         }
@@ -239,44 +218,31 @@ final class FirestoreService {
     func saveBlock(
         id: String?,
         name: String,
+        goal: String? = nil,
         startDate: Date,
         endDate: Date? = nil,
         completedDate: Date? = nil,
         notes: String? = nil
     ) async throws -> String {
-
         let ref = try userRef()
         let doc = id == nil
             ? ref.collection("blocks").document()
             : ref.collection("blocks").document(id!)
-
-        // Assign a stable colorIndex to new blocks only
-        var assignedColorIndex: Int? = nil
-        if id == nil {
-            let existingSnap = try await ref.collection("blocks").getDocuments()
-            assignedColorIndex = existingSnap.documents.count
-        }
 
         var data: [String: Any] = [
             "name": name,
             "startDate": startDate
         ]
 
-        if let colorIndex = assignedColorIndex {
-            data["colorIndex"] = colorIndex
+        if id == nil {
+            let existingSnap = try await ref.collection("blocks").getDocuments()
+            data["colorIndex"] = existingSnap.documents.count
         }
 
-        if let endDate = endDate {
-            data["endDate"] = endDate
-        }
-
-        if let completedDate = completedDate {
-            data["completedDate"] = completedDate
-        }
-
-        if let notes = notes {
-            data["notes"] = notes
-        }
+        if let goal = goal { data["goal"] = goal }
+        if let endDate = endDate { data["endDate"] = endDate }
+        if let completedDate = completedDate { data["completedDate"] = completedDate }
+        if let notes = notes { data["notes"] = notes }
 
         try await doc.setData(data)
         return doc.documentID
@@ -346,31 +312,31 @@ final class FirestoreService {
         blockId: String?,
         logs: [WorkoutLog]
     ) async throws {
-
         let ref = try userRef()
         let doc = id == nil
             ? ref.collection("workouts").document()
             : ref.collection("workouts").document(id!)
 
-        let logsPayload = logs.map {
-            [
-                "id": $0.id,
-                "exerciseId": $0.exerciseId,
-                "exerciseName": $0.exerciseName,
-                "sets": $0.sets as Any,
-                "reps": $0.reps as Any,
-                "weight": $0.weight as Any,
-                "isDouble": $0.isDouble,
-                "note": $0.note as Any
-            ]
-        }
-
-        try await doc.setData([
+        var data: [String: Any] = [
             "date": date,
-            "name": name as Any,
-            "blockId": blockId as Any,
-            "logs": logsPayload
-        ])
+            "logs": logs.map {
+                [
+                    "id": $0.id,
+                    "exerciseId": $0.exerciseId,
+                    "exerciseName": $0.exerciseName,
+                    "sets": $0.sets as Any,
+                    "reps": $0.reps as Any,
+                    "weight": $0.weight as Any,
+                    "isDouble": $0.isDouble,
+                    "note": $0.note as Any
+                ]
+            }
+        ]
+
+        if let name = name { data["name"] = name }
+        if let blockId = blockId { data["blockId"] = blockId }
+
+        try await doc.setData(data)
     }
 
     func deleteWorkout(id: String) async throws {

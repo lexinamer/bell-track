@@ -3,11 +3,9 @@ import SwiftUI
 struct TrainView: View {
     @StateObject private var vm = TrainViewModel()
     @State private var selectedBlock: Block?
-    @State private var selectedTemplate: WorkoutTemplate?
     @State private var showingNewBlock = false
     @State private var showingLogWorkout = false
-    @State private var editingWorkout: Workout?
-    @State private var workoutToDelete: Workout?
+    @State private var selectedTemplate: WorkoutTemplate?
 
     var body: some View {
         ZStack {
@@ -23,33 +21,30 @@ struct TrainView: View {
 
             } else if vm.activeBlocks.isEmpty && vm.plannedBlocks.isEmpty && vm.pastBlocks.isEmpty {
                 EmptyState.noActiveBlock { showingNewBlock = true }
+                    .offset(y: -60)
 
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
 
-                        // ACTIVE
                         if !vm.activeBlocks.isEmpty {
-                            sectionDivider("Active")
+                            SectionDivider(title: "Active")
                             activeBlocksSection(vm.activeBlocks)
                             Spacer().frame(height: Theme.Space.xl)
                         }
 
-                        // PLANNED
                         if !vm.plannedBlocks.isEmpty {
-                            sectionDivider("Up Next")
+                            SectionDivider(title: "Up Next")
                             plannedBlocksSection(vm.plannedBlocks)
                             Spacer().frame(height: Theme.Space.xxl)
                         }
 
-                        // COMPLETED
                         if !vm.pastBlocks.isEmpty {
-                            sectionDivider("Done")
+                            SectionDivider(title: "Done")
                             completedBlocksSection(vm.pastBlocks)
                             Spacer().frame(height: Theme.Space.xxl)
                         }
                     }
-//                    .padding(.top, Theme.Space.)
                     .padding(.horizontal, Theme.Space.md)
                 }
             }
@@ -97,15 +92,14 @@ struct TrainView: View {
         }
         .fullScreenCover(isPresented: $showingNewBlock) {
             BlockFormView(
-                vm: vm,
-                onSave: { name, start, endDate, pendingTemplates in
+                onSave: { name, goal, start, endDate in
                     Task {
                         if let newBlockId = await vm.saveBlock(
                             id: nil,
                             name: name,
+                            goal: goal,
                             startDate: start,
-                            endDate: endDate,
-                            pendingTemplates: pendingTemplates
+                            endDate: endDate
                         ) {
                             showingNewBlock = false
                             if let block = vm.blocks.first(where: { $0.id == newBlockId }) {
@@ -119,124 +113,48 @@ struct TrainView: View {
         }
         .task { await vm.load() }
     }
-    
-    // MARK: - Section Divider
-    private func sectionDivider(_ title: String) -> some View {
-        HStack(spacing: Theme.Space.sm) {
-            Rectangle()
-                .fill(Color.brand.textSecondary.opacity(0.2))
-                .frame(height: 1)
-            
-            Text(title)
-                .font(Theme.Font.cardCaption.weight(.semibold))
-                .foregroundColor(Color.brand.textSecondary)
-            
-            Rectangle()
-                .fill(Color.brand.textSecondary.opacity(0.2))
-                .frame(height: 1)
-        }
-        .padding(.vertical, Theme.Space.md)
-    }
-    
-    // MARK: - Block Card
-    private func blockCard(
-        _ block: Block,
-        subtitle: String
-    ) -> some View {
-        Button {
-            selectedBlock = block
-        } label: {
-            HStack(spacing: 0) {
 
-                Rectangle()
-                    .fill(BlockColorPalette.blockPrimary(blockIndex: vm.blockIndex(for: block.id)))
-                    .frame(width: 4)
-
-                VStack(alignment: .leading, spacing: Theme.Space.xs) {
-
-                    HStack {
-                        Text(block.name)
-                            .font(Theme.Font.sectionTitle)
-                            .foregroundColor(Color.brand.textPrimary)
-
-                        Spacer()
-                    }
-
-                    Text(subtitle)
-                        .font(Theme.Font.cardCaption)
-                        .foregroundColor(Color.brand.textSecondary)
-                }
-                .padding(Theme.Space.md)
-            }
-            .background(Color.brand.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md))
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Active Blocks
+    // MARK: - Block Sections
 
     private func activeBlocksSection(_ blocks: [Block]) -> some View {
         VStack(spacing: Theme.Space.md) {
-            ForEach(blocks.sorted { $0.startDate > $1.startDate }) { block in
-                blockCard(
-                    block,
-                    subtitle: "\(weekProgress(for: block)) • \(workoutCountText(for: block.id))"
+            ForEach(blocks) { block in
+                BlockCard(
+                    block: block,
+                    state: .active(
+                        weekProgress: vm.weekProgress(for: block),
+                        endDate: vm.formattedEndDate(for: block)
+                    ),
+                    blockIndex: vm.blockIndex(for: block.id),
+                    onTap: { selectedBlock = block }
                 )
             }
         }
     }
-
-    // MARK: - Planned Blocks
 
     private func plannedBlocksSection(_ blocks: [Block]) -> some View {
         VStack(spacing: Theme.Space.md) {
-            ForEach(blocks.sorted { $0.startDate < $1.startDate }) { block in
-                blockCard(
-                    block,
-                    subtitle: dateRangeString(
-                        from: block.startDate,
-                        to: block.endDate ?? block.startDate
-                    )
+            ForEach(blocks) { block in
+                BlockCard(
+                    block: block,
+                    state: .upcoming(startDate: vm.formattedStartDate(for: block)),
+                    blockIndex: vm.blockIndex(for: block.id),
+                    onTap: { selectedBlock = block }
                 )
             }
         }
     }
-
-    // MARK: - Completed Blocks
 
     private func completedBlocksSection(_ blocks: [Block]) -> some View {
         VStack(spacing: Theme.Space.md) {
-            ForEach(blocks.sorted { $0.startDate > $1.startDate }) { block in
-                blockCard(
-                    block,
-                    subtitle: dateRangeString(
-                        from: block.startDate,
-                        to: block.completedDate ?? block.startDate
-                    )
+            ForEach(blocks) { block in
+                BlockCard(
+                    block: block,
+                    state: .completed(dateRange: vm.dateRange(for: block)),
+                    blockIndex: vm.blockIndex(for: block.id),
+                    onTap: { selectedBlock = block }
                 )
             }
         }
-    }
-
-    // MARK: - Helpers
-
-    private func weekProgress(for block: Block) -> String {
-        guard let endDate = block.endDate else { return "Ongoing" }
-        let cal = Calendar.current
-        let total = cal.dateComponents([.weekOfYear], from: block.startDate, to: endDate).weekOfYear ?? 0
-        let current = min(cal.dateComponents([.weekOfYear], from: block.startDate, to: Date()).weekOfYear ?? 0, total) + 1
-        return "Week \(current) of \(total)"
-    }
-
-    private func dateRangeString(from start: Date, to end: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        return "\(formatter.string(from: start)) – \(formatter.string(from: end))"
-    }
-
-    private func workoutCountText(for blockId: String) -> String {
-        let count = vm.workouts.filter { $0.blockId == blockId }.count
-        return "\(count) workouts"
     }
 }
