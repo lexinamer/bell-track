@@ -240,7 +240,7 @@ struct BlockDetailView: View {
                     TemplateCard(
                         template: template,
                         completionCount: completionCount(for: template),
-                        volumeDelta: volumeDelta(for: template),
+                        volumeDelta: vm.templateVolumeDelta(templateId: template.id, blockId: block.id),
                         accentColor: BlockColorPalette.templateColor(
                             blockIndex: blockIndex,
                             templateIndex: templateIndex
@@ -361,26 +361,6 @@ struct BlockDetailView: View {
 
     private func completionCount(for template: WorkoutTemplate) -> Int {
         vm.workouts.filter { $0.blockId == block.id && $0.name == template.name }.count
-    }
-
-    private func volumeDelta(for template: WorkoutTemplate) -> Int? {
-        guard let stats = vm.templateVolumeStats(templateId: template.id) else { return nil }
-        guard stats.last > 0 && completionCount(for: template) >= 2 else { return nil }
-        return stats.last - (vm.workouts
-            .filter { $0.blockId == block.id && $0.name == template.name }
-            .sorted { $0.date > $1.date }
-            .dropFirst()
-            .first
-            .map { workout in
-                Int(workout.logs.reduce(0.0) { total, log in
-                    let sets = Double(log.sets ?? 0)
-                    let reps = Double(log.reps ?? "0") ?? 0
-                    let base = Double(log.weight ?? "0") ?? 0
-                    let weight = log.isDouble ? base * 2 : base
-                    let mode = vm.exercises.first(where: { $0.id == log.exerciseId })?.mode ?? .reps
-                    return (weight > 0 && reps > 0 && mode != .time) ? total + sets * reps * weight : total
-                })
-            } ?? 0)
     }
 
     // MARK: - Alert Bindings
