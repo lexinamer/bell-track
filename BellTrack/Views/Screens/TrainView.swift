@@ -6,6 +6,8 @@ struct TrainView: View {
     @State private var showingNewBlock = false
     @State private var showingLogWorkout = false
     @State private var selectedTemplate: WorkoutTemplate?
+    @State private var editingBlock: Block?
+    @State private var blockToDelete: Block?
 
     var body: some View {
         ZStack {
@@ -112,6 +114,32 @@ struct TrainView: View {
             )
         }
         .task { await vm.load() }
+        .fullScreenCover(item: $editingBlock) { b in
+            BlockFormView(
+                block: b,
+                onSave: { name, goal, startDate, endDate in
+                    Task {
+                        await vm.saveBlock(id: b.id, name: name, goal: goal, startDate: startDate, endDate: endDate)
+                        editingBlock = nil
+                    }
+                },
+                onCancel: { editingBlock = nil }
+            )
+        }
+        .alert("Delete Block?", isPresented: Binding(
+            get: { blockToDelete != nil },
+            set: { if !$0 { blockToDelete = nil } }
+        )) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                if let b = blockToDelete {
+                    Task { await vm.deleteBlock(id: b.id) }
+                    blockToDelete = nil
+                }
+            }
+        } message: {
+            Text("This will permanently delete \"\(blockToDelete?.name ?? "")\".")
+        }
     }
 
     // MARK: - Block Sections
@@ -126,7 +154,10 @@ struct TrainView: View {
                         endDate: vm.formattedEndDate(for: block)
                     ),
                     blockIndex: vm.blockIndex(for: block.id),
-                    onTap: { selectedBlock = block }
+                    onTap: { selectedBlock = block },
+                    onEdit: { editingBlock = block },
+                    onDelete: { blockToDelete = block },
+                    onComplete: { Task { await vm.completeBlock(id: block.id) } }
                 )
             }
         }
@@ -139,7 +170,10 @@ struct TrainView: View {
                     block: block,
                     state: .upcoming(startDate: vm.formattedStartDate(for: block)),
                     blockIndex: vm.blockIndex(for: block.id),
-                    onTap: { selectedBlock = block }
+                    onTap: { selectedBlock = block },
+                    onEdit: { editingBlock = block },
+                    onDelete: { blockToDelete = block },
+                    onComplete: nil
                 )
             }
         }
@@ -152,7 +186,10 @@ struct TrainView: View {
                     block: block,
                     state: .completed(dateRange: vm.dateRange(for: block)),
                     blockIndex: vm.blockIndex(for: block.id),
-                    onTap: { selectedBlock = block }
+                    onTap: { selectedBlock = block },
+                    onEdit: { editingBlock = block },
+                    onDelete: { blockToDelete = block },
+                    onComplete: nil
                 )
             }
         }

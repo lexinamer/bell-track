@@ -89,7 +89,7 @@ struct TemplateCard: View {
         .contextMenu {
             if let onEdit {
                 Button { onEdit() } label: {
-                    Label("Edit", systemImage: "pencil")
+                    Label("Edit", systemImage: "square.and.pencil")
                 }
             }
             if let onDelete {

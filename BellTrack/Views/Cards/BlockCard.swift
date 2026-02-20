@@ -12,13 +12,16 @@ struct BlockCard: View {
     let state: CardState
     let blockIndex: Int
     let onTap: () -> Void
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+    let onComplete: (() -> Void)?
 
     // MARK: - Derived
 
     private var subtitle: String {
         switch state {
         case .active(let weekProgress, let endDate):
-            return "\(weekProgress) · Ends \(endDate)"
+            return endDate.isEmpty ? weekProgress : "\(weekProgress) · Ends \(endDate)"
         case .upcoming(let startDate):
             return "Starts \(startDate)"
         case .completed(let dateRange):
@@ -33,28 +36,40 @@ struct BlockCard: View {
     // MARK: - Body
 
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 0) {
-                Rectangle()
-                    .fill(accentColor)
-                    .frame(width: 4)
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(accentColor)
+                .frame(width: 4)
 
-                VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                    Text(block.name)
-                        .font(Theme.Font.sectionTitle)
-                        .foregroundColor(Color.brand.textPrimary)
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                Text(block.name)
+                    .font(Theme.Font.sectionTitle)
+                    .foregroundColor(Color.brand.textPrimary)
 
-                    Text(subtitle)
-                        .font(Theme.Font.cardCaption)
-                        .foregroundColor(Color.brand.textSecondary)
-                }
-                .padding(Theme.Space.md)
-
-                Spacer()
+                Text(subtitle)
+                    .font(Theme.Font.cardCaption)
+                    .foregroundColor(Color.brand.textSecondary)
             }
-            .background(Color.brand.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md))
+            .padding(Theme.Space.md)
+
+            Spacer()
         }
-        .buttonStyle(.plain)
+        .background(Color.brand.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md))
+        .contentShape(Rectangle())
+        .onTapGesture { onTap() }
+        .contextMenu {
+            Button { onEdit() } label: {
+                Label("Edit", systemImage: "pencil")
+            }
+            if let onComplete {
+                Button { onComplete() } label: {
+                    Label("Mark as Complete", systemImage: "checkmark.circle")
+                }
+            }
+            Button(role: .destructive) { onDelete() } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
     }
 }

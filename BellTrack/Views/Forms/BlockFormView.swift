@@ -41,7 +41,7 @@ struct BlockFormView: View {
                         .foregroundColor(Color.brand.textPrimary)
                 }
 
-                Section {
+                Section(header: Text("Or plan ahead with a future start date").font(Theme.Font.cardCaption)) {
                     HStack {
                         Text("Start date")
                         Spacer()
@@ -59,10 +59,10 @@ struct BlockFormView: View {
 
                     if hasEndDate {
                         HStack(spacing: Theme.Space.sm) {
+                            durationChip(weeks: 1)
                             durationChip(weeks: 4)
                             durationChip(weeks: 6)
                             durationChip(weeks: 8)
-                            durationChip(weeks: 10)
                             Spacer()
                         }
 

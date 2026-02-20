@@ -46,7 +46,7 @@ struct ExerciseCard: View {
                 Button {
                     onEdit()
                 } label: {
-                    Label("Edit", systemImage: "pencil")
+                    Label("Edit", systemImage: "square.and.pencil")
                 }
             }
 

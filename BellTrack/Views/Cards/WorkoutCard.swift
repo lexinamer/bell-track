@@ -40,23 +40,12 @@ struct WorkoutCard: View {
         }
     }
 
-    private var totalReps: Int {
-        workout.logs.reduce(0) { total, log in
-            let sets = log.sets ?? 0
-            let reps = Int(log.reps ?? "0") ?? 0
-            return total + sets * reps
-        }
-    }
-
     private var subtitleText: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
         let dateStr = formatter.string(from: workout.date)
         let vol = Int(totalVolume.rounded())
-        if vol > 0 { return "\(dateStr) · \(vol) kg" }
-        let reps = totalReps
-        if reps > 0 { return "\(dateStr) · \(reps) reps" }
-        return dateStr
+        return vol > 0 ? "\(dateStr) · \(vol) kg" : dateStr
     }
 
     var body: some View {
@@ -83,7 +72,7 @@ struct WorkoutCard: View {
         .contextMenu {
             if let onEdit {
                 Button { onEdit() } label: {
-                    Label("Edit", systemImage: "pencil")
+                    Label("Edit", systemImage: "square.and.pencil")
                 }
             }
             if let onDelete {
@@ -98,7 +87,7 @@ struct WorkoutCard: View {
         HStack(alignment: .center, spacing: Theme.Space.md) {
             VStack(alignment: .leading, spacing: Theme.Space.xs) {
                 Text(title)
-                    .font(Theme.Font.cardTitle)
+                    .font(Theme.Font.sectionTitle)
                     .foregroundColor(Color.brand.textPrimary)
                 Text(subtitleText)
                     .font(Theme.Font.cardCaption)
@@ -112,7 +101,7 @@ struct WorkoutCard: View {
     }
 
     private var expandedSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.md) {
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
             ForEach(workout.logs) { log in
                 exerciseRow(log)
             }
@@ -127,26 +116,32 @@ struct WorkoutCard: View {
         let exercise = exercises.first(where: { $0.id == log.exerciseId })
         let mode = exercise?.mode ?? .reps
 
+        let setsReps: String = {
+            guard let sets = log.sets, sets > 0, let reps = log.reps, !reps.isEmpty else { return "" }
+            let display = mode == .time ? ":\(reps)" : reps
+            return "\(sets)×\(display)"
+        }()
+
+        let weight: String = {
+            guard let w = log.weight, !w.isEmpty else { return "—" }
+            return log.isDouble ? "2×\(w)kg" : "\(w)kg"
+        }()
+
         return HStack(spacing: 0) {
             Text(log.exerciseName)
-                .font(Theme.Font.sectionTitle)
+                .font(Theme.Font.cardSecondary)
                 .foregroundColor(Color.brand.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: 160, alignment: .leading)
 
-            if let sets = log.sets, sets > 0, let reps = log.reps, !reps.isEmpty {
-                let display = mode == .time ? ":\(reps)" : reps
-                Text("\(sets)×\(display)")
-                    .font(Theme.Font.cardSecondary)
-                    .foregroundColor(Color.brand.textSecondary)
-                    .frame(width: 70, alignment: .trailing)
-            }
+            Text(setsReps)
+                .font(Theme.Font.cardSecondary)
+                .foregroundColor(Color.brand.textSecondary)
+                .frame(width: 60, alignment: .leading)
 
-            if let weight = log.weight, !weight.isEmpty {
-                Text(log.isDouble ? "2×\(weight)kg" : "\(weight)kg")
-                    .font(Theme.Font.cardSecondary)
-                    .foregroundColor(Color.brand.textSecondary)
-                    .frame(width: 70, alignment: .trailing)
-            }
+            Text(weight)
+                .font(Theme.Font.cardSecondary)
+                .foregroundColor(Color.brand.textSecondary)
+                .frame(width: 60, alignment: .leading)
         }
     }
 }
