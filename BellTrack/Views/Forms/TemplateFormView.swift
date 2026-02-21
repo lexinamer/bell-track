@@ -5,22 +5,26 @@ struct WorkoutTemplateFormView: View {
     let template: WorkoutTemplate?
     let exercises: [Exercise]
     let onSave: (String, [TemplateEntry]) -> Void
+    let onDelete: (() -> Void)?
     let onCancel: () -> Void
 
     @Environment(\.dismiss) private var dismiss
 
     @State private var nameInput: String
     @State private var selectedEntries: [TemplateEntry]
+    @State private var showingDeleteAlert = false
 
     init(
         template: WorkoutTemplate? = nil,
         exercises: [Exercise],
         onSave: @escaping (String, [TemplateEntry]) -> Void,
+        onDelete: (() -> Void)? = nil,
         onCancel: @escaping () -> Void
     ) {
         self.template = template
         self.exercises = exercises
         self.onSave = onSave
+        self.onDelete = onDelete
         self.onCancel = onCancel
         _nameInput = State(initialValue: template?.name ?? "")
         _selectedEntries = State(initialValue: template?.entries ?? [])
@@ -87,6 +91,17 @@ struct WorkoutTemplateFormView: View {
                     }
                 }
             }
+
+            // Delete — only shown when editing an existing template
+            if template != nil && onDelete != nil {
+                Section {
+                    Button(role: .destructive) {
+                        showingDeleteAlert = true
+                    } label: {
+                        Label("Delete Template", systemImage: "trash")
+                    }
+                }
+            }
         }
         .environment(\.editMode, .constant(.active))
         .navigationTitle(template == nil ? "New Template" : "Edit Template")
@@ -105,6 +120,15 @@ struct WorkoutTemplateFormView: View {
                 }
                 .disabled(!canSave)
             }
+        }
+        .alert("Delete Template?", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                onDelete?()
+                dismiss()
+            }
+        } message: {
+            Text("This will permanently delete \"\(template?.name ?? "")\".")
         }
     }
 

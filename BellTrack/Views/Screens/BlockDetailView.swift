@@ -24,14 +24,12 @@ struct BlockDetailView: View {
 
     // MARK: - Local State
 
-    @State private var selectedWorkout: Workout?
     @State private var loggingTemplate: WorkoutTemplate?
+    @State private var selectedWorkout: Workout?
     @State private var editingTemplate: WorkoutTemplate?
     @State private var showingNewTemplate = false
     @State private var editingBlock: Block?
-    @State private var blockToDelete: Block?
     @State private var workoutToDelete: Workout?
-    @State private var templateToDelete: WorkoutTemplate?
 
     // MARK: - Body
 
@@ -49,13 +47,11 @@ struct BlockDetailView: View {
                         }
                         .padding(.top, Theme.Space.xl)
                     } else {
-                        templatesSection
                         workoutsSection
                     }
                 }
                 .padding(.top, Theme.Space.sm)
             }
-
         }
         .navigationTitle(currentBlock.name)
         .navigationBarTitleDisplayMode(.large)
@@ -96,6 +92,19 @@ struct BlockDetailView: View {
                         editingBlock = nil
                     }
                 },
+                onDelete: {
+                    Task {
+                        await vm.deleteBlock(id: b.id)
+                        editingBlock = nil
+                        dismiss()
+                    }
+                },
+                onComplete: isCompleted ? nil : {
+                    Task {
+                        await vm.completeBlock(id: block.id)
+                        editingBlock = nil
+                    }
+                },
                 onCancel: { editingBlock = nil }
             )
         }
@@ -115,7 +124,7 @@ struct BlockDetailView: View {
             }
         }
 
-        .sheet(item: $editingTemplate) { template in
+        .fullScreenCover(item: $editingTemplate) { template in
             NavigationStack {
                 WorkoutTemplateFormView(
                     template: template,
@@ -126,26 +135,18 @@ struct BlockDetailView: View {
                             editingTemplate = nil
                         }
                     },
+                    onDelete: {
+                        Task {
+                            await vm.deleteTemplate(id: template.id)
+                            editingTemplate = nil
+                        }
+                    },
                     onCancel: { editingTemplate = nil }
                 )
             }
         }
 
         // MARK: - Alerts
-
-        .alert("Delete Block?", isPresented: deleteBlockBinding) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
-                if let b = blockToDelete {
-                    Task {
-                        await vm.deleteBlock(id: b.id)
-                        dismiss()
-                    }
-                }
-            }
-        } message: {
-            Text("This will permanently delete \"\(blockToDelete?.name ?? "")\".")
-        }
 
         .alert("Delete Workout?", isPresented: deleteWorkoutBinding) {
             Button("Cancel", role: .cancel) {}
@@ -157,17 +158,6 @@ struct BlockDetailView: View {
         } message: {
             Text("This will permanently delete this workout.")
         }
-
-        .alert("Delete Template?", isPresented: deleteTemplateBinding) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
-                if let template = templateToDelete {
-                    Task { await vm.deleteTemplate(id: template.id) }
-                }
-            }
-        } message: {
-            Text("This will permanently delete \"\(templateToDelete?.name ?? "")\".")
-        }
     }
 
     // MARK: - Toolbar
@@ -175,22 +165,18 @@ struct BlockDetailView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                Button { editingBlock = currentBlock } label: {
-                    Label("Edit Block", systemImage: "square.and.pencil")
-                }
-                if !isCompleted {
-                    Button {
-                        Task { await vm.completeBlock(id: block.id) }
-                    } label: {
-                        Label("Mark as Complete", systemImage: "checkmark.circle")
+            // Only show + when there's at least one template (force through empty state flow first)
+            if !templates.isEmpty && !isCompleted {
+                Menu {
+                    Button { loggingTemplate = selectedTemplate ?? templates.first } label: {
+                        Label("Log Workout", systemImage: "plus")
                     }
+                    Button { showingNewTemplate = true } label: {
+                        Label("Add Template", systemImage: "square.and.pencil")
+                    }
+                } label: {
+                    Image(systemName: "plus").foregroundColor(.white)
                 }
-                Button(role: .destructive) { blockToDelete = currentBlock } label: {
-                    Label("Delete Block", systemImage: "trash")
-                }
-            } label: {
-                Image(systemName: "ellipsis").foregroundColor(.white)
             }
         }
     }
@@ -198,16 +184,35 @@ struct BlockDetailView: View {
     // MARK: - Header Section
 
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.xs) {
-            if let goal = currentBlock.goal, !goal.isEmpty {
-                Text(goal)
-                    .font(Theme.Font.cardSecondary)
+        ZStack(alignment: .topTrailing) {
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                if let goal = currentBlock.goal, !goal.isEmpty {
+                    Text(goal)
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(Color.brand.textSecondary)
+                }
+                Text(progressLineText)
+                    .font(Theme.Font.cardCaption)
                     .foregroundColor(Color.brand.textSecondary)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text(progressLineText)
-                .font(Theme.Font.cardCaption)
-                .foregroundColor(Color.brand.textSecondary)
+            Menu {
+                Button { editingBlock = currentBlock } label: {
+                    Label("Edit Block", systemImage: "square.stack.3d.up")
+                }
+                ForEach(Array(templates.enumerated()), id: \.element.id) { _, template in
+                    Button { editingTemplate = template } label: {
+                        Label("Edit \(template.name)", systemImage: "clipboard")
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .foregroundColor(Color.brand.textSecondary)
+                    .padding(.leading, Theme.Space.md)
+                    .padding(.bottom, Theme.Space.sm)
+                    .contentShape(Rectangle())
+            }
         }
         .padding(.horizontal, Theme.Space.md)
         .padding(.bottom, Theme.Space.lg)
@@ -228,54 +233,21 @@ struct BlockDetailView: View {
         return "Ongoing"
     }
 
-    // MARK: - Templates Section
-
-    private var templatesSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            
-            SectionDivider(title: "Templates")
-
-            VStack(spacing: Theme.Space.sm) {
-                ForEach(Array(templates.enumerated()), id: \.element.id) { templateIndex, template in
-                    TemplateCard(
-                        template: template,
-                        completionCount: completionCount(for: template),
-                        volumeDelta: vm.templateVolumeDelta(templateId: template.id, blockId: block.id),
-                        repsDelta: vm.templateRepsDelta(templateId: template.id, blockId: block.id),
-                        accentColor: BlockColorPalette.templateColor(
-                            blockIndex: blockIndex,
-                            templateIndex: templateIndex
-                        ),
-                        onLog: !isCompleted ? { loggingTemplate = template } : nil,
-                        onEdit: { editingTemplate = template },
-                        onDelete: { templateToDelete = template }
-                    )
-                    .padding(.horizontal, Theme.Space.md)
-                }
-                
-                if !isCompleted {
-                    addTemplateChip
-                }
-            }
-        }
-        .padding(.bottom, Theme.Space.md)
-    }
-
     // MARK: - Workouts Section
-    
+
     private var workoutsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
 
-            SectionDivider(title: "Workouts")
-
+            // Filter row (only when multiple templates)
             if templates.count > 1 {
-                filterTabs
-                    .padding(.bottom, Theme.Space.md)
+                filterRow
+                    .padding(.top, Theme.Space.md)
+                    .padding(.bottom, Theme.Space.lg)
             }
 
             if workouts.isEmpty {
                 EmptyState.noWorkouts {
-                    loggingTemplate = templates.first
+                    loggingTemplate = selectedTemplate ?? templates.first
                 }
                 .padding(.top, Theme.Space.lg)
                 .padding(.horizontal, Theme.Space.md)
@@ -297,36 +269,40 @@ struct BlockDetailView: View {
         .padding(.bottom, Theme.Space.xl)
     }
 
-    // MARK: - Add Template Chip
-    
-    private var addTemplateChip: some View {
-        Button {
-            showingNewTemplate = true
-        } label: {
-            Label("Add Template", systemImage: "plus")
-                .font(Theme.Font.cardCaption.weight(.medium))
-                .foregroundColor(Color.brand.textSecondary)
-                .padding(.horizontal, Theme.Space.sm)
-                .padding(.vertical, Theme.Space.xs)
-                .background(Color.brand.surface)
-                .clipShape(Capsule())
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, Theme.Space.md)
-        .padding(.top, Theme.Space.xs)
-    }
+    // MARK: - Filter Row
 
-    // MARK: - Filter Tabs
-
-    private var filterTabs: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Theme.Space.md) {
-                filterTab(label: "All", templateId: nil)
-                ForEach(templates) { template in
-                    filterTab(label: template.name, templateId: template.id)
+    private var filterRow: some View {
+        HStack(alignment: .center, spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Theme.Space.md) {
+                    filterTab(label: "All", templateId: nil)
+                    ForEach(templates) { template in
+                        filterTab(label: template.name, templateId: template.id)
+                    }
                 }
+                .padding(.horizontal, Theme.Space.md)
             }
-            .padding(.horizontal, Theme.Space.md)
+            .fixedSize(horizontal: false, vertical: true)
+
+            // Metric: total sessions when All, delta when a template is selected
+            if vm.selectedTemplateId == nil {
+                if let lastDate = vm.workouts.filter({ $0.blockId == block.id }).map({ $0.date }).max() {
+                    Text(relativeDate(lastDate))
+                        .font(Theme.Font.cardCaption)
+                        .foregroundColor(Color.brand.textSecondary)
+                        .padding(.bottom, Theme.Space.xs)
+                        .padding(.trailing, Theme.Space.md)
+                        .fixedSize()
+                }
+            } else if let templateId = vm.selectedTemplateId,
+                      let deltaText = deltaText(for: templateId) {
+                Text(deltaText)
+                    .font(Theme.Font.cardCaption)
+                    .foregroundColor(deltaColor(for: templateId))
+                    .padding(.bottom, Theme.Space.xs)
+                    .padding(.trailing, Theme.Space.md)
+                    .fixedSize()
+            }
         }
     }
 
@@ -351,7 +327,55 @@ struct BlockDetailView: View {
         .animation(.easeInOut(duration: 0.15), value: vm.selectedTemplateId)
     }
 
+    // MARK: - Delta Helpers
+
+    private func deltaText(for templateId: String) -> String? {
+        let completions = vm.workouts.filter { w in
+            guard let t = templates.first(where: { $0.id == templateId }) else { return false }
+            return w.blockId == block.id && w.name == t.name
+        }.count
+        guard completions >= 2 else { return nil }
+
+        if let delta = vm.templateVolumeDelta(templateId: templateId, blockId: block.id) {
+            let abs = Swift.abs(delta)
+            if delta > 0 { return "↑ \(abs) kg" }
+            if delta < 0 { return "↓ \(abs) kg" }
+            return "→ no change"
+        }
+        if let delta = vm.templateRepsDelta(templateId: templateId, blockId: block.id) {
+            let abs = Swift.abs(delta)
+            if delta > 0 { return "↑ \(abs) reps" }
+            if delta < 0 { return "↓ \(abs) reps" }
+            return "→ no change"
+        }
+        return nil
+    }
+
+    private func deltaColor(for templateId: String) -> Color {
+        let delta = vm.templateVolumeDelta(templateId: templateId, blockId: block.id)
+            ?? vm.templateRepsDelta(templateId: templateId, blockId: block.id)
+        guard let delta else { return Color.brand.textSecondary }
+        if delta > 0 { return Color.brand.success }
+        if delta < 0 { return Color.brand.destructive }
+        return Color.brand.neutral
+    }
+
     // MARK: - Helpers
+
+    private func relativeDate(_ date: Date) -> String {
+        let days = Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
+        switch days {
+        case 0: return "Last: today"
+        case 1: return "Last: yesterday"
+        default: return "Last: \(days) days ago"
+        }
+    }
+
+    /// The currently-selected template (from filter), nil when "All" is selected
+    private var selectedTemplate: WorkoutTemplate? {
+        guard let id = vm.selectedTemplateId else { return nil }
+        return templates.first(where: { $0.id == id })
+    }
 
     private func accentColor(for workout: Workout) -> Color {
         guard let index = templates.firstIndex(where: { $0.name == workout.name }) else {
@@ -360,29 +384,13 @@ struct BlockDetailView: View {
         return BlockColorPalette.templateColor(blockIndex: blockIndex, templateIndex: index)
     }
 
-    private func completionCount(for template: WorkoutTemplate) -> Int {
-        vm.workouts.filter { $0.blockId == block.id && $0.name == template.name }.count
-    }
-
     // MARK: - Alert Bindings
-
-    private var deleteBlockBinding: Binding<Bool> {
-        Binding(get: { blockToDelete != nil }, set: { if !$0 { blockToDelete = nil } })
-    }
 
     private var deleteWorkoutBinding: Binding<Bool> {
         Binding(get: { workoutToDelete != nil }, set: { if !$0 { workoutToDelete = nil } })
     }
 
-    private var deleteTemplateBinding: Binding<Bool> {
-        Binding(get: { templateToDelete != nil }, set: { if !$0 { templateToDelete = nil } })
-    }
-    
     private var workouts: [Workout] {
         vm.displayWorkouts.sorted { $0.date > $1.date }
-    }
-
-    private var hasWorkouts: Bool {
-        !workouts.isEmpty
     }
 }

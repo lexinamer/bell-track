@@ -86,19 +86,22 @@ struct LogSet: Identifiable, Codable, Equatable {
     var reps: String?
     var weight: String?
     var isDouble: Bool
+    var offsetWeight: String?
 
     init(
         id: String = UUID().uuidString,
         sets: Int? = nil,
         reps: String? = nil,
         weight: String? = nil,
-        isDouble: Bool = false
+        isDouble: Bool = false,
+        offsetWeight: String? = nil
     ) {
         self.id = id
         self.sets = sets
         self.reps = reps
         self.weight = weight
         self.isDouble = isDouble
+        self.offsetWeight = offsetWeight
     }
 }
 

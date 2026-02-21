@@ -31,6 +31,9 @@ struct WorkoutCard: View {
 
     private var totalVolume: Double {
         workout.logs.reduce(0.0) { total, log in
+            // Exclude time-based exercises — sets × seconds × kg is meaningless
+            let exercise = exercises.first(where: { $0.id == log.exerciseId })
+            guard exercise?.mode != .time else { return total }
             let logVolume = log.sets.reduce(0.0) { sum, set in
                 guard
                     let sets = set.sets,
@@ -40,7 +43,14 @@ struct WorkoutCard: View {
                     let weightString = set.weight,
                     let baseWeight = Double(weightString)
                 else { return sum }
-                let weight = set.isDouble ? baseWeight * 2 : baseWeight
+                let weight: Double
+                if set.isDouble {
+                    weight = baseWeight * 2
+                } else if let offsetString = set.offsetWeight, let offsetWeight = Double(offsetString) {
+                    weight = baseWeight + offsetWeight
+                } else {
+                    weight = baseWeight
+                }
                 return sum + Double(sets) * reps * weight
             }
             return total + logVolume
@@ -101,6 +111,7 @@ struct WorkoutCard: View {
                     .foregroundColor(Color.brand.textSecondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
         }
         .padding(.vertical, Theme.Space.md)
         .padding(.leading, Theme.Space.md)
@@ -120,15 +131,18 @@ struct WorkoutCard: View {
     }
 
     private func exerciseRow(_ log: WorkoutLog) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Space.xs) {
+        let mode = exercises.first(where: { $0.id == log.exerciseId })?.mode ?? .reps
+        return VStack(alignment: .leading, spacing: Theme.Space.xs) {
             ForEach(Array(log.sets.enumerated()), id: \.element.id) { index, set in
                 let setsReps: String = {
                     guard let sets = set.sets, sets > 0, let reps = set.reps, !reps.isEmpty else { return "" }
-                    return "\(sets)×\(reps)"
+                    return mode == .time ? "\(sets)×\(reps)s" : "\(sets)×\(reps)"
                 }()
                 let weight: String = {
                     guard let w = set.weight, !w.isEmpty else { return "—" }
-                    return set.isDouble ? "2×\(w)kg" : "\(w)kg"
+                    if set.isDouble { return "2×\(w)kg" }
+                    if let o = set.offsetWeight, !o.isEmpty { return "\(w)/\(o)kg" }
+                    return "\(w)kg"
                 }()
                 HStack(spacing: 0) {
                     if index == 0 {

@@ -55,15 +55,20 @@ struct TrainView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button { showingLogWorkout = true } label: {
-                        Label("Log Workout", systemImage: "plus")
+                let hasBlocks = !vm.activeBlocks.isEmpty || !vm.plannedBlocks.isEmpty || !vm.pastBlocks.isEmpty
+                if hasBlocks {
+                    Menu {
+                        if !vm.activeBlocks.isEmpty {
+                            Button { showingLogWorkout = true } label: {
+                                Label("Log Workout", systemImage: "plus")
+                            }
+                        }
+                        Button { showingNewBlock = true } label: {
+                            Label("Create New Block", systemImage: "square.stack.3d.up")
+                        }
+                    } label: {
+                        Image(systemName: "plus").foregroundColor(.white)
                     }
-                    Button { showingNewBlock = true } label: {
-                        Label("Create New Block", systemImage: "square.stack.3d.up")
-                    }
-                } label: {
-                    Image(systemName: "plus").foregroundColor(.white)
                 }
             }
         }

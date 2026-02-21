@@ -61,7 +61,22 @@ struct WorkoutFormView: View {
 
                         // Header card
                         VStack(spacing: 0) {
+
+                            // Date row
+                            HStack {
+                                Text("Date")
+                                    .foregroundColor(Color.brand.textPrimary)
+                                Spacer()
+                                DatePicker("", selection: $date, displayedComponents: .date)
+                                    .labelsHidden()
+                            }
+                            .padding(.horizontal, Theme.Space.md)
+                            .padding(.vertical, Theme.Space.smp)
+                            .background(Color.brand.surface)
+
+                            // Template row
                             if workout != nil {
+                                Divider().padding(.leading, Theme.Space.md)
                                 HStack {
                                     Text("Template")
                                         .foregroundColor(Color.brand.textPrimary)
@@ -73,54 +88,32 @@ struct WorkoutFormView: View {
                                 .padding(.vertical, Theme.Space.smp)
                                 .background(Color.brand.surface)
                             } else {
-                                Menu {
-                                    ForEach(templateOptions, id: \.template.id) { item in
-                                        Button {
-                                            selectedTemplate = item.template
-                                            blockId = item.template.blockId
-                                            loadTemplate(item.template)
-                                        } label: {
-                                            VStack(alignment: .leading) {
+                                Divider().padding(.leading, Theme.Space.md)
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: Theme.Space.sm) {
+                                        ForEach(templateOptions, id: \.template.id) { item in
+                                            let isSelected = selectedTemplate?.id == item.template.id
+                                            Button {
+                                                selectedTemplate = item.template
+                                                blockId = item.template.blockId
+                                                loadTemplate(item.template)
+                                            } label: {
                                                 Text(item.template.name)
-                                                Text(item.blockName)
-                                                    .font(.caption)
-                                                    .foregroundColor(Color.brand.textSecondary)
+                                                    .font(Theme.Font.cardCaption)
+                                                    .foregroundColor(isSelected ? .white : Color.brand.textPrimary)
+                                                    .padding(.horizontal, Theme.Space.md)
+                                                    .padding(.vertical, Theme.Space.smp)
+                                                    .background(isSelected ? Color.brand.primary : Color.brand.background)
+                                                    .clipShape(Capsule())
+                                                    .overlay(Capsule().stroke(isSelected ? Color.clear : Color.brand.textSecondary.opacity(0.3), lineWidth: 1))
                                             }
                                         }
                                     }
-                                } label: {
-                                    HStack {
-                                        Text("Template")
-                                            .foregroundColor(Color.brand.textPrimary)
-                                        Spacer()
-                                        if let template = selectedTemplate {
-                                            Text(template.name)
-                                                .foregroundColor(Color.brand.textSecondary)
-                                        } else {
-                                            Text("Select...")
-                                                .foregroundColor(Color.brand.primary)
-                                        }
-                                        Image(systemName: "chevron.up.chevron.down")
-                                            .font(.system(size: 12, weight: .semibold))
-                                            .foregroundColor(Color.brand.textSecondary)
-                                    }
                                     .padding(.horizontal, Theme.Space.md)
                                     .padding(.vertical, Theme.Space.smp)
-                                    .background(Color.brand.surface)
                                 }
+                                .background(Color.brand.surface)
                             }
-                            Divider().padding(.leading, Theme.Space.md)
-
-                            HStack {
-                                Text("Date")
-                                    .foregroundColor(Color.brand.textPrimary)
-                                Spacer()
-                                DatePicker("", selection: $date, displayedComponents: .date)
-                                    .labelsHidden()
-                            }
-                            .padding(.horizontal, Theme.Space.md)
-                            .padding(.vertical, Theme.Space.smp)
-                            .background(Color.brand.surface)
                         }
                         .cornerRadius(Theme.Radius.md)
                         .padding(.horizontal)
@@ -172,23 +165,16 @@ struct WorkoutFormView: View {
         let exercise = exercises.first(where: { $0.id == log.wrappedValue.exerciseId })
         let mode = exercise?.mode ?? .reps
 
-        return VStack(spacing: Theme.Space.md) {
+        return VStack(alignment: .leading, spacing: Theme.Space.md) {
 
-            HStack {
-                Text(log.wrappedValue.exerciseName)
-                    .font(Theme.Font.cardTitle)
-                    .foregroundColor(Color.brand.textPrimary)
-                Spacer()
-            }
-
-            setRowHeader(mode: mode)
+            Text(log.wrappedValue.exerciseName)
+                .font(Theme.Font.cardTitle)
+                .foregroundColor(Color.brand.textPrimary)
 
             ForEach(Array(log.wrappedValue.sets.enumerated()), id: \.element.id) { index, _ in
 
                 let setBinding = Binding<LogSet>(
-                    get: {
-                        log.wrappedValue.sets[index]
-                    },
+                    get: { log.wrappedValue.sets[index] },
                     set: { newValue in
                         var updated = log.wrappedValue
                         updated.sets[index] = newValue
@@ -196,9 +182,10 @@ struct WorkoutFormView: View {
                     }
                 )
 
-                setRow(
+                setGroup(
                     set: setBinding,
                     mode: mode,
+                    index: index,
                     showDelete: index > 0,
                     onDelete: {
                         var updated = log.wrappedValue
@@ -219,9 +206,7 @@ struct WorkoutFormView: View {
                         isDouble: last.isDouble
                     )
                 )
-                
                 log.wrappedValue = updated
-                
             } label: {
                 HStack(spacing: Theme.Space.xs) {
                     Image(systemName: "plus.circle")
@@ -231,16 +216,6 @@ struct WorkoutFormView: View {
                 .foregroundColor(Color.brand.primary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-
-//            inputField(
-//                "Notes",
-//                placeholder: "e.g. felt heavy, adjust grip next time",
-//                text: Binding(
-//                    get: { log.wrappedValue.note ?? "" },
-//                    set: { log.wrappedValue.note = $0.isEmpty ? nil : $0 }
-//                ),
-//                keyboard: .default
-//            )
         }
         .padding(Theme.Space.md)
         .background(Color.brand.surface)
@@ -250,90 +225,134 @@ struct WorkoutFormView: View {
     // MARK: - Rows
 
     private func setRowHeader(mode: ExerciseMode) -> some View {
-        HStack(spacing: Theme.Space.sm) {
-            Text("Sets")
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Text(mode == .reps ? "Reps" : "Sec")
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Text("Weight (kg)")
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Spacer()
-                .frame(width: 24) // ← THIS FIXES ALIGNMENT
-        }
-        .font(Theme.Font.cardCaption)
-        .foregroundColor(Color.brand.textSecondary)
+        EmptyView()
     }
 
-    private func setRow(set: Binding<LogSet>, mode: ExerciseMode, showDelete: Bool, onDelete: @escaping () -> Void) -> some View {
-        HStack(spacing: Theme.Space.sm) {
+    private func setGroup(set: Binding<LogSet>, mode: ExerciseMode, index: Int, showDelete: Bool, onDelete: @escaping () -> Void) -> some View {
+        let isOffset = set.wrappedValue.offsetWeight != nil
 
-            TextField("5", text: Binding(
-                get: {
-                    if let sets = set.wrappedValue.sets, sets > 0 {
-                        return "\(sets)"
+        return VStack(alignment: .leading, spacing: Theme.Space.sm) {
+
+            // Divider between set groups (not before the first)
+            if index > 0 {
+                Divider()
+                    .overlay(Color.brand.textSecondary.opacity(0.3))
+                    .padding(.vertical, Theme.Space.sm)
+            }
+
+            // Row 1: Sets + delete button
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                Text("Sets")
+                    .font(Theme.Font.cardCaption)
+                    .foregroundColor(Color.brand.textSecondary)
+                HStack(spacing: Theme.Space.sm) {
+                    TextField("5", text: Binding(
+                        get: {
+                            if let s = set.wrappedValue.sets, s > 0 { return "\(s)" }
+                            return ""
+                        },
+                        set: { set.wrappedValue.sets = Int($0) }
+                    ))
+                    .keyboardType(.numberPad)
+                    .padding(.vertical, Theme.Space.md)
+                    .padding(.horizontal, Theme.Space.sm)
+                    .background(Color.brand.background)
+                    .cornerRadius(Theme.Radius.sm)
+                    .frame(maxWidth: .infinity)
+
+                    if showDelete {
+                        Button(action: onDelete) {
+                            Image(systemName: "minus.circle")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(Color.brand.destructive)
+                        }
                     }
-                    return ""
-                },
-                set: {
-                    set.wrappedValue.sets = Int($0)
                 }
-            ))
-            .keyboardType(.numberPad)
-            .padding(Theme.Space.sm)
-            .background(Color.brand.background)
-            .cornerRadius(Theme.Radius.sm)
-            .frame(maxWidth: .infinity)
+            }
 
-            TextField(mode == .reps ? "5" : "30", text: Binding(
-                get: { set.wrappedValue.reps ?? "" },
-                set: { set.wrappedValue.reps = $0.isEmpty ? nil : $0 }
-            ))
-            .keyboardType(.numberPad)
-            .padding(Theme.Space.sm)
-            .background(Color.brand.background)
-            .cornerRadius(Theme.Radius.sm)
-            .frame(maxWidth: .infinity)
-
-            ZStack(alignment: .trailing) {
-                TextField("12", text: Binding(
-                    get: { set.wrappedValue.weight ?? "" },
-                    set: { set.wrappedValue.weight = $0.isEmpty ? nil : $0 }
+            // Row 2: Reps
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                Text(mode == .reps ? "Reps" : "Sec")
+                    .font(Theme.Font.cardCaption)
+                    .foregroundColor(Color.brand.textSecondary)
+                TextField(mode == .reps ? "5" : "30", text: Binding(
+                    get: { set.wrappedValue.reps ?? "" },
+                    set: { set.wrappedValue.reps = $0.isEmpty ? nil : $0 }
                 ))
-                .keyboardType(.decimalPad)
+                .keyboardType(.numberPad)
+                .padding(.vertical, Theme.Space.md)
                 .padding(.horizontal, Theme.Space.sm)
-                .padding(.vertical, Theme.Space.sm)
-                .padding(.trailing, 44)
                 .background(Color.brand.background)
                 .cornerRadius(Theme.Radius.sm)
-
-                Button {
-                    set.wrappedValue.isDouble.toggle()
-                } label: {
-                    Text("2x")
-                        .font(Theme.Font.statLabel)
-                        .foregroundColor(set.wrappedValue.isDouble ? .white : Color.brand.textSecondary)
-                        .frame(width: 28, height: 24)
-                        .background(set.wrappedValue.isDouble ? Color.brand.primary : Color.brand.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-                .padding(.trailing, 6)
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
 
-            Group {
-                if showDelete {
-                    Button(action: onDelete) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.red.opacity(0.8))
+            // Row 3: Weight + inline chips
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                Text("Weight")
+                    .font(Theme.Font.cardCaption)
+                    .foregroundColor(Color.brand.textSecondary)
+                HStack(spacing: Theme.Space.sm) {
+                    TextField("0", text: Binding(
+                        get: { set.wrappedValue.weight ?? "" },
+                        set: { set.wrappedValue.weight = $0.isEmpty ? nil : $0 }
+                    ))
+                    .keyboardType(.decimalPad)
+                    .padding(.vertical, Theme.Space.md)
+                    .padding(.horizontal, Theme.Space.sm)
+                    .background(Color.brand.background)
+                    .cornerRadius(Theme.Radius.sm)
+                    .frame(maxWidth: .infinity)
+
+                    // Offset weight field — only when offset active
+                    if isOffset {
+                        TextField("offset", text: Binding(
+                            get: { set.wrappedValue.offsetWeight ?? "" },
+                            set: { set.wrappedValue.offsetWeight = $0.isEmpty ? nil : $0 }
+                        ))
+                        .keyboardType(.decimalPad)
+                        .padding(.vertical, Theme.Space.md)
+                        .padding(.horizontal, Theme.Space.sm)
+                        .background(Color.brand.background)
+                        .cornerRadius(Theme.Radius.sm)
+                        .frame(maxWidth: .infinity)
                     }
-                } else {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundColor(.clear)
+
+                    // 2x chip
+                    Button {
+                        set.wrappedValue.isDouble = !set.wrappedValue.isDouble
+                    } label: {
+                        Text("2x")
+                            .font(Theme.Font.cardCaption)
+                            .foregroundColor(set.wrappedValue.isDouble ? .white : Color.brand.textSecondary)
+                            .frame(width: 56)
+                            .frame(maxHeight: .infinity)
+                            .background(set.wrappedValue.isDouble ? Color.brand.primary : Color.brand.background)
+                            .cornerRadius(Theme.Radius.sm)
+                    }
+                    .disabled(isOffset)
+                    .opacity(isOffset ? 0.3 : 1)
+
+                    // Offset chip
+                    Button {
+                        if isOffset {
+                            set.wrappedValue.offsetWeight = nil
+                        } else {
+                            set.wrappedValue.offsetWeight = ""
+                        }
+                    } label: {
+                        Text("Offset")
+                            .font(Theme.Font.cardCaption)
+                            .foregroundColor(isOffset ? .white : Color.brand.textSecondary)
+                            .frame(width: 56)
+                            .frame(maxHeight: .infinity)
+                            .background(isOffset ? Color.brand.primary : Color.brand.background)
+                            .cornerRadius(Theme.Radius.sm)
+                    }
+                    .disabled(set.wrappedValue.isDouble)
+                    .opacity(set.wrappedValue.isDouble ? 0.3 : 1)
                 }
             }
-            .frame(width: 24)
         }
     }
 

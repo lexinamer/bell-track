@@ -3,6 +3,8 @@ import SwiftUI
 struct BlockFormView: View {
     let block: Block?
     let onSave: (String, String, Date, Date?) -> Void
+    let onDelete: (() -> Void)?
+    let onComplete: (() -> Void)?
     let onCancel: () -> Void
 
     @State private var name: String
@@ -10,14 +12,20 @@ struct BlockFormView: View {
     @State private var startDate: Date
     @State private var hasEndDate: Bool
     @State private var endDate: Date
+    @State private var showingDeleteAlert = false
+    @State private var showingCompleteAlert = false
 
     init(
         block: Block? = nil,
         onSave: @escaping (String, String, Date, Date?) -> Void,
+        onDelete: (() -> Void)? = nil,
+        onComplete: (() -> Void)? = nil,
         onCancel: @escaping () -> Void
     ) {
         self.block = block
         self.onSave = onSave
+        self.onDelete = onDelete
+        self.onComplete = onComplete
         self.onCancel = onCancel
         _name = State(initialValue: block?.name ?? "")
         _goal = State(initialValue: block?.goal ?? "")
@@ -80,6 +88,28 @@ struct BlockFormView: View {
                         }
                     }
                 }
+
+                // Destructive actions — only shown when editing an existing block
+                if block != nil {
+                    Section {
+                        if onComplete != nil {
+                            Button {
+                                showingCompleteAlert = true
+                            } label: {
+                                Label("Mark as Complete", systemImage: "checkmark.circle")
+                                    .foregroundColor(Color.brand.textPrimary)
+                            }
+                        }
+
+                        if onDelete != nil {
+                            Button(role: .destructive) {
+                                showingDeleteAlert = true
+                            } label: {
+                                Label("Delete Block", systemImage: "trash")
+                            }
+                        }
+                    }
+                }
             }
             .scrollContentBackground(.hidden)
             .background(Color.brand.background)
@@ -95,6 +125,18 @@ struct BlockFormView: View {
                     }
                     .disabled(!canSave)
                 }
+            }
+            .alert("Mark as Complete?", isPresented: $showingCompleteAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Complete") { onComplete?() }
+            } message: {
+                Text("This will mark the block as finished. You can still view past workouts.")
+            }
+            .alert("Delete Block?", isPresented: $showingDeleteAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) { onDelete?() }
+            } message: {
+                Text("This will permanently delete \"\(block?.name ?? "")\" and all its workouts.")
             }
         }
     }
