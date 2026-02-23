@@ -42,7 +42,8 @@ final class ExercisesViewModel: ObservableObject {
             for log in workout.logs {
                 let exerciseId = log.exerciseId
                 workoutCountsDict[exerciseId, default: Set()].insert(workout.id)
-                setCountsDict[exerciseId, default: 0] += log.totalSets
+                setCountsDict[exerciseId, default: 0] +=
+                    log.sets.reduce(0) { $0 + ($1.sets ?? 1) }
             }
         }
 

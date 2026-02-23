@@ -89,7 +89,8 @@ final class FirestoreService {
                     name: workout.name,
                     date: workout.date,
                     blockId: workout.blockId,
-                    logs: updatedLogs
+                    logs: updatedLogs,
+                    workoutType: workout.workoutType
                 )
             }
         }
@@ -154,10 +155,23 @@ final class FirestoreService {
                     let exerciseName = entry["exerciseName"] as? String
                 else { return nil }
 
-                return TemplateEntry(id: id, exerciseId: exerciseId, exerciseName: exerciseName)
+                return TemplateEntry(
+                    id: id,
+                    exerciseId: exerciseId,
+                    exerciseName: exerciseName
+                )
             }
 
-            return WorkoutTemplate(id: doc.documentID, name: name, blockId: blockId, entries: entries)
+            let workoutType = WorkoutType(rawValue: doc["workoutType"] as? String ?? "") ?? .strict
+
+            return WorkoutTemplate(
+                id: doc.documentID,
+                name: name,
+                blockId: blockId,
+                entries: entries,
+                workoutType: workoutType,
+                duration: doc["duration"] as? Int
+            )
         }
     }
 
@@ -165,20 +179,30 @@ final class FirestoreService {
         id: String?,
         name: String,
         blockId: String,
-        entries: [TemplateEntry]
+        entries: [TemplateEntry],
+        workoutType: WorkoutType = .strict,
+        duration: Int? = nil
     ) async throws {
         let ref = try userRef()
         let doc = id == nil
             ? ref.collection("workoutTemplates").document()
             : ref.collection("workoutTemplates").document(id!)
 
-        try await doc.setData([
+        var data: [String: Any] = [
             "blockId": blockId,
             "name": name,
-            "entries": entries.map {
-                ["id": $0.id, "exerciseId": $0.exerciseId, "exerciseName": $0.exerciseName] as [String: Any]
+            "workoutType": workoutType.rawValue,
+            "entries": entries.map { entry -> [String: Any] in
+                return [
+                    "id": entry.id,
+                    "exerciseId": entry.exerciseId,
+                    "exerciseName": entry.exerciseName
+                ]
             }
-        ])
+        ]
+        if let duration = duration { data["duration"] = duration }
+
+        try await doc.setData(data)
     }
 
     func deleteWorkoutTemplate(id: String) async throws {
@@ -288,10 +312,11 @@ final class FirestoreService {
                     guard let id = s["id"] as? String else { return nil }
                     return LogSet(
                         id: id,
-                        sets: s["sets"] as? Int ?? 1,
+                        sets: s["sets"] as? Int,
                         reps: s["reps"] as? String,
                         weight: s["weight"] as? String,
-                        isDouble: s["isDouble"] as? Bool ?? false
+                        isDouble: s["isDouble"] as? Bool ?? false,
+                        offsetWeight: s["offsetWeight"] as? String
                     )
                 }
 
@@ -304,12 +329,15 @@ final class FirestoreService {
                 )
             }
 
+            let workoutType = WorkoutType(rawValue: doc["workoutType"] as? String ?? "") ?? .strict
+
             return Workout(
                 id: doc.documentID,
                 name: doc["name"] as? String,
                 date: date,
                 blockId: doc["blockId"] as? String,
-                logs: logs
+                logs: logs,
+                workoutType: workoutType
             )
         }
     }
@@ -319,7 +347,8 @@ final class FirestoreService {
         name: String?,
         date: Date,
         blockId: String?,
-        logs: [WorkoutLog]
+        logs: [WorkoutLog],
+        workoutType: WorkoutType = .strict
     ) async throws {
         let ref = try userRef()
         let doc = id == nil
@@ -328,19 +357,22 @@ final class FirestoreService {
 
         var data: [String: Any] = [
             "date": date,
+            "workoutType": workoutType.rawValue,
             "logs": logs.map { log in
                 [
                     "id": log.id,
                     "exerciseId": log.exerciseId,
                     "exerciseName": log.exerciseName,
-                    "sets": log.sets.map {
-                        [
-                            "id": $0.id,
-                            "sets": $0.sets as Any,
-                            "reps": $0.reps as Any,
-                            "weight": $0.weight as Any,
-                            "isDouble": $0.isDouble
-                        ] as [String: Any]
+                    "sets": log.sets.map { s -> [String: Any] in
+                        var sd: [String: Any] = [
+                            "id": s.id,
+                            "sets": s.sets as Any,
+                            "reps": s.reps as Any,
+                            "weight": s.weight as Any,
+                            "isDouble": s.isDouble
+                        ]
+                        if let o = s.offsetWeight { sd["offsetWeight"] = o }
+                        return sd
                     },
                     "note": log.note as Any
                 ] as [String: Any]
@@ -364,3 +396,4 @@ final class FirestoreService {
 enum FirestoreError: Error {
     case notAuthenticated
 }
+

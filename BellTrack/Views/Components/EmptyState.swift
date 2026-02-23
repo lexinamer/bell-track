@@ -1,51 +1,85 @@
 import SwiftUI
 
 struct EmptyState: View {
-    let title: String
-    let message: String
-    let buttonTitle: String?
-    let action: (() -> Void)?
 
-    init(
-        title: String,
-        message: String,
-        buttonTitle: String? = nil,
-        action: (() -> Void)? = nil
-    ) {
-        self.title = title
-        self.message = message
-        self.buttonTitle = buttonTitle
-        self.action = action
-    }
+    let showBlockStep: Bool
+    let showTemplateStep: Bool
+    let showWorkoutStep: Bool
+
+    let workoutAction: (() -> Void)?
+    let createTemplateAction: (() -> Void)?
 
     var body: some View {
-        VStack(spacing: Theme.Space.lg) {
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
 
-            Text(title)
-                .font(Theme.Font.emptyStateTitle)
-                .foregroundColor(Color.brand.textPrimary)
+            if showBlockStep {
+                stepRow(
+                    title: "Block created",
+                    complete: showTemplateStep || showWorkoutStep
+                )
+            }
 
-            Text(message)
-                .font(Theme.Font.emptyStateDescription)
-                .foregroundColor(Color.brand.textSecondary)
-                .multilineTextAlignment(.center)
+            if showTemplateStep {
+                stepRow(
+                    title: showWorkoutStep ? "Template created" : "Create a workout template",
+                    complete: showWorkoutStep,
+                    action: showWorkoutStep ? nil : workoutAction
+                )
+            }
 
-            if let buttonTitle = buttonTitle, let action = action {
-                Button {
-                    action()
-                } label: {
-                    Text(buttonTitle)
-                        .font(Theme.Font.buttonPrimary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Theme.Space.sm)
-                        .background(Color.brand.primary)
-                        .foregroundColor(Color.brand.textPrimary)
-                        .cornerRadius(Theme.Radius.md)
+            if showWorkoutStep {
+                if let createTemplateAction {
+                    stepRow(
+                        title: "Create another template",
+                        complete: false,
+                        action: createTemplateAction
+                    )
                 }
-                .padding(.horizontal, Theme.Space.xl)
+                
+                stepRow(
+                    title: "Log your first workout",
+                    complete: false,
+                    action: workoutAction
+                )
             }
         }
+        .padding(.top, Theme.Space.lg)
         .padding(.horizontal, Theme.Space.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func stepRow(
+        title: String,
+        complete: Bool,
+        action: (() -> Void)? = nil
+    ) -> some View {
+        HStack(spacing: Theme.Space.sm) {
+
+            Image(systemName: complete ? "checkmark.circle.fill" : "circle")
+                .font(Theme.Font.cardCaption)
+                .foregroundColor(
+                    complete
+                    ? Color.brand.success
+                    : Color.brand.textSecondary.opacity(0.4)
+                )
+
+            if let action, !complete {
+                Button(action: action) {
+                    Text(title)
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(Color.brand.textPrimary)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Text(title)
+                    .font(Theme.Font.cardSecondary)
+                    .foregroundColor(
+                        complete
+                        ? Color.brand.textSecondary
+                        : Color.brand.textPrimary
+                    )
+            }
+        }
     }
 }
 
@@ -53,28 +87,34 @@ extension EmptyState {
 
     static func noActiveBlock(action: @escaping () -> Void) -> EmptyState {
         EmptyState(
-            title: "Blocks organize your training",
-            message: "Create a block to add templates and log workouts",
-            buttonTitle: "Create Block",
-            action: action
+            showBlockStep: true,
+            showTemplateStep: false,
+            showWorkoutStep: false,
+            workoutAction: action,
+            createTemplateAction: nil
         )
     }
 
     static func noTemplates(action: @escaping () -> Void) -> EmptyState {
         EmptyState(
-            title: "Templates define your workouts",
-            message: "Create a template to log workouts and track progress",
-            buttonTitle: "Create Template",
-            action: action
+            showBlockStep: true,
+            showTemplateStep: true,
+            showWorkoutStep: false,
+            workoutAction: action,
+            createTemplateAction: nil
         )
     }
 
-    static func noWorkouts(action: @escaping () -> Void) -> EmptyState {
+    static func noWorkouts(
+        logAction: @escaping () -> Void,
+        createTemplateAction: @escaping () -> Void
+    ) -> EmptyState {
         EmptyState(
-            title: "Workouts track your progress",
-            message: "Log a workout using a template",
-            buttonTitle: "Log Workout",
-            action: action
+            showBlockStep: true,
+            showTemplateStep: true,
+            showWorkoutStep: true,
+            workoutAction: logAction,
+            createTemplateAction: createTemplateAction
         )
     }
 }

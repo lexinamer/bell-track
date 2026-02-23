@@ -28,16 +28,14 @@ struct WorkoutCard: View {
         if let name = workout.name, !name.isEmpty { return name }
         return workout.logs.map { $0.exerciseName }.joined(separator: ", ")
     }
-
     private var totalVolume: Double {
         workout.logs.reduce(0.0) { total, log in
-            // Exclude time-based exercises — sets × seconds × kg is meaningless
             let exercise = exercises.first(where: { $0.id == log.exerciseId })
             guard exercise?.mode != .time else { return total }
             let logVolume = log.sets.reduce(0.0) { sum, set in
+                let setCount = set.sets ?? 1
                 guard
-                    let sets = set.sets,
-                    sets > 0,
+                    setCount > 0,
                     let repsString = set.reps,
                     let reps = Double(repsString),
                     let weightString = set.weight,
@@ -46,12 +44,12 @@ struct WorkoutCard: View {
                 let weight: Double
                 if set.isDouble {
                     weight = baseWeight * 2
-                } else if let offsetString = set.offsetWeight, let offsetWeight = Double(offsetString) {
+                } else if let offsetString = set.offsetWeight, let offsetWeight = Double(offsetString), !offsetString.isEmpty {
                     weight = baseWeight + offsetWeight
                 } else {
                     weight = baseWeight
                 }
-                return sum + Double(sets) * reps * weight
+                return sum + Double(setCount) * reps * weight
             }
             return total + logVolume
         }
@@ -132,18 +130,9 @@ struct WorkoutCard: View {
 
     private func exerciseRow(_ log: WorkoutLog) -> some View {
         let mode = exercises.first(where: { $0.id == log.exerciseId })?.mode ?? .reps
+        let rows = displayRows(for: log, mode: mode)
         return VStack(alignment: .leading, spacing: Theme.Space.xs) {
-            ForEach(Array(log.sets.enumerated()), id: \.element.id) { index, set in
-                let setsReps: String = {
-                    guard let sets = set.sets, sets > 0, let reps = set.reps, !reps.isEmpty else { return "" }
-                    return mode == .time ? "\(sets)×\(reps)s" : "\(sets)×\(reps)"
-                }()
-                let weight: String = {
-                    guard let w = set.weight, !w.isEmpty else { return "—" }
-                    if set.isDouble { return "2×\(w)kg" }
-                    if let o = set.offsetWeight, !o.isEmpty { return "\(w)/\(o)kg" }
-                    return "\(w)kg"
-                }()
+            ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
                 HStack(spacing: 0) {
                     if index == 0 {
                         Text(log.exerciseName)
@@ -153,15 +142,57 @@ struct WorkoutCard: View {
                     } else {
                         Spacer().frame(maxWidth: 160)
                     }
-                    Text(setsReps)
+                    Text(row.setsReps)
                         .font(Theme.Font.cardSecondary)
                         .foregroundColor(Color.brand.textSecondary)
                         .frame(width: 60, alignment: .leading)
-                    Text(weight)
+                    Text(row.weight)
                         .font(Theme.Font.cardSecondary)
                         .foregroundColor(Color.brand.textSecondary)
                         .frame(width: 60, alignment: .leading)
                 }
+            }
+        }
+    }
+
+    private func displayRows(for log: WorkoutLog, mode: ExerciseMode) -> [(setsReps: String, weight: String)] {
+        func weightStr(_ set: LogSet) -> String {
+            guard let w = set.weight, !w.isEmpty else { return "—" }
+            if set.isDouble { return "2×\(w)kg" }
+            if let o = set.offsetWeight, !o.isEmpty { return "\(w)/\(o)kg" }
+            return "\(w)kg"
+        }
+
+        if workout.workoutType == .timed {
+            // Timed: each LogSet row represents distinct rounds — show as-is
+            return log.sets.map { set in
+                let setCount = set.sets ?? 1
+                let setsReps: String = {
+                    guard setCount > 0, let reps = set.reps, !reps.isEmpty else { return "" }
+                    return mode == .time ? "\(setCount)×\(reps)s" : "\(setCount)×\(reps)"
+                }()
+                return (setsReps, weightStr(set))
+            }
+        } else {
+            // Strict: each LogSet = 1 set — group consecutive identical sets
+            var groups: [(set: LogSet, count: Int)] = []
+            for set in log.sets {
+                if let last = groups.last,
+                   last.set.reps == set.reps,
+                   last.set.weight == set.weight,
+                   last.set.isDouble == set.isDouble,
+                   last.set.offsetWeight == set.offsetWeight {
+                    groups[groups.count - 1].count += 1
+                } else {
+                    groups.append((set, 1))
+                }
+            }
+            return groups.map { group in
+                let setsReps: String = {
+                    guard let reps = group.set.reps, !reps.isEmpty else { return "" }
+                    return mode == .time ? "\(group.count)×\(reps)s" : "\(group.count)×\(reps)"
+                }()
+                return (setsReps, weightStr(group.set))
             }
         }
     }

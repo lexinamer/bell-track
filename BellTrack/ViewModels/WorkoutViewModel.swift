@@ -69,7 +69,8 @@ extension TrainViewModel {
                 name: workout.name,
                 date: workout.date,
                 blockId: workout.blockId,
-                logs: workout.logs
+                logs: workout.logs,
+                workoutType: workout.workoutType
             )
             await load()
         } catch {
@@ -99,7 +100,9 @@ extension TrainViewModel {
     func totalSets(for blockId: String?) -> Int {
         let filtered = blockId != nil ? workouts.filter { $0.blockId == blockId } : workouts
         return filtered.reduce(0) { total, workout in
-            total + workout.logs.reduce(0) { $0 + $1.totalSets }
+            total + workout.logs.reduce(0) { logTotal, log in
+                logTotal + log.sets.reduce(0) { $0 + ($1.sets ?? 1) }
+            }
         }
     }
 

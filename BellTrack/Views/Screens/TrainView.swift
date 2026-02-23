@@ -22,8 +22,35 @@ struct TrainView: View {
                 .frame(maxWidth: .infinity)
 
             } else if vm.activeBlocks.isEmpty && vm.plannedBlocks.isEmpty && vm.pastBlocks.isEmpty {
-                EmptyState.noActiveBlock { showingNewBlock = true }
-                    .offset(y: -60)
+                VStack(spacing: Theme.Space.lg) {
+                    Spacer()
+
+                    Image(systemName: "square.stack.3d.up")
+                        .font(.system(size: 48, weight: .light))
+                        .foregroundColor(Color.brand.textSecondary.opacity(0.5))
+
+                    VStack(spacing: Theme.Space.xs) {
+                        Text("No active block")
+                            .font(Theme.Font.emptyStateTitle)
+                            .foregroundColor(Color.brand.textPrimary)
+                        Text("Create a block to start organizing\nyour training.")
+                            .font(Theme.Font.emptyStateDescription)
+                            .foregroundColor(Color.brand.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+
+                    Button { showingNewBlock = true } label: {
+                        Text("Create Block")
+                            .font(Theme.Font.buttonPrimary)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, Theme.Space.xl)
+                            .padding(.vertical, Theme.Space.smp)
+                            .background(Color.brand.primary)
+                            .clipShape(Capsule())
+                    }
+
+                    Spacer()
+                }
 
             } else {
                 ScrollView {
@@ -55,20 +82,15 @@ struct TrainView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                let hasBlocks = !vm.activeBlocks.isEmpty || !vm.plannedBlocks.isEmpty || !vm.pastBlocks.isEmpty
-                if hasBlocks {
-                    Menu {
-                        if !vm.activeBlocks.isEmpty {
-                            Button { showingLogWorkout = true } label: {
-                                Label("Log Workout", systemImage: "plus")
-                            }
-                        }
-                        Button { showingNewBlock = true } label: {
-                            Label("Create New Block", systemImage: "square.stack.3d.up")
-                        }
-                    } label: {
-                        Image(systemName: "plus").foregroundColor(.white)
+                Menu {
+                    Button { showingLogWorkout = true } label: {
+                        Label("Log Workout", systemImage: "plus")
                     }
+                    Button { showingNewBlock = true } label: {
+                        Label("Create New Block", systemImage: "square.stack.3d.up")
+                    }
+                } label: {
+                    Image(systemName: "plus").foregroundColor(.white)
                 }
             }
         }

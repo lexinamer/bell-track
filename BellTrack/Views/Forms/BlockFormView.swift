@@ -97,7 +97,6 @@ struct BlockFormView: View {
                                 showingCompleteAlert = true
                             } label: {
                                 Label("Mark as Complete", systemImage: "checkmark.circle")
-                                    .foregroundColor(Color.brand.textPrimary)
                             }
                         }
 
@@ -106,6 +105,7 @@ struct BlockFormView: View {
                                 showingDeleteAlert = true
                             } label: {
                                 Label("Delete Block", systemImage: "trash")
+                                    .foregroundStyle(Color.brand.destructive)
                             }
                         }
                     }

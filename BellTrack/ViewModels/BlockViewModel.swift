@@ -7,16 +7,18 @@ extension TrainViewModel {
     // MARK: - Block Queries
     
     var activeBlocks: [Block] {
-        blocks
-            .filter { $0.completedDate == nil && $0.startDate <= Date() }
+        let today = Calendar.current.startOfDay(for: Date())
+        return blocks
+            .filter { $0.completedDate == nil && Calendar.current.startOfDay(for: $0.startDate) <= today }
             .sorted { $0.startDate > $1.startDate }
     }
-    
+
     var activeBlock: Block? { activeBlocks.first }
-    
+
     var plannedBlocks: [Block] {
-        blocks
-            .filter { $0.completedDate == nil && $0.startDate > Date() }
+        let today = Calendar.current.startOfDay(for: Date())
+        return blocks
+            .filter { $0.completedDate == nil && Calendar.current.startOfDay(for: $0.startDate) > today }
             .sorted { $0.startDate < $1.startDate }
     }
     
@@ -31,8 +33,9 @@ extension TrainViewModel {
     }
     
     var filteredBlocks: [Block] {
-        blocks
-            .filter { $0.completedDate == nil && $0.startDate <= Date() }
+        let today = Calendar.current.startOfDay(for: Date())
+        return blocks
+            .filter { $0.completedDate == nil && Calendar.current.startOfDay(for: $0.startDate) <= today }
             .sorted { $0.startDate > $1.startDate }
     }
     
@@ -115,14 +118,18 @@ extension TrainViewModel {
         id: String?,
         name: String,
         blockId: String,
-        entries: [TemplateEntry]
+        entries: [TemplateEntry],
+        workoutType: WorkoutType = .strict,
+        duration: Int? = nil
     ) async {
         do {
             try await firestore.saveWorkoutTemplate(
                 id: id,
                 name: name,
                 blockId: blockId,
-                entries: entries
+                entries: entries,
+                workoutType: workoutType,
+                duration: duration
             )
             await load()
         } catch {
@@ -148,7 +155,7 @@ extension TrainViewModel {
 
         let sorted = workouts
             .filter { $0.blockId == blockId && $0.name == template.name }
-            .sorted { $0.date > $1.date }
+            .sorted { $0.date < $1.date }
 
         guard sorted.count >= 2 else { return nil }
 
@@ -156,10 +163,10 @@ extension TrainViewModel {
             Int(workout.logs.reduce(0.0) { $0 + $1.totalVolume })
         }
 
-        let last = calcVolume(sorted[0])
-        let prev = calcVolume(sorted[1])
-        guard last > 0 else { return nil }
-        return last - prev
+        let latest = calcVolume(sorted.last!)
+        let first = calcVolume(sorted.first!)
+        guard latest > 0 else { return nil }
+        return latest - first
     }
 
     func templateRepsDelta(templateId: String, blockId: String) -> Int? {
@@ -167,7 +174,7 @@ extension TrainViewModel {
 
         let sorted = workouts
             .filter { $0.blockId == blockId && $0.name == template.name }
-            .sorted { $0.date > $1.date }
+            .sorted { $0.date < $1.date }
 
         guard sorted.count >= 2 else { return nil }
 
@@ -175,27 +182,25 @@ extension TrainViewModel {
             workout.logs.reduce(0) { $0 + $1.totalReps }
         }
 
-        let last = calcReps(sorted[0])
-        let prev = calcReps(sorted[1])
-        guard last > 0 else { return nil }
-        return last - prev
+        let latest = calcReps(sorted.last!)
+        let first = calcReps(sorted.first!)
+        guard latest > 0 else { return nil }
+        return latest - first
     }
 
     func workoutTotalReps(_ workout: Workout) -> Int {
         workout.logs.reduce(0) { $0 + $1.totalReps }
     }
-    
+
     // MARK: - Display Helpers
     
     func weekProgress(for block: Block) -> String {
-        guard let endDate = block.endDate else { return "Ongoing" }
         let cal = Calendar.current
+        let currentWeek = (cal.dateComponents([.weekOfYear], from: block.startDate, to: Date()).weekOfYear ?? 0) + 1
+        guard let endDate = block.endDate else { return "Week \(currentWeek)" }
         let total = cal.dateComponents([.weekOfYear], from: block.startDate, to: endDate).weekOfYear ?? 0
-        let current = min(
-            cal.dateComponents([.weekOfYear], from: block.startDate, to: Date()).weekOfYear ?? 0,
-            total
-        ) + 1
-        return "Week \(current) of \(total)"
+        let clamped = min(currentWeek - 1, total) + 1
+        return "Week \(clamped) of \(total)"
     }
     
     func formattedEndDate(for block: Block) -> String {

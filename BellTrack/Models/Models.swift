@@ -31,6 +31,20 @@ enum ExerciseMode: String, Codable {
     case time
 }
 
+// MARK: - Workout Type
+
+enum WorkoutType: String, Codable {
+    case strict
+    case timed
+
+    var displayName: String {
+        switch self {
+        case .strict: return "Strict"
+        case .timed: return "Timed"
+        }
+    }
+}
+
 // MARK: - Exercise
 
 struct Exercise: Identifiable, Codable, Equatable, Hashable {
@@ -59,11 +73,50 @@ struct TemplateEntry: Identifiable, Codable, Equatable {
     }
 }
 
-struct WorkoutTemplate: Identifiable, Codable, Equatable {
+struct WorkoutTemplate: Identifiable, Equatable {
     let id: String
     var name: String
     var blockId: String
     var entries: [TemplateEntry]
+    var workoutType: WorkoutType
+    var duration: Int?  // minutes, Timed only
+
+    init(
+        id: String = UUID().uuidString,
+        name: String,
+        blockId: String,
+        entries: [TemplateEntry] = [],
+        workoutType: WorkoutType = .strict,
+        duration: Int? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.blockId = blockId
+        self.entries = entries
+        self.workoutType = workoutType
+        self.duration = duration
+    }
+}
+
+extension WorkoutTemplate: Codable {
+    enum CodingKeys: String, CodingKey {
+        case id, name, blockId, entries, workoutType, duration
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        blockId = try c.decode(String.self, forKey: .blockId)
+        entries = try c.decodeIfPresent([TemplateEntry].self, forKey: .entries) ?? []
+        // Migrate legacy ladder/emom to timed
+        if let raw = try? c.decodeIfPresent(String.self, forKey: .workoutType) {
+            workoutType = (raw == "ladder" || raw == "emom") ? .timed : (WorkoutType(rawValue: raw) ?? .strict)
+        } else {
+            workoutType = .strict
+        }
+        duration = try c.decodeIfPresent(Int.self, forKey: .duration)
+    }
 }
 
 // MARK: - Block
@@ -79,11 +132,14 @@ struct Block: Identifiable, Codable, Equatable, Hashable {
 }
 
 // MARK: - LogSet
+//
+// Strict: sets = nil, reps = reps performed, weight/isDouble/offsetWeight = load
+// Timed:  sets = rounds completed, reps = reps per round (from prescription), weight/isDouble/offsetWeight = load
 
 struct LogSet: Identifiable, Codable, Equatable {
     let id: String
-    var sets: Int?
-    var reps: String?
+    var sets: Int?          // Timed only: rounds completed
+    var reps: String?       // Strict: reps performed / Timed: reps per round
     var weight: String?
     var isDouble: Bool
     var offsetWeight: String?
@@ -114,34 +170,25 @@ struct WorkoutLog: Identifiable, Codable, Equatable {
     var sets: [LogSet]
     var note: String?
 
-    /// controls UI mode independently of sets.count
-    var isVarying: Bool
-
     init(
         id: String = UUID().uuidString,
         exerciseId: String,
         exerciseName: String,
         sets: [LogSet] = [LogSet()],
-        note: String? = nil,
-        isVarying: Bool = false
+        note: String? = nil
     ) {
         self.id = id
         self.exerciseId = exerciseId
         self.exerciseName = exerciseName
         self.sets = sets.isEmpty ? [LogSet()] : sets
         self.note = note
-        self.isVarying = isVarying
     }
 
     // MARK: - Helpers
 
-    var totalSets: Int {
-        sets.reduce(0) { $0 + ($1.sets ?? 0) }
-    }
-
     var totalReps: Int {
         sets.reduce(0) {
-            $0 + (($1.sets ?? 0) * (Int($1.reps ?? "0") ?? 0))
+            $0 + (($1.sets ?? 1) * (Int($1.reps ?? "0") ?? 0))
         }
     }
 
@@ -149,21 +196,26 @@ struct WorkoutLog: Identifiable, Codable, Equatable {
         sets.reduce(0.0) { total, set in
             let reps = Double(set.reps ?? "0") ?? 0
             let base = Double(set.weight ?? "0") ?? 0
-            let weight = set.isDouble ? base * 2 : base
-            return total + Double(set.sets ?? 0) * reps * weight
+            let weight: Double
+            if set.isDouble {
+                weight = base * 2
+            } else if let offset = set.offsetWeight, let offsetVal = Double(offset), !offset.isEmpty {
+                weight = base + offsetVal
+            } else {
+                weight = base
+            }
+            return total + Double(set.sets ?? 1) * reps * weight
         }
     }
 
     mutating func addRow() {
         let last = sets.last ?? LogSet()
-        sets.append(
-            LogSet(
-                sets: last.sets,
-                reps: last.reps,
-                weight: last.weight,
-                isDouble: last.isDouble
-            )
-        )
+        sets.append(LogSet(
+            sets: last.sets,
+            reps: last.reps,
+            weight: last.weight,
+            isDouble: last.isDouble
+        ))
     }
 
     mutating func removeRow(at index: Int) {
@@ -174,12 +226,50 @@ struct WorkoutLog: Identifiable, Codable, Equatable {
 
 // MARK: - Workout
 
-struct Workout: Identifiable, Codable, Equatable {
+struct Workout: Identifiable, Equatable {
     let id: String
     var name: String?
     var date: Date
     var blockId: String?
     var logs: [WorkoutLog]
+    var workoutType: WorkoutType
+
+    init(
+        id: String = UUID().uuidString,
+        name: String? = nil,
+        date: Date = Date(),
+        blockId: String? = nil,
+        logs: [WorkoutLog] = [],
+        workoutType: WorkoutType = .strict
+    ) {
+        self.id = id
+        self.name = name
+        self.date = date
+        self.blockId = blockId
+        self.logs = logs
+        self.workoutType = workoutType
+    }
+}
+
+extension Workout: Codable {
+    enum CodingKeys: String, CodingKey {
+        case id, name, date, blockId, logs, workoutType
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = try c.decodeIfPresent(String.self, forKey: .name)
+        date = try c.decode(Date.self, forKey: .date)
+        blockId = try c.decodeIfPresent(String.self, forKey: .blockId)
+        logs = try c.decodeIfPresent([WorkoutLog].self, forKey: .logs) ?? []
+        // Migrate legacy ladder/emom to timed
+        if let raw = try? c.decodeIfPresent(String.self, forKey: .workoutType) {
+            workoutType = (raw == "ladder" || raw == "emom") ? .timed : (WorkoutType(rawValue: raw) ?? .strict)
+        } else {
+            workoutType = .strict
+        }
+    }
 }
 
 // MARK: - Stats

@@ -21,7 +21,7 @@ struct BlockCard: View {
     private var subtitle: String {
         switch state {
         case .active(let weekProgress, let endDate):
-            return endDate.isEmpty ? weekProgress : "\(weekProgress) · Ends \(endDate)"
+            return endDate.isEmpty ? "\(weekProgress) · Ongoing" : "\(weekProgress) · Ends \(endDate)"
         case .upcoming(let startDate):
             return "Starts \(startDate)"
         case .completed(let dateRange):

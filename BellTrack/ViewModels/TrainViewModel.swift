@@ -23,6 +23,7 @@ final class TrainViewModel: ObservableObject {
     // MARK: - Load
     
     func load() async {
+        
         isLoading = true
         defer { isLoading = false }
         
@@ -58,7 +59,7 @@ final class TrainViewModel: ObservableObject {
         for block in blocks {
             guard block.completedDate == nil,
                   let endDate = block.endDate,
-                  now >= endDate
+                  Calendar.current.startOfDay(for: now) >= Calendar.current.startOfDay(for: endDate)
             else { continue }
             
             do {
