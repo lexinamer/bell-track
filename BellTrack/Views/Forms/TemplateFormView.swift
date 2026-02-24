@@ -157,7 +157,7 @@ struct WorkoutTemplateFormView: View {
                                                 .foregroundColor(isAdded ? Color.brand.textSecondary : Color.brand.primary)
                                         }
                                         .padding(.horizontal, Theme.Space.md)
-                                        .padding(.vertical, Theme.Space.sm)
+                                        .padding(.vertical, Theme.Space.md)
                                         .background(Color.brand.surface)
                                     }
                                     .disabled(isAdded)
@@ -234,6 +234,6 @@ struct WorkoutTemplateFormView: View {
             }
         }
         .padding(.horizontal, Theme.Space.md)
-        .padding(.vertical, Theme.Space.sm)
+        .padding(.vertical, Theme.Space.md)
     }
 }

@@ -5,7 +5,6 @@ struct BlockDetailView: View {
     @ObservedObject var vm: TrainViewModel
     @Environment(\.dismiss) private var dismiss
 
-    // Live block state
     private var currentBlock: Block {
         vm.blocks.first(where: { $0.id == block.id }) ?? block
     }
@@ -22,15 +21,13 @@ struct BlockDetailView: View {
         currentBlock.completedDate != nil
     }
 
-    // MARK: - Local State
-
     @State private var loggingTemplate: WorkoutTemplate?
     @State private var selectedWorkout: Workout?
-    @State private var editingTemplate: WorkoutTemplate?
-    @State private var showingNewTemplate = false
     @State private var editingBlock: Block?
     @State private var workoutToDelete: Workout?
     @State private var filteredTemplateId: String?
+    @State private var showingCompleteAlert = false
+    @State private var showingDeleteAlert = false
 
     // MARK: - Body
 
@@ -41,19 +38,10 @@ struct BlockDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     headerSection
-                    
-                    if templates.isEmpty {
-                        EmptyState.noTemplates {
-                            showingNewTemplate = true
-                        }
-                    } else if workouts.isEmpty {
-                        EmptyState.noWorkouts(
-                            logAction: {
-                                loggingTemplate = templates.first
-                            },
-                            createTemplateAction: {
-                                showingNewTemplate = true
-                            }
+
+                    if workouts.isEmpty {
+                        EmptyStateNoWorkouts(
+                            action: { loggingTemplate = templates.first }
                         )
                     } else {
                         workoutsSection
@@ -95,9 +83,26 @@ struct BlockDetailView: View {
         .fullScreenCover(item: $editingBlock) { b in
             BlockFormView(
                 block: b,
-                onSave: { name, goal, startDate, endDate in
+                existingTemplates: vm.templatesForBlock(b.id),
+                exercises: vm.exercises,
+                onSave: { name, goal, startDate, endDate, templates in
                     Task {
                         await vm.saveBlock(id: b.id, name: name, goal: goal, startDate: startDate, endDate: endDate)
+                        let existingIds = Set(vm.templatesForBlock(b.id).map { $0.id })
+                        for template in templates {
+                            await vm.saveTemplate(
+                                id: existingIds.contains(template.id) ? template.id : nil,
+                                name: template.name,
+                                blockId: b.id,
+                                entries: template.entries,
+                                workoutType: template.workoutType,
+                                duration: template.duration
+                            )
+                        }
+                        let updatedIds = Set(templates.map { $0.id })
+                        for template in vm.templatesForBlock(b.id) where !updatedIds.contains(template.id) {
+                            await vm.deleteTemplate(id: template.id)
+                        }
                         editingBlock = nil
                     }
                 },
@@ -118,39 +123,6 @@ struct BlockDetailView: View {
             )
         }
 
-        .fullScreenCover(isPresented: $showingNewTemplate) {
-            WorkoutTemplateFormView(
-                exercises: vm.exercises,
-                onSave: { name, entries, workoutType, duration in
-                    Task {
-                        await vm.saveTemplate(id: nil, name: name, blockId: block.id, entries: entries, workoutType: workoutType, duration: duration)
-                        showingNewTemplate = false
-                    }
-                },
-                onCancel: { showingNewTemplate = false }
-            )
-        }
-
-        .fullScreenCover(item: $editingTemplate) { template in
-            WorkoutTemplateFormView(
-                template: template,
-                exercises: vm.exercises,
-                onSave: { name, entries, workoutType, duration in
-                    Task {
-                        await vm.saveTemplate(id: template.id, name: name, blockId: block.id, entries: entries, workoutType: workoutType, duration: duration)
-                        editingTemplate = nil
-                    }
-                },
-                onDelete: {
-                    Task {
-                        await vm.deleteTemplate(id: template.id)
-                        editingTemplate = nil
-                    }
-                },
-                onCancel: { editingTemplate = nil }
-            )
-        }
-
         // MARK: - Alerts
 
         .alert("Delete Workout?", isPresented: deleteWorkoutBinding) {
@@ -163,6 +135,25 @@ struct BlockDetailView: View {
         } message: {
             Text("This will permanently delete this workout.")
         }
+        .alert("Mark as Complete?", isPresented: $showingCompleteAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Complete") {
+                Task { await vm.completeBlock(id: block.id) }
+            }
+        } message: {
+            Text("This will mark the block as finished. You can still view past workouts.")
+        }
+        .alert("Delete Block?", isPresented: $showingDeleteAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                Task {
+                    await vm.deleteBlock(id: block.id)
+                    dismiss()
+                }
+            }
+        } message: {
+            Text("This will permanently delete \"\(currentBlock.name)\" and all its workouts.")
+        }
     }
 
     // MARK: - Toolbar
@@ -170,14 +161,7 @@ struct BlockDetailView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                Button { loggingTemplate = templates.first } label: {
-                    Label("Log Workout", systemImage: "plus")
-                }
-                Button { showingNewTemplate = true } label: {
-                    Label("Add Template", systemImage: "square.and.pencil")
-                }
-            } label: {
+            Button { loggingTemplate = templates.first } label: {
                 Image(systemName: "plus")
                     .foregroundColor(.white)
             }
@@ -202,12 +186,15 @@ struct BlockDetailView: View {
 
             Menu {
                 Button { editingBlock = currentBlock } label: {
-                    Label("Edit Block", systemImage: "square.stack.3d.up")
+                    Label("Edit Block", systemImage: "square.and.pencil")
                 }
-                ForEach(Array(templates.enumerated()), id: \.element.id) { _, template in
-                    Button { editingTemplate = template } label: {
-                        Label("Edit \(template.name)", systemImage: "clipboard")
+                if !isCompleted {
+                    Button { showingCompleteAlert = true } label: {
+                        Label("Mark as Complete", systemImage: "checkmark.circle")
                     }
+                }
+                Button(role: .destructive) { showingDeleteAlert = true } label: {
+                    Label("Delete Block", systemImage: "trash")
                 }
             } label: {
                 Image(systemName: "ellipsis")
@@ -223,13 +210,6 @@ struct BlockDetailView: View {
     }
 
     private var progressLineText: String {
-        if isCompleted {
-            let f = DateFormatter()
-            f.dateFormat = "MMM d"
-            let start = f.string(from: currentBlock.startDate)
-            let end = f.string(from: currentBlock.completedDate ?? currentBlock.endDate ?? currentBlock.startDate)
-            return "\(start) – \(end)"
-        }
         if currentBlock.startDate > Date() {
             let f = DateFormatter()
             f.dateFormat = "MMM d"

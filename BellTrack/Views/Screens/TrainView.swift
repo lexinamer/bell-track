@@ -22,39 +22,19 @@ struct TrainView: View {
                 .frame(maxWidth: .infinity)
 
             } else if vm.activeBlocks.isEmpty && vm.plannedBlocks.isEmpty && vm.pastBlocks.isEmpty {
-                VStack(spacing: Theme.Space.lg) {
-                    Spacer()
-
-                    Image(systemName: "square.stack.3d.up")
-                        .font(.system(size: 48, weight: .light))
-                        .foregroundColor(Color.brand.textSecondary.opacity(0.5))
-
-                    VStack(spacing: Theme.Space.xs) {
-                        Text("No active block")
-                            .font(Theme.Font.emptyStateTitle)
-                            .foregroundColor(Color.brand.textPrimary)
-                        Text("Create a block to start organizing\nyour training.")
-                            .font(Theme.Font.emptyStateDescription)
-                            .foregroundColor(Color.brand.textSecondary)
-                            .multilineTextAlignment(.center)
-                    }
-
-                    Button { showingNewBlock = true } label: {
-                        Text("Create Block")
-                            .font(Theme.Font.buttonPrimary)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, Theme.Space.xl)
-                            .padding(.vertical, Theme.Space.smp)
-                            .background(Color.brand.primary)
-                            .clipShape(Capsule())
-                    }
-
-                    Spacer()
-                }
+                EmptyStateNoActiveBlock(action: { showingNewBlock = true })
 
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
+
+                        Button { showingNewBlock = true } label: {
+                            Label("New Block", systemImage: "square.stack.3d.up")
+                                .font(Theme.Font.cardCaption)
+                                .foregroundColor(Color.brand.primary)
+                        }
+                        .padding(.top, Theme.Space.sm)
+                        .padding(.bottom, Theme.Space.md)
 
                         if !vm.activeBlocks.isEmpty {
                             SectionDivider(title: "Active")
@@ -82,14 +62,7 @@ struct TrainView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button { showingLogWorkout = true } label: {
-                        Label("Log Workout", systemImage: "plus")
-                    }
-                    Button { showingNewBlock = true } label: {
-                        Label("Create New Block", systemImage: "square.stack.3d.up")
-                    }
-                } label: {
+                Button { showingLogWorkout = true } label: {
                     Image(systemName: "plus").foregroundColor(.white)
                 }
             }
@@ -121,7 +94,8 @@ struct TrainView: View {
         }
         .fullScreenCover(isPresented: $showingNewBlock) {
             BlockFormView(
-                onSave: { name, goal, start, endDate in
+                exercises: vm.exercises,
+                onSave: { name, goal, start, endDate, templates in
                     Task {
                         if let newBlockId = await vm.saveBlock(
                             id: nil,
@@ -130,6 +104,17 @@ struct TrainView: View {
                             startDate: start,
                             endDate: endDate
                         ) {
+                            for template in templates {
+                                await vm.saveTemplate(
+                                    id: nil,
+                                    name: template.name,
+                                    blockId: newBlockId,
+                                    entries: template.entries,
+                                    workoutType: template.workoutType,
+                                    duration: template.duration
+                                )
+                            }
+                            await vm.load()
                             showingNewBlock = false
                             if let block = vm.blocks.first(where: { $0.id == newBlockId }) {
                                 selectedBlock = block
@@ -144,9 +129,26 @@ struct TrainView: View {
         .fullScreenCover(item: $editingBlock) { b in
             BlockFormView(
                 block: b,
-                onSave: { name, goal, startDate, endDate in
+                existingTemplates: vm.templatesForBlock(b.id),
+                exercises: vm.exercises,
+                onSave: { name, goal, startDate, endDate, templates in
                     Task {
                         await vm.saveBlock(id: b.id, name: name, goal: goal, startDate: startDate, endDate: endDate)
+                        let existingIds = Set(vm.templatesForBlock(b.id).map { $0.id })
+                        for template in templates {
+                            await vm.saveTemplate(
+                                id: existingIds.contains(template.id) ? template.id : nil,
+                                name: template.name,
+                                blockId: b.id,
+                                entries: template.entries,
+                                workoutType: template.workoutType,
+                                duration: template.duration
+                            )
+                        }
+                        let updatedIds = Set(templates.map { $0.id })
+                        for template in vm.templatesForBlock(b.id) where !updatedIds.contains(template.id) {
+                            await vm.deleteTemplate(id: template.id)
+                        }
                         editingBlock = nil
                     }
                 },
