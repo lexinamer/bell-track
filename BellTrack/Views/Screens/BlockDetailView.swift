@@ -223,6 +223,13 @@ struct BlockDetailView: View {
     }
 
     private var progressLineText: String {
+        if isCompleted {
+            let f = DateFormatter()
+            f.dateFormat = "MMM d"
+            let start = f.string(from: currentBlock.startDate)
+            let end = f.string(from: currentBlock.completedDate ?? currentBlock.endDate ?? currentBlock.startDate)
+            return "\(start) – \(end)"
+        }
         if currentBlock.startDate > Date() {
             let f = DateFormatter()
             f.dateFormat = "MMM d"

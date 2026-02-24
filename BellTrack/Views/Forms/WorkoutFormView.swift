@@ -178,7 +178,8 @@ struct WorkoutFormView: View {
     }
 
     private func strictExerciseCard(log: Binding<WorkoutLog>) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Space.md) {
+        let exerciseMode = exercises.first(where: { $0.id == log.wrappedValue.exerciseId })?.mode ?? .reps
+        return VStack(alignment: .leading, spacing: Theme.Space.md) {
 
             Text(log.wrappedValue.exerciseName)
                 .font(Theme.Font.cardTitle)
@@ -187,7 +188,7 @@ struct WorkoutFormView: View {
             HStack(spacing: Theme.Space.sm) {
                 Text("Set")
                     .frame(width: 36, alignment: .leading)
-                Text("Reps")
+                Text(exerciseMode == .time ? "Duration (sec)" : "Reps")
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Text("Weight (kg)")
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -241,7 +242,7 @@ struct WorkoutFormView: View {
                 .frame(width: 36, alignment: .leading)
 
             // Reps
-            TextField("12", text: Binding(
+            TextField("8", text: Binding(
                 get: { set.wrappedValue.reps ?? "" },
                 set: { set.wrappedValue.reps = $0.isEmpty ? nil : $0 }
             ))
@@ -372,7 +373,7 @@ struct WorkoutFormView: View {
         return HStack(spacing: Theme.Space.sm) {
 
             // Rounds
-            TextField("12", text: Binding(
+            TextField("20", text: Binding(
                 get: { log.wrappedValue.sets[safe: index]?.sets.map { "\($0)" } ?? "" },
                 set: { val in
                     var updated = log.wrappedValue
@@ -390,7 +391,7 @@ struct WorkoutFormView: View {
             .frame(width: 52)
 
             // Reps
-            TextField("12", text: Binding(
+            TextField("2", text: Binding(
                 get: { log.wrappedValue.sets[safe: index]?.reps ?? "" },
                 set: { val in
                     var updated = log.wrappedValue

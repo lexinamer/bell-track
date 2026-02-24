@@ -160,7 +160,11 @@ extension TrainViewModel {
         guard sorted.count >= 2 else { return nil }
 
         let calcVolume: (Workout) -> Int = { workout in
-            Int(workout.logs.reduce(0.0) { $0 + $1.totalVolume })
+            Int(workout.logs.reduce(0.0) { total, log in
+                guard let exercise = self.exercises.first(where: { $0.id == log.exerciseId }),
+                      exercise.mode != .time else { return total }
+                return total + log.totalVolume
+            })
         }
 
         let latest = calcVolume(sorted.last!)
