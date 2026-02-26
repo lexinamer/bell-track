@@ -123,6 +123,12 @@ extension TrainViewModel {
         duration: Int? = nil
     ) async {
         do {
+            // If renaming an existing template, cascade to all past workouts
+            if let id = id,
+               let oldName = templates.first(where: { $0.id == id })?.name,
+               oldName != name {
+                try await firestore.updateWorkoutNamesForTemplate(oldName: oldName, newName: name)
+            }
             try await firestore.saveWorkoutTemplate(
                 id: id,
                 name: name,

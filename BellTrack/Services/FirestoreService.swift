@@ -394,6 +394,22 @@ final class FirestoreService {
         let ref = try userRef()
         try await ref.collection("workouts").document(id).delete()
     }
+
+    // When a template is renamed, update the name on all workouts that used it
+    func updateWorkoutNamesForTemplate(oldName: String, newName: String) async throws {
+        let workouts = try await fetchWorkouts()
+        for workout in workouts {
+            guard workout.name == oldName else { continue }
+            try await saveWorkout(
+                id: workout.id,
+                name: newName,
+                date: workout.date,
+                blockId: workout.blockId,
+                logs: workout.logs,
+                workoutType: workout.workoutType
+            )
+        }
+    }
 }
 
 // MARK: - Errors
