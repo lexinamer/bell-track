@@ -57,9 +57,9 @@ struct WorkoutTemplateFormView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") {
-                    let duration = workoutType == .timed ? Int(durationMinutes) : nil
+                    let duration = workoutType == .amrap ? Int(durationMinutes) : nil
                     onSave(nameInput.trimmingCharacters(in: .whitespaces), selectedEntries, workoutType, duration)
-                    dismiss()
+                    // No dismiss() here — parent controls navigation via binding
                 }
                 .disabled(!canSave)
             }
@@ -96,7 +96,7 @@ struct WorkoutTemplateFormView: View {
                     .font(Theme.Font.cardCaption)
                     .foregroundColor(Color.brand.textSecondary)
                 HStack(spacing: Theme.Space.sm) {
-                    ForEach([WorkoutType.strict, .timed], id: \.self) { type in
+                    ForEach([WorkoutType.strict, .amrap], id: \.self) { type in
                         Button { workoutType = type } label: {
                             Text(type.displayName)
                                 .font(Theme.Font.cardCaption)
@@ -112,7 +112,7 @@ struct WorkoutTemplateFormView: View {
             }
             .padding(Theme.Space.md)
 
-            if workoutType == .timed {
+            if workoutType == .amrap {
                 Divider().padding(.leading, Theme.Space.md)
                 VStack(alignment: .leading, spacing: Theme.Space.xs) {
                     Text("Duration (minutes)")

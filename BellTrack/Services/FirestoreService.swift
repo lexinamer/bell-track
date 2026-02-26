@@ -279,6 +279,23 @@ final class FirestoreService {
 
     func deleteBlock(id: String) async throws {
         let ref = try userRef()
+
+        // Cascade: delete all templates belonging to this block
+        let templateSnap = try await ref.collection("workoutTemplates")
+            .whereField("blockId", isEqualTo: id)
+            .getDocuments()
+        for doc in templateSnap.documents {
+            try await doc.reference.delete()
+        }
+
+        // Cascade: delete all workouts belonging to this block
+        let workoutSnap = try await ref.collection("workouts")
+            .whereField("blockId", isEqualTo: id)
+            .getDocuments()
+        for doc in workoutSnap.documents {
+            try await doc.reference.delete()
+        }
+
         try await ref.collection("blocks").document(id).delete()
     }
 

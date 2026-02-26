@@ -17,6 +17,7 @@ struct BlockFormView: View {
     @State private var pendingTemplates: [WorkoutTemplate]
     @State private var editingTemplate: WorkoutTemplate?
     @State private var addingTemplate = false
+    @State private var addingTemplateId = UUID()  // refreshed each time to force a new view
     @State private var didAttemptSave = false
 
     private let blockId: String
@@ -86,9 +87,13 @@ struct BlockFormView: View {
                             duration: duration
                         )
                         pendingTemplates.append(newTemplate)
+                        addingTemplate = false
                     },
                     onCancel: { addingTemplate = false }
                 )
+                // A new UUID is stamped before each presentation, so SwiftUI always
+                // constructs a fresh instance — preventing @State bleed from the prior form.
+                .id(addingTemplateId)
             }
             .navigationDestination(item: $editingTemplate) { template in
                 WorkoutTemplateFormView(
@@ -200,6 +205,7 @@ struct BlockFormView: View {
             }
 
             Button {
+                addingTemplateId = UUID()  // new identity = guaranteed fresh view instance
                 addingTemplate = true
             } label: {
                 Label("Add Template", systemImage: "plus")

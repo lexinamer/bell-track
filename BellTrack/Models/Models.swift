@@ -35,12 +35,12 @@ enum ExerciseMode: String, Codable {
 
 enum WorkoutType: String, Codable {
     case strict
-    case timed
+    case amrap
 
     var displayName: String {
         switch self {
         case .strict: return "Strict"
-        case .timed: return "Timed"
+        case .amrap: return "AMRAP"
         }
     }
 }
@@ -62,7 +62,7 @@ struct TemplateEntry: Identifiable, Codable, Equatable {
     var exerciseId: String
     var exerciseName: String
     var defaultSets: Int?       // Strict: default sets to prefill log
-    var defaultReps: String?    // Strict + Timed: default reps to prefill log / display
+    var defaultReps: String?    // Strict + AMRAP: default reps to prefill log / display
 
     init(
         id: String = UUID().uuidString,
@@ -85,7 +85,7 @@ struct WorkoutTemplate: Identifiable, Equatable {
     var blockId: String
     var entries: [TemplateEntry]
     var workoutType: WorkoutType
-    var duration: Int?  // minutes, Timed only
+    var duration: Int?  // minutes, AMRAP only
 
     init(
         id: String = UUID().uuidString,
@@ -116,7 +116,7 @@ extension WorkoutTemplate: Codable {
         blockId = try c.decode(String.self, forKey: .blockId)
         entries = try c.decodeIfPresent([TemplateEntry].self, forKey: .entries) ?? []
         if let raw = try? c.decodeIfPresent(String.self, forKey: .workoutType) {
-            workoutType = (raw == "ladder" || raw == "emom") ? .timed : (WorkoutType(rawValue: raw) ?? .strict)
+            workoutType = (raw == "ladder" || raw == "emom") ? .amrap : (WorkoutType(rawValue: raw) ?? .strict)
         } else {
             workoutType = .strict
         }
@@ -139,12 +139,12 @@ struct Block: Identifiable, Codable, Equatable, Hashable {
 // MARK: - LogSet
 //
 // Strict: sets = nil, reps = reps performed, weight/isDouble/offsetWeight = load
-// Timed:  sets = rounds completed (shared across exercises), reps = reps per round, weight = load
+// AMRAP:  sets = rounds completed (shared across exercises), reps = reps per round, weight = load
 
 struct LogSet: Identifiable, Codable, Equatable {
     let id: String
-    var sets: Int?          // Timed only: rounds completed
-    var reps: String?       // Strict: reps performed / Timed: reps per round (from template)
+    var sets: Int?          // AMRAP only: rounds completed
+    var reps: String?       // Strict: reps performed / AMRAP: reps per round (from template)
     var weight: String?
     var isDouble: Bool
     var offsetWeight: String?
@@ -267,7 +267,7 @@ extension Workout: Codable {
         blockId = try c.decodeIfPresent(String.self, forKey: .blockId)
         logs = try c.decodeIfPresent([WorkoutLog].self, forKey: .logs) ?? []
         if let raw = try? c.decodeIfPresent(String.self, forKey: .workoutType) {
-            workoutType = (raw == "ladder" || raw == "emom") ? .timed : (WorkoutType(rawValue: raw) ?? .strict)
+            workoutType = (raw == "ladder" || raw == "emom") ? .amrap : (WorkoutType(rawValue: raw) ?? .strict)
         } else {
             workoutType = .strict
         }

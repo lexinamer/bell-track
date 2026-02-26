@@ -13,6 +13,7 @@ struct WorkoutFormView: View {
     @State private var selectedTemplate: WorkoutTemplate?
     @State private var logs: [WorkoutLog]
     @State private var sharedRounds: String = ""
+    @State private var sharedReps: String = ""
     @State private var exercises: [Exercise] = []
     @State private var blocks: [Block] = []
     @State private var templates: [WorkoutTemplate] = []
@@ -33,9 +34,13 @@ struct WorkoutFormView: View {
         _blockId = State(initialValue: workout?.blockId ?? template?.blockId)
         _logs = State(initialValue: workout?.logs ?? [])
         _selectedTemplate = State(initialValue: template)
-        if let w = workout, w.workoutType == .timed,
+        if let w = workout, w.workoutType == .amrap,
            let rounds = w.logs.first?.sets.first?.sets {
             _sharedRounds = State(initialValue: "\(rounds)")
+        }
+        if let w = workout, w.workoutType == .amrap,
+           let reps = w.logs.first?.sets.first?.reps {
+            _sharedReps = State(initialValue: reps)
         }
     }
 
@@ -47,7 +52,7 @@ struct WorkoutFormView: View {
         switch workoutType {
         case .strict:
             return !logs.isEmpty
-        case .timed:
+        case .amrap:
             return selectedTemplate != nil && !sharedRounds.isEmpty && Int(sharedRounds) != nil
         }
     }
@@ -72,7 +77,7 @@ struct WorkoutFormView: View {
                         headerCard
                         switch workoutType {
                         case .strict: strictBody
-                        case .timed: timedBody
+                        case .amrap: amrapBody
                         }
                     }
                     .padding(.vertical)
@@ -298,9 +303,9 @@ struct WorkoutFormView: View {
         }
     }
 
-    // MARK: - Timed Body
+    // MARK: - AMRAP Body
 
-    private var timedBody: some View {
+    private var amrapBody: some View {
         VStack(spacing: Theme.Space.md) {
 
             // Lightweight rounds row
@@ -333,13 +338,13 @@ struct WorkoutFormView: View {
             .padding(.horizontal)
 
             ForEach($logs) { $log in
-                timedExerciseCard(log: $log)
+                amrapExerciseCard(log: $log)
             }
             .padding(.horizontal)
         }
     }
 
-    private func timedExerciseCard(log: Binding<WorkoutLog>) -> some View {
+    private func amrapExerciseCard(log: Binding<WorkoutLog>) -> some View {
         let entry = selectedTemplate?.entries.first { $0.exerciseId == log.wrappedValue.exerciseId }
         let exerciseMode = exercises.first(where: { $0.id == log.wrappedValue.exerciseId })?.mode ?? .reps
         let unit = exerciseMode == .time ? "time (s)" : "reps"
@@ -464,9 +469,12 @@ struct WorkoutFormView: View {
                 return WorkoutLog(exerciseId: entry.exerciseId, exerciseName: entry.exerciseName, sets: sets)
             }
 
-        case .timed:
+        case .amrap:
             if let recent = recentWorkout, let rounds = recent.logs.first?.sets.first?.sets {
                 sharedRounds = "\(rounds)"
+            }
+            if let recent = recentWorkout, let reps = recent.logs.first?.sets.first?.reps {
+                sharedReps = reps
             }
             logs = template.entries.map { entry in
                 let recent = recentWorkout?.logs.first(where: { $0.exerciseId == entry.exerciseId })?.sets.first
@@ -494,13 +502,14 @@ struct WorkoutFormView: View {
                 workoutType: .strict
             )
 
-        case .timed:
+        case .amrap:
             guard let template = selectedTemplate else { return }
             let rounds = Int(sharedRounds) ?? 0
             let savedLogs = logs.map { log -> WorkoutLog in
                 var l = log
                 if l.sets.isEmpty { l.sets = [LogSet()] }
                 l.sets[0].sets = rounds
+                l.sets[0].reps = sharedReps.isEmpty ? nil : sharedReps
                 return l
             }
             try? await firestore.saveWorkout(
@@ -509,7 +518,7 @@ struct WorkoutFormView: View {
                 date: date,
                 blockId: blockId,
                 logs: savedLogs,
-                workoutType: .timed
+                workoutType: .amrap
             )
         }
     }

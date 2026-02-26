@@ -34,11 +34,7 @@ struct WorkoutCard: View {
             let exercise = exercises.first(where: { $0.id == log.exerciseId })
             guard exercise?.mode != .time else { return total }
             let logVolume = log.sets.reduce(0.0) { sum, set in
-                let setCount = set.sets ?? 1
                 guard
-                    setCount > 0,
-                    let repsString = set.reps,
-                    let reps = Double(repsString),
                     let weightString = set.weight,
                     let baseWeight = Double(weightString)
                 else { return sum }
@@ -50,7 +46,20 @@ struct WorkoutCard: View {
                 } else {
                     weight = baseWeight
                 }
-                return sum + Double(setCount) * reps * weight
+                // AMRAP: rounds × reps × weight
+                if workout.workoutType == .amrap {
+                    let rounds = Double(set.sets ?? 0)
+                    let reps = set.reps.flatMap { Double($0) } ?? 0
+                    return sum + rounds * reps * weight
+                }
+                // Strict: sets × reps × weight
+                let setCount = Double(set.sets ?? 1)
+                guard
+                    setCount > 0,
+                    let repsString = set.reps,
+                    let reps = Double(repsString)
+                else { return sum }
+                return sum + setCount * reps * weight
             }
             return total + logVolume
         }
@@ -64,8 +73,8 @@ struct WorkoutCard: View {
         return vol > 0 ? "\(dateStr) · \(vol) kg" : dateStr
     }
 
-    private var timedRounds: Int? {
-        guard workout.workoutType == .timed else { return nil }
+    private var amrapRounds: Int? {
+        guard workout.workoutType == .amrap else { return nil }
         return workout.logs.first?.sets.first?.sets
     }
 
@@ -116,7 +125,7 @@ struct WorkoutCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            if let rounds = timedRounds {
+            if let rounds = amrapRounds {
                 Text("\(rounds) rounds")
                     .font(Theme.Font.cardBadge)
                     .foregroundColor(Color.brand.textSecondary)
@@ -129,8 +138,8 @@ struct WorkoutCard: View {
 
     private var expandedSection: some View {
         VStack(alignment: .leading, spacing: Theme.Space.xs) {
-            if workout.workoutType == .timed {
-                timedExpandedRows
+            if workout.workoutType == .amrap {
+                amrapExpandedRows
             } else {
                 strictExpandedRows
             }
@@ -141,21 +150,23 @@ struct WorkoutCard: View {
         .padding(.trailing, Theme.Space.md)
     }
 
-    // MARK: - Timed expanded: rounds header + exercise · reps · weight
+    // MARK: - AMRAP expanded: rounds header + exercise · reps · weight
 
-    private var timedExpandedRows: some View {
+    private var amrapExpandedRows: some View {
         VStack(alignment: .leading, spacing: Theme.Space.xs) {
             ForEach(workout.logs) { log in
                 let set = log.sets.first
-                let reps = set?.reps ?? ""
-                let weight = timedWeightStr(set)
+                let rounds = set?.sets ?? 0
+                let repsPerRound = set?.reps.flatMap { Int($0) } ?? 0
+                let totalReps = rounds * repsPerRound
+                let weight = amrapWeightStr(set)
                 HStack(spacing: 0) {
                     Text(log.exerciseName)
                         .font(Theme.Font.cardSecondary)
                         .foregroundColor(Color.brand.textPrimary)
                         .frame(maxWidth: 160, alignment: .leading)
-                    if !reps.isEmpty {
-                        Text("\(reps) reps")
+                    if totalReps > 0 {
+                        Text("\(totalReps) reps")
                             .font(Theme.Font.cardSecondary)
                             .foregroundColor(Color.brand.textSecondary)
                             .frame(width: 60, alignment: .leading)
@@ -169,7 +180,7 @@ struct WorkoutCard: View {
         }
     }
 
-    private func timedWeightStr(_ set: LogSet?) -> String {
+    private func amrapWeightStr(_ set: LogSet?) -> String {
         guard let set, let w = set.weight, !w.isEmpty else { return "—" }
         if set.isDouble { return "2×\(w)kg" }
         if let o = set.offsetWeight, !o.isEmpty { return "\(w)/\(o)kg" }
