@@ -308,7 +308,7 @@ struct WorkoutFormView: View {
     private var amrapBody: some View {
         VStack(spacing: Theme.Space.md) {
 
-            // Lightweight rounds row
+            // Rounds · Reps · Duration row
             HStack(spacing: Theme.Space.sm) {
                 Text("Rounds")
                     .font(Theme.Font.cardCaption)
@@ -321,7 +321,20 @@ struct WorkoutFormView: View {
                     .padding(.horizontal, Theme.Space.sm)
                     .background(Color.brand.background)
                     .cornerRadius(Theme.Radius.sm)
-                    .frame(width: 64)
+                    .frame(width: 56)
+
+                Text("Reps")
+                    .font(Theme.Font.cardCaption)
+                    .foregroundColor(Color.brand.textSecondary)
+
+                TextField("—", text: $sharedReps)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.center)
+                    .padding(.vertical, Theme.Space.sm)
+                    .padding(.horizontal, Theme.Space.sm)
+                    .background(Color.brand.background)
+                    .cornerRadius(Theme.Radius.sm)
+                    .frame(width: 56)
 
                 if let duration = selectedTemplate?.duration {
                     Text("· \(duration) min")
@@ -348,7 +361,9 @@ struct WorkoutFormView: View {
         let entry = selectedTemplate?.entries.first { $0.exerciseId == log.wrappedValue.exerciseId }
         let exerciseMode = exercises.first(where: { $0.id == log.wrappedValue.exerciseId })?.mode ?? .reps
         let unit = exerciseMode == .time ? "time (s)" : "reps"
-        let repsLabel: String? = entry?.defaultReps.map { "\($0) \(unit)" }
+        // Use the live sharedReps value so the badge updates as the user types
+        let effectiveReps = sharedReps.isEmpty ? entry?.defaultReps : sharedReps
+        let repsLabel: String? = effectiveReps.map { "\($0) \(unit)" }
         let isDouble = log.wrappedValue.sets.first?.isDouble ?? false
         let hasOffset = log.wrappedValue.sets.first?.offsetWeight != nil
 
@@ -475,6 +490,10 @@ struct WorkoutFormView: View {
             }
             if let recent = recentWorkout, let reps = recent.logs.first?.sets.first?.reps {
                 sharedReps = reps
+            } else if let defaultReps = template.entries.first?.defaultReps {
+                // No prior workout — prefill sharedReps from template default
+                // so it actually gets saved when the user hits Save
+                sharedReps = defaultReps
             }
             logs = template.entries.map { entry in
                 let recent = recentWorkout?.logs.first(where: { $0.exerciseId == entry.exerciseId })?.sets.first
