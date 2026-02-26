@@ -209,28 +209,6 @@ struct BlockDetailView: View {
         .padding(.bottom, Theme.Space.sm)
     }
 
-    private var progressLineText: String {
-        if currentBlock.startDate > Date() {
-            let f = DateFormatter()
-            f.dateFormat = "MMM d"
-            return "Not started · Starts \(f.string(from: currentBlock.startDate))"
-        }
-        if let endDate = currentBlock.endDate {
-            let cal = Calendar.current
-            let totalWeeks = cal.dateComponents([.weekOfYear], from: currentBlock.startDate, to: endDate).weekOfYear ?? 0
-            let currentWeek = min(
-                cal.dateComponents([.weekOfYear], from: currentBlock.startDate, to: Date()).weekOfYear ?? 0,
-                totalWeeks
-            ) + 1
-            let f = DateFormatter()
-            f.dateFormat = "MMM d"
-            return "Week \(currentWeek) of \(totalWeeks) · Ends \(f.string(from: endDate))"
-        }
-        let cal = Calendar.current
-        let current = (cal.dateComponents([.weekOfYear], from: currentBlock.startDate, to: Date()).weekOfYear ?? 0) + 1
-        return "Week \(current) · Ongoing"
-    }
-
     // MARK: - Workouts Section
 
     private var workoutsSection: some View {
@@ -275,6 +253,7 @@ struct BlockDetailView: View {
                     .padding(.horizontal, Theme.Space.md)
                 }
             }
+            .padding(.top, metricsLineParts.isEmpty ? Theme.Space.md : 0)
         }
         .padding(.bottom, Theme.Space.xl)
     }
@@ -328,8 +307,6 @@ struct BlockDetailView: View {
         return BlockColorPalette.templateColor(blockIndex: blockIndex, templateIndex: index)
     }
 
-    // MARK: - Alert Bindings
-
     private var deleteWorkoutBinding: Binding<Bool> {
         Binding(get: { workoutToDelete != nil }, set: { if !$0 { workoutToDelete = nil } })
     }
@@ -341,5 +318,30 @@ struct BlockDetailView: View {
             all = all.filter { $0.name == name }
         }
         return all.sorted { $0.date > $1.date }
+    }
+
+    private var progressLineText: String {
+        if isCompleted {
+            return vm.dateRange(for: currentBlock)
+        }
+        if currentBlock.startDate > Date() {
+            let f = DateFormatter()
+            f.dateFormat = "MMM d"
+            return "Not started · Starts \(f.string(from: currentBlock.startDate))"
+        }
+        if let endDate = currentBlock.endDate {
+            let cal = Calendar.current
+            let totalWeeks = cal.dateComponents([.weekOfYear], from: currentBlock.startDate, to: endDate).weekOfYear ?? 0
+            let currentWeek = min(
+                cal.dateComponents([.weekOfYear], from: currentBlock.startDate, to: Date()).weekOfYear ?? 0,
+                totalWeeks
+            ) + 1
+            let f = DateFormatter()
+            f.dateFormat = "MMM d"
+            return "Week \(currentWeek) of \(totalWeeks) · Ends \(f.string(from: endDate))"
+        }
+        let cal = Calendar.current
+        let current = (cal.dateComponents([.weekOfYear], from: currentBlock.startDate, to: Date()).weekOfYear ?? 0) + 1
+        return "Week \(current) · Ongoing"
     }
 }

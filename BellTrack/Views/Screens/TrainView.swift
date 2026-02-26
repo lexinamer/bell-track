@@ -183,6 +183,7 @@ struct TrainView: View {
                         endDate: vm.formattedEndDate(for: block)
                     ),
                     blockIndex: vm.blockIndex(for: block.id),
+                    lastWorkoutDate: vm.lastWorkoutDate(for: block),
                     onTap: { selectedBlock = block },
                     onEdit: { editingBlock = block },
                     onDelete: { blockToDelete = block },
@@ -199,6 +200,7 @@ struct TrainView: View {
                     block: block,
                     state: .upcoming(startDate: vm.formattedStartDate(for: block)),
                     blockIndex: vm.blockIndex(for: block.id),
+                    lastWorkoutDate: nil,
                     onTap: { selectedBlock = block },
                     onEdit: { editingBlock = block },
                     onDelete: { blockToDelete = block },
@@ -215,6 +217,7 @@ struct TrainView: View {
                     block: block,
                     state: .completed(dateRange: vm.dateRange(for: block)),
                     blockIndex: vm.blockIndex(for: block.id),
+                    lastWorkoutDate: vm.lastWorkoutDate(for: block),
                     onTap: { selectedBlock = block },
                     onEdit: { editingBlock = block },
                     onDelete: { blockToDelete = block },

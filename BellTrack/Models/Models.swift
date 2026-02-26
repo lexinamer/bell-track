@@ -61,15 +61,21 @@ struct TemplateEntry: Identifiable, Codable, Equatable {
     let id: String
     var exerciseId: String
     var exerciseName: String
+    var defaultSets: Int?       // Strict: default sets to prefill log
+    var defaultReps: String?    // Strict + Timed: default reps to prefill log / display
 
     init(
         id: String = UUID().uuidString,
         exerciseId: String,
-        exerciseName: String
+        exerciseName: String,
+        defaultSets: Int? = nil,
+        defaultReps: String? = nil
     ) {
         self.id = id
         self.exerciseId = exerciseId
         self.exerciseName = exerciseName
+        self.defaultSets = defaultSets
+        self.defaultReps = defaultReps
     }
 }
 
@@ -109,7 +115,6 @@ extension WorkoutTemplate: Codable {
         name = try c.decode(String.self, forKey: .name)
         blockId = try c.decode(String.self, forKey: .blockId)
         entries = try c.decodeIfPresent([TemplateEntry].self, forKey: .entries) ?? []
-        // Migrate legacy ladder/emom to timed
         if let raw = try? c.decodeIfPresent(String.self, forKey: .workoutType) {
             workoutType = (raw == "ladder" || raw == "emom") ? .timed : (WorkoutType(rawValue: raw) ?? .strict)
         } else {
@@ -134,12 +139,12 @@ struct Block: Identifiable, Codable, Equatable, Hashable {
 // MARK: - LogSet
 //
 // Strict: sets = nil, reps = reps performed, weight/isDouble/offsetWeight = load
-// Timed:  sets = rounds completed, reps = reps per round (from prescription), weight/isDouble/offsetWeight = load
+// Timed:  sets = rounds completed (shared across exercises), reps = reps per round, weight = load
 
 struct LogSet: Identifiable, Codable, Equatable {
     let id: String
     var sets: Int?          // Timed only: rounds completed
-    var reps: String?       // Strict: reps performed / Timed: reps per round
+    var reps: String?       // Strict: reps performed / Timed: reps per round (from template)
     var weight: String?
     var isDouble: Bool
     var offsetWeight: String?
@@ -183,8 +188,6 @@ struct WorkoutLog: Identifiable, Codable, Equatable {
         self.sets = sets.isEmpty ? [LogSet()] : sets
         self.note = note
     }
-
-    // MARK: - Helpers
 
     var totalReps: Int {
         sets.reduce(0) {
@@ -263,7 +266,6 @@ extension Workout: Codable {
         date = try c.decode(Date.self, forKey: .date)
         blockId = try c.decodeIfPresent(String.self, forKey: .blockId)
         logs = try c.decodeIfPresent([WorkoutLog].self, forKey: .logs) ?? []
-        // Migrate legacy ladder/emom to timed
         if let raw = try? c.decodeIfPresent(String.self, forKey: .workoutType) {
             workoutType = (raw == "ladder" || raw == "emom") ? .timed : (WorkoutType(rawValue: raw) ?? .strict)
         } else {

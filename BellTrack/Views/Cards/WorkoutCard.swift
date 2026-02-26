@@ -28,6 +28,7 @@ struct WorkoutCard: View {
         if let name = workout.name, !name.isEmpty { return name }
         return workout.logs.map { $0.exerciseName }.joined(separator: ", ")
     }
+
     private var totalVolume: Double {
         workout.logs.reduce(0.0) { total, log in
             let exercise = exercises.first(where: { $0.id == log.exerciseId })
@@ -61,6 +62,11 @@ struct WorkoutCard: View {
         let dateStr = formatter.string(from: workout.date)
         let vol = Int(totalVolume.rounded())
         return vol > 0 ? "\(dateStr) · \(vol) kg" : dateStr
+    }
+
+    private var timedRounds: Int? {
+        guard workout.workoutType == .timed else { return nil }
+        return workout.logs.first?.sets.first?.sets
     }
 
     var body: some View {
@@ -110,6 +116,11 @@ struct WorkoutCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
+            if let rounds = timedRounds {
+                Text("\(rounds) rounds")
+                    .font(Theme.Font.cardBadge)
+                    .foregroundColor(Color.brand.textSecondary)
+            }
         }
         .padding(.vertical, Theme.Space.md)
         .padding(.leading, Theme.Space.md)
@@ -118,8 +129,10 @@ struct WorkoutCard: View {
 
     private var expandedSection: some View {
         VStack(alignment: .leading, spacing: Theme.Space.xs) {
-            ForEach(workout.logs) { log in
-                exerciseRow(log)
+            if workout.workoutType == .timed {
+                timedExpandedRows
+            } else {
+                strictExpandedRows
             }
         }
         .padding(.top, Theme.Space.sm)
@@ -128,9 +141,54 @@ struct WorkoutCard: View {
         .padding(.trailing, Theme.Space.md)
     }
 
-    private func exerciseRow(_ log: WorkoutLog) -> some View {
+    // MARK: - Timed expanded: rounds header + exercise · reps · weight
+
+    private var timedExpandedRows: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
+            ForEach(workout.logs) { log in
+                let set = log.sets.first
+                let reps = set?.reps ?? ""
+                let weight = timedWeightStr(set)
+                HStack(spacing: 0) {
+                    Text(log.exerciseName)
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(Color.brand.textPrimary)
+                        .frame(maxWidth: 160, alignment: .leading)
+                    if !reps.isEmpty {
+                        Text("\(reps) reps")
+                            .font(Theme.Font.cardSecondary)
+                            .foregroundColor(Color.brand.textSecondary)
+                            .frame(width: 60, alignment: .leading)
+                    }
+                    Text(weight)
+                        .font(Theme.Font.cardSecondary)
+                        .foregroundColor(Color.brand.textSecondary)
+                        .frame(width: 60, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    private func timedWeightStr(_ set: LogSet?) -> String {
+        guard let set, let w = set.weight, !w.isEmpty else { return "—" }
+        if set.isDouble { return "2×\(w)kg" }
+        if let o = set.offsetWeight, !o.isEmpty { return "\(w)/\(o)kg" }
+        return "\(w)kg"
+    }
+
+    // MARK: - Strict expanded: grouped sets×reps + weight
+
+    private var strictExpandedRows: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.xs) {
+            ForEach(workout.logs) { log in
+                strictExerciseRow(log)
+            }
+        }
+    }
+
+    private func strictExerciseRow(_ log: WorkoutLog) -> some View {
         let mode = exercises.first(where: { $0.id == log.exerciseId })?.mode ?? .reps
-        let rows = displayRows(for: log, mode: mode)
+        let rows = strictDisplayRows(for: log, mode: mode)
         return VStack(alignment: .leading, spacing: Theme.Space.xs) {
             ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
                 HStack(spacing: 0) {
@@ -155,7 +213,7 @@ struct WorkoutCard: View {
         }
     }
 
-    private func displayRows(for log: WorkoutLog, mode: ExerciseMode) -> [(setsReps: String, weight: String)] {
+    private func strictDisplayRows(for log: WorkoutLog, mode: ExerciseMode) -> [(setsReps: String, weight: String)] {
         func weightStr(_ set: LogSet) -> String {
             guard let w = set.weight, !w.isEmpty else { return "—" }
             if set.isDouble { return "2×\(w)kg" }
@@ -163,37 +221,24 @@ struct WorkoutCard: View {
             return "\(w)kg"
         }
 
-        if workout.workoutType == .timed {
-            // Timed: each LogSet row represents distinct rounds — show as-is
-            return log.sets.map { set in
-                let setCount = set.sets ?? 1
-                let setsReps: String = {
-                    guard setCount > 0, let reps = set.reps, !reps.isEmpty else { return "" }
-                    return mode == .time ? "\(setCount)×\(reps)s" : "\(setCount)×\(reps)"
-                }()
-                return (setsReps, weightStr(set))
+        var groups: [(set: LogSet, count: Int)] = []
+        for set in log.sets {
+            if let last = groups.last,
+               last.set.reps == set.reps,
+               last.set.weight == set.weight,
+               last.set.isDouble == set.isDouble,
+               last.set.offsetWeight == set.offsetWeight {
+                groups[groups.count - 1].count += 1
+            } else {
+                groups.append((set, 1))
             }
-        } else {
-            // Strict: each LogSet = 1 set — group consecutive identical sets
-            var groups: [(set: LogSet, count: Int)] = []
-            for set in log.sets {
-                if let last = groups.last,
-                   last.set.reps == set.reps,
-                   last.set.weight == set.weight,
-                   last.set.isDouble == set.isDouble,
-                   last.set.offsetWeight == set.offsetWeight {
-                    groups[groups.count - 1].count += 1
-                } else {
-                    groups.append((set, 1))
-                }
-            }
-            return groups.map { group in
-                let setsReps: String = {
-                    guard let reps = group.set.reps, !reps.isEmpty else { return "" }
-                    return mode == .time ? "\(group.count)×\(reps)s" : "\(group.count)×\(reps)"
-                }()
-                return (setsReps, weightStr(group.set))
-            }
+        }
+        return groups.map { group in
+            let setsReps: String = {
+                guard let reps = group.set.reps, !reps.isEmpty else { return "" }
+                return mode == .time ? "\(group.count)×\(reps)s" : "\(group.count)×\(reps)"
+            }()
+            return (setsReps, weightStr(group.set))
         }
     }
 }

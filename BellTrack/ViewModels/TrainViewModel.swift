@@ -73,4 +73,13 @@ final class TrainViewModel: ObservableObject {
             }
         }
     }
+    
+    // MARK: - Last workout date
+    func lastWorkoutDate(for block: Block) -> Date? {
+        workouts
+            .filter { $0.blockId == block.id }
+            .sorted { $0.date > $1.date }
+            .first?
+            .date
+    }
 }

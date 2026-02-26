@@ -12,6 +12,7 @@ struct WorkoutFormView: View {
     @State private var blockId: String?
     @State private var selectedTemplate: WorkoutTemplate?
     @State private var logs: [WorkoutLog]
+    @State private var sharedRounds: String = ""
     @State private var exercises: [Exercise] = []
     @State private var blocks: [Block] = []
     @State private var templates: [WorkoutTemplate] = []
@@ -32,9 +33,11 @@ struct WorkoutFormView: View {
         _blockId = State(initialValue: workout?.blockId ?? template?.blockId)
         _logs = State(initialValue: workout?.logs ?? [])
         _selectedTemplate = State(initialValue: template)
+        if let w = workout, w.workoutType == .timed,
+           let rounds = w.logs.first?.sets.first?.sets {
+            _sharedRounds = State(initialValue: "\(rounds)")
+        }
     }
-
-    // MARK: - Derived
 
     private var workoutType: WorkoutType {
         selectedTemplate?.workoutType ?? workout?.workoutType ?? .strict
@@ -45,9 +48,7 @@ struct WorkoutFormView: View {
         case .strict:
             return !logs.isEmpty
         case .timed:
-            return selectedTemplate != nil && logs.contains { log in
-                log.sets.contains { (Int($0.sets ?? 0) > 0) }
-            }
+            return selectedTemplate != nil && !sharedRounds.isEmpty && Int(sharedRounds) != nil
         }
     }
 
@@ -62,76 +63,16 @@ struct WorkoutFormView: View {
         }
     }
 
-    // MARK: - Body
-
     var body: some View {
         NavigationStack {
             ZStack {
                 Color.brand.background.ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: Theme.Space.lg) {
-
-                        // Header card — date + template selector
-                        VStack(spacing: 0) {
-                            HStack {
-                                Text("Date")
-                                    .foregroundColor(Color.brand.textPrimary)
-                                Spacer()
-                                DatePicker("", selection: $date, displayedComponents: .date)
-                                    .labelsHidden()
-                            }
-                            .padding(.horizontal, Theme.Space.md)
-                            .padding(.vertical, Theme.Space.smp)
-                            .background(Color.brand.surface)
-
-                            Divider().padding(.leading, Theme.Space.md)
-
-                            if workout != nil {
-                                HStack {
-                                    Text("Template")
-                                        .foregroundColor(Color.brand.textPrimary)
-                                    Spacer()
-                                    Text(selectedTemplate?.name ?? workout?.name ?? "Unknown")
-                                        .foregroundColor(Color.brand.textSecondary)
-                                }
-                                .padding(.horizontal, Theme.Space.md)
-                                .padding(.vertical, Theme.Space.smp)
-                                .background(Color.brand.surface)
-                            } else {
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: Theme.Space.sm) {
-                                        ForEach(templateOptions, id: \.template.id) { item in
-                                            let isSelected = selectedTemplate?.id == item.template.id
-                                            Button {
-                                                selectedTemplate = item.template
-                                                blockId = item.template.blockId
-                                                loadTemplate(item.template)
-                                            } label: {
-                                                Text(item.template.name)
-                                                    .font(Theme.Font.cardCaption)
-                                                    .foregroundColor(isSelected ? .white : Color.brand.textPrimary)
-                                                    .padding(.horizontal, Theme.Space.md)
-                                                    .padding(.vertical, Theme.Space.smp)
-                                                    .background(isSelected ? Color.brand.primary : Color.brand.background)
-                                                    .clipShape(Capsule())
-                                                    .overlay(Capsule().stroke(isSelected ? Color.clear : Color.brand.textSecondary.opacity(0.3), lineWidth: 1))
-                                            }
-                                        }
-                                    }
-                                    .padding(.horizontal, Theme.Space.md)
-                                    .padding(.vertical, Theme.Space.smp)
-                                }
-                                .background(Color.brand.surface)
-                            }
-                        }
-                        .cornerRadius(Theme.Radius.md)
-                        .padding(.horizontal)
-
+                        headerCard
                         switch workoutType {
-                        case .strict:
-                            strictBody
-                        case .timed:
-                            timedBody
+                        case .strict: strictBody
+                        case .timed: timedBody
                         }
                     }
                     .padding(.vertical)
@@ -141,18 +82,11 @@ struct WorkoutFormView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        onCancel()
-                        dismiss()
-                    }
+                    Button("Cancel") { onCancel(); dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        Task {
-                            await save()
-                            onSave()
-                            dismiss()
-                        }
+                        Task { await save(); onSave(); dismiss() }
                     }
                     .disabled(!isValid)
                 }
@@ -164,6 +98,66 @@ struct WorkoutFormView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Header Card
+
+    private var headerCard: some View {
+        VStack(spacing: 0) {
+            // Date row
+            HStack {
+                Text("Date").foregroundColor(Color.brand.textPrimary)
+                Spacer()
+                DatePicker("", selection: $date, displayedComponents: .date).labelsHidden()
+            }
+            .padding(.horizontal, Theme.Space.md)
+            .padding(.vertical, Theme.Space.smp)
+            .background(Color.brand.surface)
+
+            Divider().padding(.leading, Theme.Space.md)
+
+            // Template row
+            if workout != nil {
+                HStack {
+                    Text("Template").foregroundColor(Color.brand.textPrimary)
+                    Spacer()
+                    Text(selectedTemplate?.name ?? workout?.name ?? "Unknown")
+                        .foregroundColor(Color.brand.textSecondary)
+                }
+                .padding(.horizontal, Theme.Space.md)
+                .padding(.vertical, Theme.Space.smp)
+                .background(Color.brand.surface)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Theme.Space.sm) {
+                        ForEach(templateOptions, id: \.template.id) { item in
+                            let isSelected = selectedTemplate?.id == item.template.id
+                            Button {
+                                selectedTemplate = item.template
+                                blockId = item.template.blockId
+                                loadTemplate(item.template)
+                            } label: {
+                                Text(item.template.name)
+                                    .font(Theme.Font.cardCaption)
+                                    .foregroundColor(isSelected ? .white : Color.brand.textPrimary)
+                                    .padding(.horizontal, Theme.Space.md)
+                                    .padding(.vertical, Theme.Space.smp)
+                                    .background(isSelected ? Color.brand.primary : Color.brand.background)
+                                    .clipShape(Capsule())
+                                    .overlay(Capsule().stroke(isSelected ? Color.clear : Color.brand.textSecondary.opacity(0.3), lineWidth: 1))
+                            }
+                        }
+                    }
+                    .padding(.horizontal, Theme.Space.md)
+                    .padding(.vertical, Theme.Space.smp)
+                }
+                .background(Color.brand.surface)
+            }
+
+
+        }
+        .cornerRadius(Theme.Radius.md)
+        .padding(.horizontal)
     }
 
     // MARK: - Strict Body
@@ -178,20 +172,15 @@ struct WorkoutFormView: View {
     }
 
     private func strictExerciseCard(log: Binding<WorkoutLog>) -> some View {
-        let exerciseMode = exercises.first(where: { $0.id == log.wrappedValue.exerciseId })?.mode ?? .reps
-        return VStack(alignment: .leading, spacing: Theme.Space.md) {
-
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
             Text(log.wrappedValue.exerciseName)
                 .font(Theme.Font.cardTitle)
                 .foregroundColor(Color.brand.textPrimary)
 
             HStack(spacing: Theme.Space.sm) {
-                Text("Set")
-                    .frame(width: 36, alignment: .leading)
-                Text(exerciseMode == .time ? "Duration (sec)" : "Reps")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text("Weight (kg)")
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("Set").frame(width: 36, alignment: .leading)
+                Text("Reps").frame(maxWidth: .infinity, alignment: .leading)
+                Text("Weight").frame(maxWidth: .infinity, alignment: .leading)
                 Spacer().frame(width: 36)
                 Spacer().frame(width: 28)
             }
@@ -235,14 +224,12 @@ struct WorkoutFormView: View {
         let hasOffset = set.wrappedValue.offsetWeight != nil
 
         return HStack(spacing: Theme.Space.sm) {
-
             Text("\(setNumber)")
                 .font(Theme.Font.cardCaption)
                 .foregroundColor(Color.brand.textSecondary)
                 .frame(width: 36, alignment: .leading)
 
-            // Reps
-            TextField("8", text: Binding(
+            TextField("—", text: Binding(
                 get: { set.wrappedValue.reps ?? "" },
                 set: { set.wrappedValue.reps = $0.isEmpty ? nil : $0 }
             ))
@@ -253,23 +240,10 @@ struct WorkoutFormView: View {
             .cornerRadius(Theme.Radius.sm)
             .frame(maxWidth: .infinity)
 
-            // Weight — L when offset active
-            TextField("12", text: Binding(
-                get: { set.wrappedValue.weight ?? "" },
-                set: { set.wrappedValue.weight = $0.isEmpty ? nil : $0 }
-            ))
-            .keyboardType(.decimalPad)
-            .padding(.vertical, Theme.Space.sm)
-            .padding(.horizontal, Theme.Space.sm)
-            .background(Color.brand.background)
-            .cornerRadius(Theme.Radius.sm)
-            .frame(maxWidth: .infinity)
-
-            // R (offset)
-            if hasOffset {
-                TextField("16", text: Binding(
-                    get: { set.wrappedValue.offsetWeight ?? "" },
-                    set: { set.wrappedValue.offsetWeight = $0.isEmpty ? nil : $0 }
+            HStack(spacing: Theme.Space.sm) {
+                TextField(hasOffset ? "L" : "—", text: Binding(
+                    get: { set.wrappedValue.weight ?? "" },
+                    set: { set.wrappedValue.weight = $0.isEmpty ? nil : $0 }
                 ))
                 .keyboardType(.decimalPad)
                 .padding(.vertical, Theme.Space.sm)
@@ -277,9 +251,22 @@ struct WorkoutFormView: View {
                 .background(Color.brand.background)
                 .cornerRadius(Theme.Radius.sm)
                 .frame(maxWidth: .infinity)
-            }
 
-            // 2x / L/R cycle
+                if hasOffset {
+                    TextField("R", text: Binding(
+                        get: { set.wrappedValue.offsetWeight ?? "" },
+                        set: { set.wrappedValue.offsetWeight = $0.isEmpty ? nil : $0 }
+                    ))
+                    .keyboardType(.decimalPad)
+                    .padding(.vertical, Theme.Space.sm)
+                    .padding(.horizontal, Theme.Space.sm)
+                    .background(Color.brand.background)
+                    .cornerRadius(Theme.Radius.sm)
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             Button {
                 if !isDouble && !hasOffset {
                     set.wrappedValue.isDouble = true
@@ -315,126 +302,78 @@ struct WorkoutFormView: View {
 
     private var timedBody: some View {
         VStack(spacing: Theme.Space.md) {
+
+            // Lightweight rounds row
+            HStack(spacing: Theme.Space.sm) {
+                Text("Rounds")
+                    .font(Theme.Font.cardCaption)
+                    .foregroundColor(Color.brand.textSecondary)
+
+                TextField("—", text: $sharedRounds)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.center)
+                    .padding(.vertical, Theme.Space.sm)
+                    .padding(.horizontal, Theme.Space.sm)
+                    .background(Color.brand.background)
+                    .cornerRadius(Theme.Radius.sm)
+                    .frame(width: 64)
+
+                if let duration = selectedTemplate?.duration {
+                    Text("· \(duration) min")
+                        .font(Theme.Font.cardCaption)
+                        .foregroundColor(Color.brand.textSecondary)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, Theme.Space.md)
+            .padding(.vertical, Theme.Space.smp)
+            .background(Color.brand.surface)
+            .cornerRadius(Theme.Radius.md)
+            .padding(.horizontal)
+
             ForEach($logs) { $log in
                 timedExerciseCard(log: $log)
             }
+            .padding(.horizontal)
         }
-        .padding(.horizontal)
     }
 
     private func timedExerciseCard(log: Binding<WorkoutLog>) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Space.md) {
+        let entry = selectedTemplate?.entries.first { $0.exerciseId == log.wrappedValue.exerciseId }
+        let exerciseMode = exercises.first(where: { $0.id == log.wrappedValue.exerciseId })?.mode ?? .reps
+        let unit = exerciseMode == .time ? "time (s)" : "reps"
+        let repsLabel: String? = entry?.defaultReps.map { "\($0) \(unit)" }
+        let isDouble = log.wrappedValue.sets.first?.isDouble ?? false
+        let hasOffset = log.wrappedValue.sets.first?.offsetWeight != nil
 
-            Text(log.wrappedValue.exerciseName)
-                .font(Theme.Font.cardTitle)
-                .foregroundColor(Color.brand.textPrimary)
+        return VStack(alignment: .leading, spacing: Theme.Space.md) {
+            HStack {
+                Text(log.wrappedValue.exerciseName)
+                    .font(Theme.Font.cardTitle)
+                    .foregroundColor(Color.brand.textPrimary)
+
+                Spacer()
+
+                if let repsLabel {
+                    Text(repsLabel)
+                        .font(Theme.Font.cardCaption)
+                        .foregroundColor(Color.brand.textSecondary)
+                }
+            }
 
             HStack(spacing: Theme.Space.sm) {
-                Text("Rounds")
-                    .frame(width: 52, alignment: .leading)
-                Text("Reps")
-                    .frame(width: 52, alignment: .leading)
                 Text("Weight (kg)")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Spacer().frame(width: 36)
-                Spacer().frame(width: 28)
-            }
-            .font(Theme.Font.cardCaption)
-            .foregroundColor(Color.brand.textSecondary)
+                    .font(Theme.Font.cardCaption)
+                    .foregroundColor(Color.brand.textSecondary)
+                    .frame(width: 90, alignment: .leading)
 
-            ForEach(Array(log.wrappedValue.sets.enumerated()), id: \.element.id) { index, _ in
-                timedSetRow(log: log, index: index)
-            }
-
-            Button {
-                var updated = log.wrappedValue
-                updated.addRow()
-                log.wrappedValue = updated
-            } label: {
-                HStack(spacing: Theme.Space.xs) {
-                    Image(systemName: "plus.circle")
-                    Text("Add row")
-                }
-                .font(Theme.Font.cardCaption)
-                .foregroundColor(Color.brand.primary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(Theme.Space.md)
-        .background(Color.brand.surface)
-        .cornerRadius(Theme.Radius.md)
-    }
-
-    private func timedSetRow(log: Binding<WorkoutLog>, index: Int) -> some View {
-        let isDouble = log.wrappedValue.sets[safe: index]?.isDouble ?? false
-        let hasOffset = log.wrappedValue.sets[safe: index]?.offsetWeight != nil
-        let canDelete = log.wrappedValue.sets.count > 1
-
-        return HStack(spacing: Theme.Space.sm) {
-
-            // Rounds
-            TextField("20", text: Binding(
-                get: { log.wrappedValue.sets[safe: index]?.sets.map { "\($0)" } ?? "" },
-                set: { val in
-                    var updated = log.wrappedValue
-                    if updated.sets.indices.contains(index) {
-                        updated.sets[index].sets = Int(val)
-                    }
-                    log.wrappedValue = updated
-                }
-            ))
-            .keyboardType(.numberPad)
-            .padding(.vertical, Theme.Space.sm)
-            .padding(.horizontal, Theme.Space.sm)
-            .background(Color.brand.background)
-            .cornerRadius(Theme.Radius.sm)
-            .frame(width: 52)
-
-            // Reps
-            TextField("2", text: Binding(
-                get: { log.wrappedValue.sets[safe: index]?.reps ?? "" },
-                set: { val in
-                    var updated = log.wrappedValue
-                    if updated.sets.indices.contains(index) {
-                        updated.sets[index].reps = val.isEmpty ? nil : val
-                    }
-                    log.wrappedValue = updated
-                }
-            ))
-            .keyboardType(.numberPad)
-            .padding(.vertical, Theme.Space.sm)
-            .padding(.horizontal, Theme.Space.sm)
-            .background(Color.brand.background)
-            .cornerRadius(Theme.Radius.sm)
-            .frame(width: 52)
-
-            // Weight — L when offset active
-            TextField("12", text: Binding(
-                get: { log.wrappedValue.sets[safe: index]?.weight ?? "" },
-                set: { val in
-                    var updated = log.wrappedValue
-                    if updated.sets.indices.contains(index) {
-                        updated.sets[index].weight = val.isEmpty ? nil : val
-                    }
-                    log.wrappedValue = updated
-                }
-            ))
-            .keyboardType(.decimalPad)
-            .padding(.vertical, Theme.Space.sm)
-            .padding(.horizontal, Theme.Space.sm)
-            .background(Color.brand.background)
-            .cornerRadius(Theme.Radius.sm)
-            .frame(maxWidth: .infinity)
-
-            // R (offset)
-            if hasOffset {
-                TextField("16", text: Binding(
-                    get: { log.wrappedValue.sets[safe: index]?.offsetWeight ?? "" },
+                TextField(hasOffset ? "L" : "—", text: Binding(
+                    get: { log.wrappedValue.sets.first?.weight ?? "" },
                     set: { val in
                         var updated = log.wrappedValue
-                        if updated.sets.indices.contains(index) {
-                            updated.sets[index].offsetWeight = val.isEmpty ? nil : val
-                        }
+                        if updated.sets.isEmpty { updated.sets = [LogSet()] }
+                        updated.sets[0].weight = val.isEmpty ? nil : val
                         log.wrappedValue = updated
                     }
                 ))
@@ -444,46 +383,52 @@ struct WorkoutFormView: View {
                 .background(Color.brand.background)
                 .cornerRadius(Theme.Radius.sm)
                 .frame(maxWidth: .infinity)
-            }
 
-            // 2x / L/R cycle
-            Button {
-                var updated = log.wrappedValue
-                if updated.sets.indices.contains(index) {
-                    if !isDouble && !hasOffset {
-                        updated.sets[index].isDouble = true
-                    } else if isDouble {
-                        updated.sets[index].isDouble = false
-                        updated.sets[index].offsetWeight = ""
-                    } else {
-                        updated.sets[index].offsetWeight = nil
-                    }
-                }
-                log.wrappedValue = updated
-            } label: {
-                Text(isDouble ? "2×" : (hasOffset ? "L/R" : "2×"))
-                    .font(Theme.Font.cardCaption)
-                    .foregroundColor((isDouble || hasOffset) ? .white : Color.brand.textSecondary)
-                    .frame(width: 36)
+                if hasOffset {
+                    TextField("R", text: Binding(
+                        get: { log.wrappedValue.sets.first?.offsetWeight ?? "" },
+                        set: { val in
+                            var updated = log.wrappedValue
+                            if updated.sets.isEmpty { updated.sets = [LogSet()] }
+                            updated.sets[0].offsetWeight = val.isEmpty ? nil : val
+                            log.wrappedValue = updated
+                        }
+                    ))
+                    .keyboardType(.decimalPad)
                     .padding(.vertical, Theme.Space.sm)
-                    .background((isDouble || hasOffset) ? Color.brand.primary : Color.brand.background)
+                    .padding(.horizontal, Theme.Space.sm)
+                    .background(Color.brand.background)
                     .cornerRadius(Theme.Radius.sm)
-            }
-            .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity)
+                }
 
-            Button {
-                var updated = log.wrappedValue
-                updated.sets.remove(at: index)
-                log.wrappedValue = updated
-            } label: {
-                Image(systemName: "minus.circle")
-                    .font(Theme.Font.cardCaption)
-                    .foregroundColor(Color.brand.destructive)
+                Button {
+                    var updated = log.wrappedValue
+                    if updated.sets.isEmpty { updated.sets = [LogSet()] }
+                    if !isDouble && !hasOffset {
+                        updated.sets[0].isDouble = true
+                    } else if isDouble {
+                        updated.sets[0].isDouble = false
+                        updated.sets[0].offsetWeight = ""
+                    } else {
+                        updated.sets[0].offsetWeight = nil
+                    }
+                    log.wrappedValue = updated
+                } label: {
+                    Text(isDouble ? "2×" : (hasOffset ? "L/R" : "2×"))
+                        .font(Theme.Font.cardCaption)
+                        .foregroundColor((isDouble || hasOffset) ? .white : Color.brand.textSecondary)
+                        .frame(width: 36)
+                        .padding(.vertical, Theme.Space.sm)
+                        .background((isDouble || hasOffset) ? Color.brand.primary : Color.brand.background)
+                        .cornerRadius(Theme.Radius.sm)
+                }
+                .buttonStyle(.plain)
             }
-            .frame(width: 28)
-            .opacity(canDelete ? 1 : 0)
-            .disabled(!canDelete)
         }
+        .padding(Theme.Space.md)
+        .background(Color.brand.surface)
+        .cornerRadius(Theme.Radius.md)
     }
 
     // MARK: - Helpers
@@ -507,15 +452,33 @@ struct WorkoutFormView: View {
             .sorted { $0.date > $1.date }
             .first
 
-        logs = template.entries.map { entry in
-            let recentSets = recentWorkout?
-                .logs.first { $0.exerciseId == entry.exerciseId }?
-                .sets
-            return WorkoutLog(
-                exerciseId: entry.exerciseId,
-                exerciseName: entry.exerciseName,
-                sets: recentSets ?? [LogSet()]
-            )
+        switch template.workoutType {
+        case .strict:
+            logs = template.entries.map { entry in
+                if let recentSets = recentWorkout?.logs.first(where: { $0.exerciseId == entry.exerciseId })?.sets {
+                    return WorkoutLog(exerciseId: entry.exerciseId, exerciseName: entry.exerciseName, sets: recentSets)
+                }
+                let count = entry.defaultSets ?? 1
+                let repsStr = entry.defaultReps
+                let sets = (0..<count).map { _ in LogSet(reps: repsStr) }
+                return WorkoutLog(exerciseId: entry.exerciseId, exerciseName: entry.exerciseName, sets: sets)
+            }
+
+        case .timed:
+            if let recent = recentWorkout, let rounds = recent.logs.first?.sets.first?.sets {
+                sharedRounds = "\(rounds)"
+            }
+            logs = template.entries.map { entry in
+                let recent = recentWorkout?.logs.first(where: { $0.exerciseId == entry.exerciseId })?.sets.first
+                let repsStr = entry.defaultReps
+                let set = LogSet(
+                    reps: repsStr,
+                    weight: recent?.weight,
+                    isDouble: recent?.isDouble ?? false,
+                    offsetWeight: recent?.offsetWeight
+                )
+                return WorkoutLog(exerciseId: entry.exerciseId, exerciseName: entry.exerciseName, sets: [set])
+            }
         }
     }
 
@@ -530,14 +493,22 @@ struct WorkoutFormView: View {
                 logs: logs,
                 workoutType: .strict
             )
+
         case .timed:
             guard let template = selectedTemplate else { return }
+            let rounds = Int(sharedRounds) ?? 0
+            let savedLogs = logs.map { log -> WorkoutLog in
+                var l = log
+                if l.sets.isEmpty { l.sets = [LogSet()] }
+                l.sets[0].sets = rounds
+                return l
+            }
             try? await firestore.saveWorkout(
                 id: workout?.id,
                 name: template.name,
                 date: date,
                 blockId: blockId,
-                logs: logs,
+                logs: savedLogs,
                 workoutType: .timed
             )
         }
@@ -554,8 +525,6 @@ struct WorkoutFormView: View {
         }
     }
 }
-
-// MARK: - Safe Array Access
 
 private extension Array {
     subscript(safe index: Int) -> Element? {

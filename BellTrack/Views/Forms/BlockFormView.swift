@@ -12,13 +12,11 @@ struct BlockFormView: View {
     @State private var name: String
     @State private var goal: String
     @State private var startDate: Date
-    @State private var hasEndDate: Bool
+    @State private var isOngoing: Bool
     @State private var endDate: Date
     @State private var pendingTemplates: [WorkoutTemplate]
-    @State private var showingDeleteAlert = false
-    @State private var showingCompleteAlert = false
-    @State private var addingTemplate = false
     @State private var editingTemplate: WorkoutTemplate?
+    @State private var addingTemplate = false
     @State private var didAttemptSave = false
 
     private let blockId: String
@@ -43,7 +41,7 @@ struct BlockFormView: View {
         _name = State(initialValue: block?.name ?? "")
         _goal = State(initialValue: block?.goal ?? "")
         _startDate = State(initialValue: block?.startDate ?? Date())
-        _hasEndDate = State(initialValue: block?.endDate != nil)
+        _isOngoing = State(initialValue: block?.endDate == nil)
         _endDate = State(initialValue: block?.endDate ?? Calendar.current.date(byAdding: .weekOfYear, value: 4, to: Date())!)
         _pendingTemplates = State(initialValue: existingTemplates)
     }
@@ -58,9 +56,6 @@ struct BlockFormView: View {
                 infoSection
                 datesSection
                 templatesSection
-                if block != nil {
-                    destructiveSection
-                }
             }
             .scrollContentBackground(.hidden)
             .background(Color.brand.background)
@@ -74,23 +69,11 @@ struct BlockFormView: View {
                     Button("Save") {
                         didAttemptSave = true
                         guard canSave else { return }
-                        onSave(name, goal, startDate, hasEndDate ? endDate : nil, pendingTemplates)
+                        onSave(name, goal, startDate, isOngoing ? nil : endDate, pendingTemplates)
                     }
                 }
             }
-            .alert("Mark as Complete?", isPresented: $showingCompleteAlert) {
-                Button("Cancel", role: .cancel) {}
-                Button("Complete") { onComplete?() }
-            } message: {
-                Text("This will mark the block as finished. You can still view past workouts.")
-            }
-            .alert("Delete Block?", isPresented: $showingDeleteAlert) {
-                Button("Cancel", role: .cancel) {}
-                Button("Delete", role: .destructive) { onDelete?() }
-            } message: {
-                Text("This will permanently delete \"\(block?.name ?? "")\" and all its workouts.")
-            }
-            .fullScreenCover(isPresented: $addingTemplate) {
+            .navigationDestination(isPresented: $addingTemplate) {
                 WorkoutTemplateFormView(
                     exercises: exercises,
                     onSave: { templateName, entries, workoutType, duration in
@@ -103,12 +86,11 @@ struct BlockFormView: View {
                             duration: duration
                         )
                         pendingTemplates.append(newTemplate)
-                        addingTemplate = false
                     },
                     onCancel: { addingTemplate = false }
                 )
             }
-            .fullScreenCover(item: $editingTemplate) { template in
+            .navigationDestination(item: $editingTemplate) { template in
                 WorkoutTemplateFormView(
                     template: template,
                     exercises: exercises,
@@ -156,33 +138,29 @@ struct BlockFormView: View {
                     .labelsHidden()
             }
 
-            Toggle("End date", isOn: $hasEndDate)
-                .onChange(of: hasEndDate) { _, enabled in
-                    if enabled {
-                        endDate = Calendar.current.date(byAdding: .weekOfYear, value: 4, to: startDate)!
+            Toggle("Ongoing", isOn: $isOngoing)
+
+            if !isOngoing {
+                VStack(alignment: .leading, spacing: Theme.Space.md) {
+                    HStack {
+                        Text("End date")
+                        Spacer()
+                        DatePicker(
+                            "",
+                            selection: $endDate,
+                            in: startDate.addingTimeInterval(86400)...,
+                            displayedComponents: .date
+                        )
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
                     }
-                }
 
-            if hasEndDate {
-                HStack(spacing: Theme.Space.sm) {
-                    durationChip(weeks: 1)
-                    durationChip(weeks: 4)
-                    durationChip(weeks: 6)
-                    durationChip(weeks: 8)
-                    Spacer()
-                }
-
-                HStack {
-                    Text("End date")
-                    Spacer()
-                    DatePicker(
-                        "",
-                        selection: $endDate,
-                        in: startDate.addingTimeInterval(86400)...,
-                        displayedComponents: .date
-                    )
-                    .datePickerStyle(.compact)
-                    .labelsHidden()
+                    HStack(spacing: Theme.Space.sm) {
+                        durationChip(weeks: 2)
+                        durationChip(weeks: 4)
+                        durationChip(weeks: 6)
+                        durationChip(weeks: 8)
+                    }
                 }
             }
         }
@@ -230,27 +208,6 @@ struct BlockFormView: View {
         }
     }
 
-    @ViewBuilder
-    private var destructiveSection: some View {
-        Section {
-            if onComplete != nil {
-                Button {
-                    showingCompleteAlert = true
-                } label: {
-                    Label("Mark as Complete", systemImage: "checkmark.circle")
-                }
-            }
-            if onDelete != nil {
-                Button(role: .destructive) {
-                    showingDeleteAlert = true
-                } label: {
-                    Label("Delete Block", systemImage: "trash")
-                        .foregroundStyle(Color.brand.destructive)
-                }
-            }
-        }
-    }
-
     // MARK: - Duration Chip
 
     private func durationChip(weeks: Int) -> some View {
@@ -264,8 +221,22 @@ struct BlockFormView: View {
         .font(Theme.Font.cardCaption)
         .padding(.horizontal, Theme.Space.smp)
         .padding(.vertical, 6)
-        .background(isSelected ? Color.brand.primary : Color.brand.surface)
+        .background(isSelected ? Color.brand.primary : Color.clear)
         .foregroundColor(isSelected ? .white : Color.brand.textPrimary)
         .clipShape(Capsule())
+        .overlay(
+            Capsule()
+                .stroke(isSelected ? Color.clear : Color.brand.textSecondary.opacity(0.3), lineWidth: 1)
+        )
+    }
+}
+
+extension WorkoutTemplate: Hashable {
+    static func == (lhs: WorkoutTemplate, rhs: WorkoutTemplate) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }

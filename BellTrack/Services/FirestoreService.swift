@@ -158,7 +158,9 @@ final class FirestoreService {
                 return TemplateEntry(
                     id: id,
                     exerciseId: exerciseId,
-                    exerciseName: exerciseName
+                    exerciseName: exerciseName,
+                    defaultSets: entry["defaultSets"] as? Int,
+                    defaultReps: entry["defaultReps"] as? String
                 )
             }
 
@@ -193,11 +195,14 @@ final class FirestoreService {
             "name": name,
             "workoutType": workoutType.rawValue,
             "entries": entries.map { entry -> [String: Any] in
-                return [
+                var e: [String: Any] = [
                     "id": entry.id,
                     "exerciseId": entry.exerciseId,
                     "exerciseName": entry.exerciseName
                 ]
+                if let s = entry.defaultSets { e["defaultSets"] = s }
+                if let r = entry.defaultReps { e["defaultReps"] = r }
+                return e
             }
         ]
         if let duration = duration { data["duration"] = duration }
@@ -312,7 +317,7 @@ final class FirestoreService {
                     guard let id = s["id"] as? String else { return nil }
                     return LogSet(
                         id: id,
-                        sets: s["sets"] as? Int,
+                        sets: s["sets"] as? Int ?? 1,
                         reps: s["reps"] as? String,
                         weight: s["weight"] as? String,
                         isDouble: s["isDouble"] as? Bool ?? false,
@@ -396,4 +401,3 @@ final class FirestoreService {
 enum FirestoreError: Error {
     case notAuthenticated
 }
-
