@@ -263,8 +263,10 @@ struct WorkoutTemplateFormView: View {
             } label: {
                 Image(systemName: "minus.circle")
                     .foregroundColor(Color.brand.destructive)
+                    .frame(width: 36, height: 36)
             }
-            .padding(.leading, Theme.Space.xs)
+            .padding(.leading, Theme.Space.md)
+            .buttonStyle(.borderless)
         }
         .padding(.horizontal, Theme.Space.md)
         .padding(.vertical, Theme.Space.md)

@@ -39,8 +39,8 @@ enum WorkoutType: String, Codable {
 
     var displayName: String {
         switch self {
-        case .strict: return "Strict"
-        case .amrap: return "AMRAP"
+        case .strict: return "Strength"
+        case .amrap: return "Density"
         }
     }
 }

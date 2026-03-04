@@ -13,7 +13,7 @@ struct WorkoutFormView: View {
     @State private var selectedTemplate: WorkoutTemplate?
     @State private var logs: [WorkoutLog]
     @State private var sharedRounds: String = ""
-    @State private var sharedReps: String = ""
+    @State private var sharedDuration: String = ""
     @State private var exercises: [Exercise] = []
     @State private var blocks: [Block] = []
     @State private var templates: [WorkoutTemplate] = []
@@ -37,10 +37,6 @@ struct WorkoutFormView: View {
         if let w = workout, w.workoutType == .amrap,
            let rounds = w.logs.first?.sets.first?.sets {
             _sharedRounds = State(initialValue: "\(rounds)")
-        }
-        if let w = workout, w.workoutType == .amrap,
-           let reps = w.logs.first?.sets.first?.reps {
-            _sharedReps = State(initialValue: reps)
         }
     }
 
@@ -308,44 +304,49 @@ struct WorkoutFormView: View {
     private var amrapBody: some View {
         VStack(spacing: Theme.Space.md) {
 
-            // Rounds · Reps · Duration row
-            HStack(spacing: Theme.Space.sm) {
-                Text("Rounds")
-                    .font(Theme.Font.cardCaption)
-                    .foregroundColor(Color.brand.textSecondary)
+            // Rounds + Duration card
+            VStack(alignment: .leading, spacing: Theme.Space.md) {
+                Text("Details")
+                    .font(Theme.Font.cardTitle)
+                    .foregroundColor(Color.brand.textPrimary)
+                HStack(spacing: Theme.Space.sm) {
+                    VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                        Text("Rounds")
+                            .font(Theme.Font.cardCaption)
+                            .foregroundColor(Color.brand.textSecondary)
+                        TextField("0", text: $sharedRounds)
+                            .keyboardType(.numberPad)
+                            .font(.system(size: 22, weight: .semibold, design: .rounded))
+                            .foregroundColor(Color.brand.textPrimary)
+                            .padding(.vertical, Theme.Space.sm)
+                            .padding(.horizontal, Theme.Space.sm)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.brand.background)
+                            .cornerRadius(Theme.Radius.sm)
+                    }
+                    .frame(maxWidth: .infinity)
 
-                TextField("—", text: $sharedRounds)
-                    .keyboardType(.numberPad)
-                    .multilineTextAlignment(.center)
-                    .padding(.vertical, Theme.Space.sm)
-                    .padding(.horizontal, Theme.Space.sm)
-                    .background(Color.brand.background)
-                    .cornerRadius(Theme.Radius.sm)
-                    .frame(width: 56)
+                    VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                        Text("Duration (min)")
+                            .font(Theme.Font.cardCaption)
+                            .foregroundColor(Color.brand.textSecondary)
+                        TextField("—", text: $sharedDuration)
+                            .keyboardType(.numberPad)
+                            .font(.system(size: 22, weight: .semibold, design: .rounded))
+                            .foregroundColor(Color.brand.textPrimary)
+                            .padding(.vertical, Theme.Space.sm)
+                            .padding(.horizontal, Theme.Space.sm)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.brand.background)
+                            .cornerRadius(Theme.Radius.sm)
+                    }
+                    .frame(maxWidth: .infinity)
 
-                Text("Reps")
-                    .font(Theme.Font.cardCaption)
-                    .foregroundColor(Color.brand.textSecondary)
-
-                TextField("—", text: $sharedReps)
-                    .keyboardType(.numberPad)
-                    .multilineTextAlignment(.center)
-                    .padding(.vertical, Theme.Space.sm)
-                    .padding(.horizontal, Theme.Space.sm)
-                    .background(Color.brand.background)
-                    .cornerRadius(Theme.Radius.sm)
-                    .frame(width: 56)
-
-                if let duration = selectedTemplate?.duration {
-                    Text("· \(duration) min")
-                        .font(Theme.Font.cardCaption)
-                        .foregroundColor(Color.brand.textSecondary)
+                    // Spacer to match the 2× button width in exercise cards
+                    Spacer().frame(width: 36)
                 }
-
-                Spacer()
             }
-            .padding(.horizontal, Theme.Space.md)
-            .padding(.vertical, Theme.Space.smp)
+            .padding(Theme.Space.md)
             .background(Color.brand.surface)
             .cornerRadius(Theme.Radius.md)
             .padding(.horizontal)
@@ -358,59 +359,52 @@ struct WorkoutFormView: View {
     }
 
     private func amrapExerciseCard(log: Binding<WorkoutLog>) -> some View {
-        let entry = selectedTemplate?.entries.first { $0.exerciseId == log.wrappedValue.exerciseId }
         let exerciseMode = exercises.first(where: { $0.id == log.wrappedValue.exerciseId })?.mode ?? .reps
-        let unit = exerciseMode == .time ? "time (s)" : "reps"
-        // Use the live sharedReps value so the badge updates as the user types
-        let effectiveReps = sharedReps.isEmpty ? entry?.defaultReps : sharedReps
-        let repsLabel: String? = effectiveReps.map { "\($0) \(unit)" }
+        let repsHeader = exerciseMode == .time ? "Time (s)" : "Reps"
         let isDouble = log.wrappedValue.sets.first?.isDouble ?? false
         let hasOffset = log.wrappedValue.sets.first?.offsetWeight != nil
 
         return VStack(alignment: .leading, spacing: Theme.Space.md) {
-            HStack {
-                Text(log.wrappedValue.exerciseName)
-                    .font(Theme.Font.cardTitle)
-                    .foregroundColor(Color.brand.textPrimary)
+            Text(log.wrappedValue.exerciseName)
+                .font(Theme.Font.cardTitle)
+                .foregroundColor(Color.brand.textPrimary)
 
-                Spacer()
-
-                if let repsLabel {
-                    Text(repsLabel)
-                        .font(Theme.Font.cardCaption)
-                        .foregroundColor(Color.brand.textSecondary)
-                }
-            }
-
+            // Column headers — mirrors strict layout
             HStack(spacing: Theme.Space.sm) {
-                Text("Weight (kg)")
-                    .font(Theme.Font.cardCaption)
-                    .foregroundColor(Color.brand.textSecondary)
-                    .frame(width: 90, alignment: .leading)
+                Text(repsHeader).frame(maxWidth: .infinity, alignment: .leading)
+                Text("Weight").frame(maxWidth: .infinity, alignment: .leading)
+                Spacer().frame(width: 36)
+            }
+            .font(Theme.Font.cardCaption)
+            .foregroundColor(Color.brand.textSecondary)
 
-                TextField(hasOffset ? "L" : "—", text: Binding(
-                    get: { log.wrappedValue.sets.first?.weight ?? "" },
+            // Single data row: Reps | Weight | 2×
+            HStack(spacing: Theme.Space.sm) {
+                // Reps field
+                TextField("—", text: Binding(
+                    get: { log.wrappedValue.sets.first?.reps ?? "" },
                     set: { val in
                         var updated = log.wrappedValue
                         if updated.sets.isEmpty { updated.sets = [LogSet()] }
-                        updated.sets[0].weight = val.isEmpty ? nil : val
+                        updated.sets[0].reps = val.isEmpty ? nil : val
                         log.wrappedValue = updated
                     }
                 ))
-                .keyboardType(.decimalPad)
+                .keyboardType(.numberPad)
                 .padding(.vertical, Theme.Space.sm)
                 .padding(.horizontal, Theme.Space.sm)
                 .background(Color.brand.background)
                 .cornerRadius(Theme.Radius.sm)
                 .frame(maxWidth: .infinity)
 
-                if hasOffset {
-                    TextField("R", text: Binding(
-                        get: { log.wrappedValue.sets.first?.offsetWeight ?? "" },
+                // Weight field(s)
+                HStack(spacing: Theme.Space.sm) {
+                    TextField(hasOffset ? "L" : "—", text: Binding(
+                        get: { log.wrappedValue.sets.first?.weight ?? "" },
                         set: { val in
                             var updated = log.wrappedValue
                             if updated.sets.isEmpty { updated.sets = [LogSet()] }
-                            updated.sets[0].offsetWeight = val.isEmpty ? nil : val
+                            updated.sets[0].weight = val.isEmpty ? nil : val
                             log.wrappedValue = updated
                         }
                     ))
@@ -420,8 +414,28 @@ struct WorkoutFormView: View {
                     .background(Color.brand.background)
                     .cornerRadius(Theme.Radius.sm)
                     .frame(maxWidth: .infinity)
-                }
 
+                    if hasOffset {
+                        TextField("R", text: Binding(
+                            get: { log.wrappedValue.sets.first?.offsetWeight ?? "" },
+                            set: { val in
+                                var updated = log.wrappedValue
+                                if updated.sets.isEmpty { updated.sets = [LogSet()] }
+                                updated.sets[0].offsetWeight = val.isEmpty ? nil : val
+                                log.wrappedValue = updated
+                            }
+                        ))
+                        .keyboardType(.decimalPad)
+                        .padding(.vertical, Theme.Space.sm)
+                        .padding(.horizontal, Theme.Space.sm)
+                        .background(Color.brand.background)
+                        .cornerRadius(Theme.Radius.sm)
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                // 2× / L/R toggle
                 Button {
                     var updated = log.wrappedValue
                     if updated.sets.isEmpty { updated.sets = [LogSet()] }
@@ -475,12 +489,21 @@ struct WorkoutFormView: View {
         switch template.workoutType {
         case .strict:
             logs = template.entries.map { entry in
-                if let recentSets = recentWorkout?.logs.first(where: { $0.exerciseId == entry.exerciseId })?.sets {
-                    return WorkoutLog(exerciseId: entry.exerciseId, exerciseName: entry.exerciseName, sets: recentSets)
-                }
                 let count = entry.defaultSets ?? 1
                 let repsStr = entry.defaultReps
-                let sets = (0..<count).map { _ in LogSet(reps: repsStr) }
+                // Always use template for set count and reps (so edits to the template are reflected).
+                // Only carry forward the weight (and double/offset flags) from the most recent workout.
+                let recentSetsForExercise = recentWorkout?.logs
+                    .first(where: { $0.exerciseId == entry.exerciseId })?.sets ?? []
+                let sets = (0..<count).map { i -> LogSet in
+                    let recent = recentSetsForExercise[safe: i]
+                    return LogSet(
+                        reps: repsStr,
+                        weight: recent?.weight,
+                        isDouble: recent?.isDouble ?? false,
+                        offsetWeight: recent?.offsetWeight
+                    )
+                }
                 return WorkoutLog(exerciseId: entry.exerciseId, exerciseName: entry.exerciseName, sets: sets)
             }
 
@@ -488,18 +511,13 @@ struct WorkoutFormView: View {
             if let recent = recentWorkout, let rounds = recent.logs.first?.sets.first?.sets {
                 sharedRounds = "\(rounds)"
             }
-            if let recent = recentWorkout, let reps = recent.logs.first?.sets.first?.reps {
-                sharedReps = reps
-            } else if let defaultReps = template.entries.first?.defaultReps {
-                // No prior workout — prefill sharedReps from template default
-                // so it actually gets saved when the user hits Save
-                sharedReps = defaultReps
+            if let duration = template.duration {
+                sharedDuration = "\(duration)"
             }
             logs = template.entries.map { entry in
                 let recent = recentWorkout?.logs.first(where: { $0.exerciseId == entry.exerciseId })?.sets.first
-                let repsStr = entry.defaultReps
                 let set = LogSet(
-                    reps: repsStr,
+                    reps: recent?.reps ?? entry.defaultReps,
                     weight: recent?.weight,
                     isDouble: recent?.isDouble ?? false,
                     offsetWeight: recent?.offsetWeight
@@ -528,7 +546,7 @@ struct WorkoutFormView: View {
                 var l = log
                 if l.sets.isEmpty { l.sets = [LogSet()] }
                 l.sets[0].sets = rounds
-                l.sets[0].reps = sharedReps.isEmpty ? nil : sharedReps
+                // reps are already stored per-log; just stamp the round count
                 return l
             }
             try? await firestore.saveWorkout(
