@@ -3,17 +3,26 @@ import SwiftUI
 struct WorkoutListView: View {
 
     @State private var entries: [WorkoutEntry] = []
-    @State private var showForm = false
-    @State private var selectedEntry: WorkoutEntry? = nil
+    @State private var formEntry: WorkoutEntry? = nil
     @State private var showSettings = false
     @State private var isLoading = true
+    @State private var searchText = ""
 
     private let firestore = FirestoreService.shared
+
+    private var filteredEntries: [WorkoutEntry] {
+        guard !searchText.isEmpty else { return entries }
+        return entries.filter { entry in
+            entry.segments.contains { $0.localizedCaseInsensitiveContains(searchText) }
+            || entry.date.shortDateString.localizedCaseInsensitiveContains(searchText)
+            || entry.date.mediumDateString.localizedCaseInsensitiveContains(searchText)
+        }
+    }
 
     private var groupedEntries: [(month: String, entries: [WorkoutEntry])] {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
-        let grouped = Dictionary(grouping: entries) { entry in
+        let grouped = Dictionary(grouping: filteredEntries) { entry in
             formatter.string(from: entry.date)
         }
         return grouped
@@ -30,14 +39,14 @@ struct WorkoutListView: View {
             Color.brand.background.ignoresSafeArea()
             if isLoading {
                 ProgressView()
-            } else if entries.isEmpty {
+            } else if filteredEntries.isEmpty {
                 emptyState
             } else {
                 list
             }
         }
         .navigationTitle("Workout Log")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button {
@@ -48,17 +57,16 @@ struct WorkoutListView: View {
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
-                    selectedEntry = nil
-                    showForm = true
+                    formEntry = WorkoutEntry()
                 } label: {
                     Image(systemName: "plus")
                 }
             }
         }
-        .fullScreenCover(isPresented: $showForm, onDismiss: { Task { await load() } }) {
-            WorkoutFormView(entry: selectedEntry)
+        .sheet(item: $formEntry, onDismiss: { Task { await reload() } }) { entry in
+            WorkoutFormView(entry: entry)
         }
-        .fullScreenCover(isPresented: $showSettings) {
+        .sheet(isPresented: $showSettings) {
             SettingsView()
         }
         .task { await load() }
@@ -71,7 +79,7 @@ struct WorkoutListView: View {
                     ForEach(group.entries) { entry in
                         entryRow(entry)
                             .listRowBackground(Color.brand.background)
-                            .listRowInsets(EdgeInsets(top: Theme.Space.md, leading: Theme.Space.lg, bottom: Theme.Space.md, trailing: Theme.Space.lg))
+                            .listRowInsets(EdgeInsets(top: 20, leading: Theme.Space.lg, bottom: 20, trailing: Theme.Space.lg))
                     }
                 } header: {
                     Text(group.month.components(separatedBy: " ").first ?? group.month)
@@ -83,9 +91,10 @@ struct WorkoutListView: View {
                 }
             }
         }
+        .padding(.top, Theme.Space.lg)
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        .listSectionHeaderTopPadding(0)
+        .searchable(text: $searchText, prompt: "Search workouts")
     }
 
     private func entryRow(_ entry: WorkoutEntry) -> some View {
@@ -104,8 +113,7 @@ struct WorkoutListView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            selectedEntry = entry
-            showForm = true
+            formEntry = entry
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive) {
@@ -114,7 +122,7 @@ struct WorkoutListView: View {
                 Label("Delete", systemImage: "trash")
             }
             Button {
-                duplicate(entry)
+                formEntry = WorkoutEntry(date: Date(), segments: entry.segments)
             } label: {
                 Label("Duplicate", systemImage: "square.on.square.fill")
             }
@@ -124,23 +132,24 @@ struct WorkoutListView: View {
 
     private var emptyState: some View {
         VStack(spacing: Theme.Space.sm) {
-            Text("No workouts yet")
+            Text(searchText.isEmpty ? "No workouts yet" : "No results for \"\(searchText)\"")
                 .font(Theme.Font.cardTitle)
                 .foregroundColor(Color.brand.textSecondary)
-            Text("Tap + to log your first session")
-                .font(Theme.Font.cardCaption)
-                .foregroundColor(Color.brand.textSecondary.opacity(0.6))
+            if searchText.isEmpty {
+                Text("Tap + to log your first session")
+                    .font(Theme.Font.cardCaption)
+                    .foregroundColor(Color.brand.textSecondary.opacity(0.6))
+            }
         }
-    }
-
-    private func duplicate(_ entry: WorkoutEntry) {
-        selectedEntry = WorkoutEntry(id: UUID().uuidString, date: Date(), segments: entry.segments)
-        showForm = true
     }
 
     private func delete(_ entry: WorkoutEntry) async {
         try? await firestore.deleteWorkout(id: entry.id)
-        await load()
+        entries.removeAll { $0.id == entry.id }
+    }
+
+    private func reload() async {
+        entries = (try? await firestore.fetchWorkouts()) ?? []
     }
 
     private func load() async {

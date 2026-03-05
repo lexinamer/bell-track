@@ -20,11 +20,12 @@ enum Theme {
         static let sm: CGFloat = 14
         static let md: CGFloat = 16
         static let lg: CGFloat = 18
-        static let xl: CGFloat = 20
+        static let xl: CGFloat = 22
     }
 
     enum Font {
-        static let pageTitle = SwiftUI.Font.system(size: TypeSize.lg, weight: .bold)
+        static let logo = SwiftUI.Font.system(size: TypeSize.xl, weight: .bold)
+        static let pageTitle = SwiftUI.Font.system(size: TypeSize.lg, weight: .medium)
         static let sectionTitle = SwiftUI.Font.system(size: TypeSize.md, weight: .bold)
         static let cardTitle = SwiftUI.Font.system(size: TypeSize.lg, weight: .medium)
         static let cardCaption = SwiftUI.Font.system(size: TypeSize.sm, weight: .regular)

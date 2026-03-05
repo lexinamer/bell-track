@@ -26,36 +26,25 @@ struct SettingsView: View {
                     Button {
                         sendFeedbackEmail()
                     } label: {
-                        settingsRow(
-                            title: "Send feedback",
-                            systemImage: "envelope"
-                        )
+                        settingsRow(title: "Send feedback", systemImage: "envelope")
                     }
                     .buttonStyle(.plain)
                 }
 
                 // MARK: - Account
                 Section("Account") {
-
                     Button {
                         signOut()
                     } label: {
-                        settingsRow(
-                            title: "Log out",
-                            systemImage: "arrow.right.square"
-                        )
+                        settingsRow(title: "Log out", systemImage: "arrow.right.square")
                     }
                     .buttonStyle(.plain)
                     .disabled(isDeletingAccount)
-                    
+
                     Button {
                         showingDeleteConfirm1 = true
                     } label: {
-                        settingsRow(
-                            title: "Delete account",
-                            systemImage: "trash",
-                            isDestructive: true
-                        )
+                        settingsRow(title: "Delete account", systemImage: "trash", isDestructive: true)
                     }
                     .buttonStyle(.plain)
                     .disabled(isDeletingAccount)
@@ -66,7 +55,6 @@ struct SettingsView: View {
                     Text(appVersionText)
                         .font(Theme.Font.cardCaption)
                         .foregroundColor(Color.brand.textSecondary)
-                        .padding(.vertical, Theme.Space.sm)
                 }
             }
             .scrollContentBackground(.hidden)
@@ -126,21 +114,12 @@ struct SettingsView: View {
         systemImage: String,
         isDestructive: Bool = false
     ) -> some View {
-
-        HStack {
+        let color = isDestructive ? Color.brand.destructive : Color.brand.textPrimary
+        return HStack(spacing: Theme.Space.sm) {
             Image(systemName: systemImage)
-                .foregroundColor(
-                    isDestructive
-                    ? Color.brand.destructive
-                    : Color.brand.textPrimary
-                )
+                .foregroundColor(color)
             Text(title)
-                .font(Theme.Font.cardCaption)
-                .foregroundColor(
-                    isDestructive
-                    ? Color.brand.destructive
-                    : Color.brand.textPrimary
-                )
+                .foregroundColor(color)
             Spacer()
         }
         .contentShape(Rectangle())

@@ -38,7 +38,6 @@ struct SignupView: View {
                         .keyboardType(.emailAddress)
                         .disableAutocorrection(true)
                         .padding()
-                        .background(Color.brand.surface)
                         .foregroundColor(Color.brand.textPrimary)
                         .cornerRadius(Theme.Radius.md)
                         .overlay(
@@ -48,7 +47,6 @@ struct SignupView: View {
 
                     SecureField("Password", text: $password)
                         .padding()
-                        .background(Color.brand.surface)
                         .foregroundColor(Color.brand.textPrimary)
                         .cornerRadius(Theme.Radius.md)
                         .overlay(
@@ -58,7 +56,6 @@ struct SignupView: View {
 
                     SecureField("Confirm Password", text: $confirmPassword)
                         .padding()
-                        .background(Color.brand.surface)
                         .foregroundColor(Color.brand.textPrimary)
                         .cornerRadius(Theme.Radius.md)
                         .overlay(

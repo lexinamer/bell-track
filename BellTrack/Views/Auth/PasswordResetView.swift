@@ -41,7 +41,6 @@ struct PasswordResetView: View {
                         .keyboardType(.emailAddress)
                         .disableAutocorrection(true)
                         .padding()
-                        .background(Color.brand.surface)
                         .foregroundColor(Color.brand.textPrimary)
                         .cornerRadius(Theme.Radius.md)
                         .overlay(
