@@ -21,14 +21,14 @@ struct SignupView: View {
                 VStack(spacing: Theme.Space.md) {
 
                     Spacer()
-                        .frame(height: Theme.Space.mdp)
+                        .frame(height: Theme.Space.md)
 
                 Text("Create Account")
                     .font(Theme.Font.pageTitle)
                     .foregroundColor(Color.brand.textPrimary)
 
                 Spacer()
-                    .frame(height: Theme.Space.mdp)
+                    .frame(height: Theme.Space.md)
 
                 // FORM
                 VStack(spacing: Theme.Space.md) {

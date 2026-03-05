@@ -14,7 +14,6 @@ struct BellTrackApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(authService)
-                .preferredColorScheme(.dark)
         }
     }
 }

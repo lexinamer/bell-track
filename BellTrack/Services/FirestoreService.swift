@@ -5,9 +5,7 @@ import FirebaseAuth
 final class FirestoreService {
 
     static let shared = FirestoreService()
-
     private let db = Firestore.firestore()
-
     private init() {}
 
     private func userRef() throws -> DocumentReference {
@@ -17,398 +15,40 @@ final class FirestoreService {
         return db.collection("users").document(uid)
     }
 
-    // MARK: - Exercises
-
-    func fetchExercises() async throws -> [Exercise] {
-        let ref = try userRef()
-
-        let snap = try await ref
-            .collection("exercises")
-            .order(by: "name")
-            .getDocuments()
-
-        return snap.documents.map { doc in
-            let primaryRaw = doc["primaryMuscles"] as? [String] ?? []
-            let secondaryRaw = doc["secondaryMuscles"] as? [String] ?? []
-            let mode = ExerciseMode(rawValue: doc["mode"] as? String ?? "reps") ?? .reps
-
-            return Exercise(
-                id: doc.documentID,
-                name: doc["name"] as? String ?? "",
-                primaryMuscles: primaryRaw.compactMap { MuscleGroup(rawValue: $0) },
-                secondaryMuscles: secondaryRaw.compactMap { MuscleGroup(rawValue: $0) },
-                mode: mode
-            )
-        }
-    }
-
-    func saveExercise(
-        id: String?,
-        name: String,
-        primaryMuscles: [MuscleGroup],
-        secondaryMuscles: [MuscleGroup],
-        mode: ExerciseMode
-    ) async throws {
-        let ref = try userRef()
-        let doc = id == nil
-            ? ref.collection("exercises").document()
-            : ref.collection("exercises").document(id!)
-
-        try await doc.setData([
-            "name": name,
-            "primaryMuscles": primaryMuscles.map { $0.rawValue },
-            "secondaryMuscles": secondaryMuscles.map { $0.rawValue },
-            "mode": mode.rawValue
-        ])
-    }
-
-    func deleteExercise(id: String) async throws {
-        let ref = try userRef()
-        try await ref.collection("exercises").document(id).delete()
-    }
-
-    // MARK: - Update Exercise Names in Workouts
-
-    func updateExerciseNameInWorkouts(exerciseId: String, newName: String) async throws {
-        let workouts = try await fetchWorkouts()
-
-        for workout in workouts {
-            var needsUpdate = false
-            var updatedLogs = workout.logs
-
-            for i in 0..<updatedLogs.count {
-                if updatedLogs[i].exerciseId == exerciseId {
-                    updatedLogs[i].exerciseName = newName
-                    needsUpdate = true
-                }
-            }
-
-            if needsUpdate {
-                try await saveWorkout(
-                    id: workout.id,
-                    name: workout.name,
-                    date: workout.date,
-                    blockId: workout.blockId,
-                    logs: updatedLogs,
-                    workoutType: workout.workoutType
-                )
-            }
-        }
-    }
-
-    // MARK: - Default Exercise Seeding
-
-    func seedDefaultExercisesIfNeeded() async throws {
-        let ref = try userRef()
-
-        let snap = try await ref.collection("exercises").limit(to: 1).getDocuments()
-        guard snap.documents.isEmpty else { return }
-
-        let defaults: [(name: String, primary: [MuscleGroup], secondary: [MuscleGroup], mode: ExerciseMode)] = [
-            ("Clean", [.glutes, .hamstrings], [.core, .forearms], .reps),
-            ("Farmer Carry", [.forearms, .core], [.shoulders, .glutes, .back], .time),
-            ("Front Squat", [.quads, .glutes], [.core, .hamstrings, .back], .reps),
-            ("Goblet Squat", [.quads, .glutes], [.core, .hamstrings, .back, .shoulders], .reps),
-            ("Lunge", [.quads, .glutes], [.hamstrings, .core, .calves], .reps),
-            ("One Hand Swing", [.glutes, .hamstrings, .shoulders], [.core, .back, .forearms], .reps),
-            ("Press", [.shoulders], [.triceps, .core, .forearms, .back], .reps),
-            ("Pushup", [.chest], [.triceps, .shoulders, .core, .glutes], .reps),
-            ("RDL", [.hamstrings, .glutes], [.core, .back, .forearms], .reps),
-            ("Row", [.back], [.biceps, .core, .forearms, .shoulders], .reps),
-            ("Snatch", [.glutes, .hamstrings, .shoulders], [.core, .back, .forearms, .quads], .reps),
-            ("Suitcase Carry", [.core, .forearms], [.shoulders, .glutes, .back], .time),
-            ("Two Hand Swing", [.glutes, .hamstrings], [.core, .back, .forearms, .shoulders], .reps)
-        ]
-
-        for exercise in defaults {
-            let doc = ref.collection("exercises").document()
-            try await doc.setData([
-                "name": exercise.name,
-                "primaryMuscles": exercise.primary.map { $0.rawValue },
-                "secondaryMuscles": exercise.secondary.map { $0.rawValue },
-                "mode": exercise.mode.rawValue
-            ])
-        }
-    }
-
-    // MARK: - Workout Templates
-
-    func fetchWorkoutTemplates() async throws -> [WorkoutTemplate] {
-        let ref = try userRef()
-
-        let snap = try await ref
-            .collection("workoutTemplates")
-            .order(by: "name")
-            .getDocuments()
-
-        return snap.documents.compactMap { doc in
-            guard
-                let name = doc["name"] as? String,
-                let blockId = doc["blockId"] as? String,
-                let entriesData = doc["entries"] as? [[String: Any]]
-            else { return nil }
-
-            let entries: [TemplateEntry] = entriesData.compactMap { entry in
-                guard
-                    let id = entry["id"] as? String,
-                    let exerciseId = entry["exerciseId"] as? String,
-                    let exerciseName = entry["exerciseName"] as? String
-                else { return nil }
-
-                return TemplateEntry(
-                    id: id,
-                    exerciseId: exerciseId,
-                    exerciseName: exerciseName,
-                    defaultSets: entry["defaultSets"] as? Int,
-                    defaultReps: entry["defaultReps"] as? String
-                )
-            }
-
-            let workoutType = WorkoutType(rawValue: doc["workoutType"] as? String ?? "") ?? .strict
-
-            return WorkoutTemplate(
-                id: doc.documentID,
-                name: name,
-                blockId: blockId,
-                entries: entries,
-                workoutType: workoutType,
-                duration: doc["duration"] as? Int
-            )
-        }
-    }
-
-    func saveWorkoutTemplate(
-        id: String?,
-        name: String,
-        blockId: String,
-        entries: [TemplateEntry],
-        workoutType: WorkoutType = .strict,
-        duration: Int? = nil
-    ) async throws {
-        let ref = try userRef()
-        let doc = id == nil
-            ? ref.collection("workoutTemplates").document()
-            : ref.collection("workoutTemplates").document(id!)
-
-        var data: [String: Any] = [
-            "blockId": blockId,
-            "name": name,
-            "workoutType": workoutType.rawValue,
-            "entries": entries.map { entry -> [String: Any] in
-                var e: [String: Any] = [
-                    "id": entry.id,
-                    "exerciseId": entry.exerciseId,
-                    "exerciseName": entry.exerciseName
-                ]
-                if let s = entry.defaultSets { e["defaultSets"] = s }
-                if let r = entry.defaultReps { e["defaultReps"] = r }
-                return e
-            }
-        ]
-        if let duration = duration { data["duration"] = duration }
-
-        try await doc.setData(data)
-    }
-
-    func deleteWorkoutTemplate(id: String) async throws {
-        let ref = try userRef()
-        try await ref.collection("workoutTemplates").document(id).delete()
-    }
-
-    // MARK: - Blocks
-
-    func fetchBlocks() async throws -> [Block] {
-        let ref = try userRef()
-
-        let snap = try await ref
-            .collection("blocks")
-            .order(by: "startDate", descending: true)
-            .getDocuments()
-
-        return snap.documents.compactMap { doc -> Block? in
-            guard
-                let name = doc["name"] as? String,
-                let startDate = (doc["startDate"] as? Timestamp)?.dateValue()
-            else { return nil }
-
-            return Block(
-                id: doc.documentID,
-                name: name,
-                startDate: startDate,
-                endDate: (doc["endDate"] as? Timestamp)?.dateValue(),
-                completedDate: (doc["completedDate"] as? Timestamp)?.dateValue(),
-                goal: doc["goal"] as? String,
-                colorIndex: doc["colorIndex"] as? Int
-            )
-        }
-    }
-
-    @discardableResult
-    func saveBlock(
-        id: String?,
-        name: String,
-        goal: String? = nil,
-        startDate: Date,
-        endDate: Date? = nil,
-        completedDate: Date? = nil,
-        notes: String? = nil
-    ) async throws -> String {
-        let ref = try userRef()
-        let doc = id == nil
-            ? ref.collection("blocks").document()
-            : ref.collection("blocks").document(id!)
-
-        var data: [String: Any] = [
-            "name": name,
-            "startDate": startDate
-        ]
-
-        if id == nil {
-            let existingSnap = try await ref.collection("blocks").getDocuments()
-            data["colorIndex"] = existingSnap.documents.count
-        }
-
-        if let goal = goal { data["goal"] = goal }
-        if let endDate = endDate { data["endDate"] = endDate }
-        if let completedDate = completedDate { data["completedDate"] = completedDate }
-        if let notes = notes { data["notes"] = notes }
-
-        try await doc.setData(data)
-        return doc.documentID
-    }
-
-    func deleteBlock(id: String) async throws {
-        let ref = try userRef()
-        try await ref.collection("blocks").document(id).delete()
-    }
-
-    func completeBlock(id: String) async throws {
-        let ref = try userRef()
-        try await ref.collection("blocks").document(id).updateData([
-            "completedDate": Date()
-        ])
-    }
-
     // MARK: - Workouts
 
-    func fetchWorkouts() async throws -> [Workout] {
+    func fetchWorkouts() async throws -> [WorkoutEntry] {
         let ref = try userRef()
-
         let snap = try await ref
-            .collection("workouts")
+            .collection("entries")
             .order(by: "date", descending: true)
             .getDocuments()
 
         return snap.documents.compactMap { doc in
-            guard
-                let date = (doc["date"] as? Timestamp)?.dateValue(),
-                let logsData = doc["logs"] as? [[String: Any]]
+            guard let date = (doc["date"] as? Timestamp)?.dateValue(),
+                  let segments = doc["segments"] as? [String]
             else { return nil }
 
-            let logs: [WorkoutLog] = logsData.compactMap { log in
-                guard
-                    let id = log["id"] as? String,
-                    let exerciseId = log["exerciseId"] as? String,
-                    let exerciseName = log["exerciseName"] as? String,
-                    let setsData = log["sets"] as? [[String: Any]]
-                else { return nil }
-
-                let sets = setsData.compactMap { s -> LogSet? in
-                    guard let id = s["id"] as? String else { return nil }
-                    return LogSet(
-                        id: id,
-                        sets: s["sets"] as? Int ?? 1,
-                        reps: s["reps"] as? String,
-                        weight: s["weight"] as? String,
-                        isDouble: s["isDouble"] as? Bool ?? false,
-                        offsetWeight: s["offsetWeight"] as? String
-                    )
-                }
-
-                return WorkoutLog(
-                    id: id,
-                    exerciseId: exerciseId,
-                    exerciseName: exerciseName,
-                    sets: sets,
-                    note: log["note"] as? String
-                )
-            }
-
-            let workoutType = WorkoutType(rawValue: doc["workoutType"] as? String ?? "") ?? .strict
-
-            return Workout(
+            return WorkoutEntry(
                 id: doc.documentID,
-                name: doc["name"] as? String,
                 date: date,
-                blockId: doc["blockId"] as? String,
-                logs: logs,
-                workoutType: workoutType
+                segments: segments
             )
         }
     }
 
-    func saveWorkout(
-        id: String?,
-        name: String?,
-        date: Date,
-        blockId: String?,
-        logs: [WorkoutLog],
-        workoutType: WorkoutType = .strict
-    ) async throws {
+    func saveWorkout(_ entry: WorkoutEntry) async throws {
         let ref = try userRef()
-        let doc = id == nil
-            ? ref.collection("workouts").document()
-            : ref.collection("workouts").document(id!)
-
-        var data: [String: Any] = [
-            "date": date,
-            "workoutType": workoutType.rawValue,
-            "logs": logs.map { log in
-                [
-                    "id": log.id,
-                    "exerciseId": log.exerciseId,
-                    "exerciseName": log.exerciseName,
-                    "sets": log.sets.map { s -> [String: Any] in
-                        var sd: [String: Any] = [
-                            "id": s.id,
-                            "sets": s.sets as Any,
-                            "reps": s.reps as Any,
-                            "weight": s.weight as Any,
-                            "isDouble": s.isDouble
-                        ]
-                        if let o = s.offsetWeight { sd["offsetWeight"] = o }
-                        return sd
-                    },
-                    "note": log.note as Any
-                ] as [String: Any]
-            }
-        ]
-
-        if let name = name { data["name"] = name }
-        if let blockId = blockId { data["blockId"] = blockId }
-
-        try await doc.setData(data)
+        let doc = ref.collection("entries").document(entry.id)
+        try await doc.setData([
+            "date": entry.date,
+            "segments": entry.segments
+        ])
     }
 
     func deleteWorkout(id: String) async throws {
         let ref = try userRef()
-        try await ref.collection("workouts").document(id).delete()
-    }
-
-    // When a template is renamed, update the name on all workouts that used it
-    func updateWorkoutNamesForTemplate(oldName: String, newName: String) async throws {
-        let workouts = try await fetchWorkouts()
-        for workout in workouts {
-            guard workout.name == oldName else { continue }
-            try await saveWorkout(
-                id: workout.id,
-                name: newName,
-                date: workout.date,
-                blockId: workout.blockId,
-                logs: workout.logs,
-                workoutType: workout.workoutType
-            )
-        }
+        try await ref.collection("entries").document(id).delete()
     }
 }
 

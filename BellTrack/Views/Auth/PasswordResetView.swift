@@ -18,20 +18,20 @@ struct PasswordResetView: View {
                 VStack(spacing: Theme.Space.md) {
 
                     Spacer()
-                        .frame(height: Theme.Space.mdp)
+                        .frame(height: Theme.Space.md)
 
                 Text("Reset Password")
                     .font(Theme.Font.pageTitle)
                     .foregroundColor(Color.brand.textPrimary)
 
                 Text("Enter your email to receive a password reset link.")
-                    .font(Theme.Font.cardSecondary)
+                    .font(Theme.Font.cardCaption)
                     .foregroundColor(Color.brand.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Theme.Space.md)
 
                 Spacer()
-                    .frame(height: Theme.Space.mdp)
+                    .frame(height: Theme.Space.md)
 
                 // FORM
                 VStack(spacing: Theme.Space.md) {

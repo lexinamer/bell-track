@@ -3,10 +3,8 @@ import SwiftUI
 enum Theme {
 
     enum Radius {
-        static let xs: CGFloat = 4
         static let sm: CGFloat = 8
         static let md: CGFloat = 16
-        static let lg: CGFloat = 24
     }
 
     enum Space {
@@ -14,10 +12,7 @@ enum Theme {
         static let sm: CGFloat = 8
         static let smp: CGFloat = 12
         static let md: CGFloat = 16
-        static let mdp: CGFloat = 20
         static let lg: CGFloat = 24
-        static let xl: CGFloat = 32
-        static let xxl: CGFloat = 40
     }
 
     enum TypeSize {
@@ -26,35 +21,13 @@ enum Theme {
         static let md: CGFloat = 16
         static let lg: CGFloat = 18
         static let xl: CGFloat = 20
-        static let xxl: CGFloat = 28
-        static let xxxl: CGFloat = 34
     }
 
     enum Font {
-        // Page and navigation
-        static let pageTitle = SwiftUI.Font.system(size: TypeSize.xxxl, weight: .bold)
-        static let navigationTitle = SwiftUI.Font.system(size: TypeSize.lg, weight: .semibold)
+        static let pageTitle = SwiftUI.Font.system(size: TypeSize.lg, weight: .bold)
         static let sectionTitle = SwiftUI.Font.system(size: TypeSize.md, weight: .bold)
-        static let blockTitle = SwiftUI.Font.system(size: TypeSize.xl, weight: .semibold)
-        static let sectionLabel = SwiftUI.Font.system(size: TypeSize.sm, weight: .medium)
-
-        // Cards
-        static let cardTitle = SwiftUI.Font.system(size: TypeSize.md, weight: .medium)
-        static let cardSecondary = SwiftUI.Font.system(size: TypeSize.md, weight: .regular)
+        static let cardTitle = SwiftUI.Font.system(size: TypeSize.lg, weight: .medium)
         static let cardCaption = SwiftUI.Font.system(size: TypeSize.sm, weight: .regular)
-        static let cardBadge = SwiftUI.Font.system(size: TypeSize.xs, weight: .medium)
-
-        // Forms
-        static let formLabel = SwiftUI.Font.system(size: TypeSize.md, weight: .medium)
         static let formInput = SwiftUI.Font.system(size: TypeSize.md, weight: .regular)
-
-        // Stats
-        static let statValue = SwiftUI.Font.system(size: TypeSize.xl, weight: .semibold)
-        static let statLabel = SwiftUI.Font.system(size: TypeSize.xs, weight: .regular)
-
-        // UI elements
-        static let buttonPrimary = SwiftUI.Font.system(size: TypeSize.md, weight: .medium)
-        static let emptyStateTitle = SwiftUI.Font.system(size: TypeSize.lg, weight: .semibold)
-        static let emptyStateDescription = SwiftUI.Font.system(size: TypeSize.md, weight: .regular)
     }
 }

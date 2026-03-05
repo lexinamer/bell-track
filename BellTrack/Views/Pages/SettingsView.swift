@@ -8,6 +8,7 @@ struct SettingsView: View {
     // MARK: - Environment
     @EnvironmentObject private var authService: AuthService
     @Environment(\.openURL) private var openURL
+    @Environment(\.dismiss) private var dismiss
     
     @State private var showingDeleteConfirm1 = false
     @State private var showingDeleteConfirm2 = false
@@ -17,96 +18,104 @@ struct SettingsView: View {
     @State private var deleteErrorMessage: String?
 
     var body: some View {
-        List {
+        NavigationStack {
+            List {
 
-            // MARK: - Feedback
-            Section("Feedback") {
-                Button {
-                    sendFeedbackEmail()
-                } label: {
-                    settingsRow(
-                        title: "Send feedback",
-                        systemImage: "envelope"
-                    )
+                // MARK: - Feedback
+                Section("Feedback") {
+                    Button {
+                        sendFeedbackEmail()
+                    } label: {
+                        settingsRow(
+                            title: "Send feedback",
+                            systemImage: "envelope"
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+
+                // MARK: - Account
+                Section("Account") {
+
+                    Button {
+                        signOut()
+                    } label: {
+                        settingsRow(
+                            title: "Log out",
+                            systemImage: "arrow.right.square"
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isDeletingAccount)
+                    
+                    Button {
+                        showingDeleteConfirm1 = true
+                    } label: {
+                        settingsRow(
+                            title: "Delete account",
+                            systemImage: "trash",
+                            isDestructive: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isDeletingAccount)
+                }
+
+                // MARK: - Version
+                Section {
+                    Text(appVersionText)
+                        .font(Theme.Font.cardCaption)
+                        .foregroundColor(Color.brand.textSecondary)
+                        .padding(.vertical, Theme.Space.sm)
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .background(Color.brand.background)
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(Color.brand.textSecondary)
+                }
             }
 
-            // MARK: - Account
-            Section("Account") {
+            // MARK: - Delete Flow
 
-                Button {
+            .alert("Delete account?", isPresented: $showingDeleteConfirm1) {
+                Button("Continue", role: .destructive) {
+                    deleteConfirmText = ""
+                    showingDeleteConfirm2 = true
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will permanently delete your account and all workout data.")
+            }
+            
+            .alert("Confirm deletion", isPresented: $showingDeleteConfirm2) {
+                TextField("Type DELETE", text: $deleteConfirmText)
+                Button("Delete", role: .destructive) {
+                    Task { await deleteAccount() }
+                }
+                .disabled(
+                    deleteConfirmText
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                        .uppercased() != "DELETE"
+                    || isDeletingAccount
+                )
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Type DELETE to confirm.")
+            }
+
+            .alert("Can't delete right now", isPresented: $showingReauthAlert) {
+                Button("Log out", role: .destructive) {
                     signOut()
-                } label: {
-                    settingsRow(
-                        title: "Log out",
-                        systemImage: "arrow.right.square"
-                    )
                 }
-                .buttonStyle(.plain)
-                .disabled(isDeletingAccount)
-                
-                Button {
-                    showingDeleteConfirm1 = true
-                } label: {
-                    settingsRow(
-                        title: "Delete account",
-                        systemImage: "trash",
-                        isDestructive: true
-                    )
-                }
-                .buttonStyle(.plain)
-                .disabled(isDeletingAccount)
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(deleteErrorMessage ?? "Please log out and log back in, then try again.")
             }
-
-            // MARK: - Version
-            Section {
-                Text(appVersionText)
-                    .font(Theme.Font.cardCaption)
-                    .foregroundColor(Color.brand.textSecondary)
-                    .padding(.vertical, Theme.Space.sm)
-            }
-        }
-        .scrollContentBackground(.hidden)
-        .background(Color.brand.background)
-        .navigationTitle("Settings")
-        .navigationBarTitleDisplayMode(.large)
-
-        // MARK: - Delete Flow
-
-        .alert("Delete account?", isPresented: $showingDeleteConfirm1) {
-            Button("Continue", role: .destructive) {
-                deleteConfirmText = ""
-                showingDeleteConfirm2 = true
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This will permanently delete your account and all workout data.")
-        }
-        
-        .alert("Confirm deletion", isPresented: $showingDeleteConfirm2) {
-            TextField("Type DELETE", text: $deleteConfirmText)
-            Button("Delete", role: .destructive) {
-                Task { await deleteAccount() }
-            }
-            .disabled(
-                deleteConfirmText
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                    .uppercased() != "DELETE"
-                || isDeletingAccount
-            )
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Type DELETE to confirm.")
-        }
-
-        .alert("Can't delete right now", isPresented: $showingReauthAlert) {
-            Button("Log out", role: .destructive) {
-                signOut()
-            }
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(deleteErrorMessage ?? "Please log out and log back in, then try again.")
         }
     }
 
@@ -126,7 +135,7 @@ struct SettingsView: View {
                     : Color.brand.textPrimary
                 )
             Text(title)
-                .font(Theme.Font.cardSecondary)
+                .font(Theme.Font.cardCaption)
                 .foregroundColor(
                     isDestructive
                     ? Color.brand.destructive
@@ -156,7 +165,6 @@ struct SettingsView: View {
         let uid = user.uid
         let db = Firestore.firestore()
         do {
-
             try await deleteUserData(db: db, uid: uid)
             try await user.delete()
             try? Auth.auth().signOut()

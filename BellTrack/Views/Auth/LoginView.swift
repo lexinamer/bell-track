@@ -21,7 +21,7 @@ struct LoginView: View {
                 VStack(spacing: Theme.Space.md) {
 
                 Spacer()
-                    .frame(height: Theme.Space.mdp)
+                    .frame(height: Theme.Space.md)
 
                 // Logo + title
                 HStack(spacing: Theme.Space.sm) {
@@ -42,7 +42,7 @@ struct LoginView: View {
                     .kerning(0.3)
 
                 Spacer()
-                    .frame(height: Theme.Space.mdp)
+                    .frame(height: Theme.Space.md)
 
                 // FORM
                 VStack(spacing: Theme.Space.md) {
@@ -104,7 +104,7 @@ struct LoginView: View {
                 .padding(.horizontal, Theme.Space.lg)
 
                 Spacer()
-                    .frame(height: Theme.Space.mdp)
+                    .frame(height: Theme.Space.md)
 
                 // Sign up
                 Button {

@@ -11,9 +11,4 @@ extension Date {
     var mediumDateString: String {
         formatted(.dateTime.month(.abbreviated).day().year())
     }
-
-    /// Formats date as "MMMM d, yyyy" (e.g. "January 15, 2026")
-    var longDateString: String {
-        formatted(.dateTime.month(.wide).day().year())
-    }
 }
