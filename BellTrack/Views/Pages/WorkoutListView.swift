@@ -45,6 +45,7 @@ struct WorkoutListView: View {
                 list
             }
         }
+        .searchable(text: $searchText, prompt: "Search workouts")
         .navigationTitle("Workout Log")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -94,7 +95,6 @@ struct WorkoutListView: View {
         .padding(.top, Theme.Space.lg)
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        .searchable(text: $searchText, prompt: "Search workouts")
     }
 
     private func entryRow(_ entry: WorkoutEntry) -> some View {
